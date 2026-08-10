@@ -6,8 +6,6 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { motion } from 'framer-motion';
-import { api } from '@/lib/axios';
-import axios from 'axios';
 
 const authSchema = z.object({
   username: z
@@ -43,24 +41,25 @@ export default function AuthForm() {
     setAuthError(null);
 
     try {
-      const response = await api.post('/auth/login', data);
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
 
-      if (response.status === 200) {
-        // Successful authentication
+      if (response.ok) {
         router.push('/home');
-      }
-    } catch (error) {
-      if (axios.isAxiosError(error)) {
-        if (error.response?.status === 401) {
-          setAuthError('Invalid credentials. Please check your passcode.');
-        } else if (error.response?.status === 400) {
-          setAuthError('Invalid request. Please check your input.');
-        } else {
-          setAuthError('An error occurred. Please try again.');
-        }
+      } else if (response.status === 401) {
+        setAuthError('Invalid credentials. Please check your passcode.');
+      } else if (response.status === 400) {
+        setAuthError('Invalid request. Please check your input.');
       } else {
         setAuthError('An error occurred. Please try again.');
       }
+    } catch {
+      setAuthError('An error occurred. Please try again.');
     } finally {
       setIsSubmitting(false);
     }

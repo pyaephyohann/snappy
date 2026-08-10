@@ -3,8 +3,6 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { api } from '@/lib/axios';
-import axios from 'axios';
 
 interface NavbarProps {
   username: string;
@@ -22,14 +20,17 @@ export default function Navbar({ username }: NavbarProps) {
     setLogoutError(null);
 
     try {
-      await api.post('/auth/logout');
-      router.push('/');
-    } catch (error) {
-      if (axios.isAxiosError(error)) {
-        setLogoutError('Failed to logout. Please try again.');
+      const response = await fetch('/api/auth/logout', {
+        method: 'POST',
+      });
+
+      if (response.ok) {
+        router.push('/');
       } else {
-        setLogoutError('An error occurred. Please try again.');
+        setLogoutError('Failed to logout. Please try again.');
       }
+    } catch {
+      setLogoutError('An error occurred. Please try again.');
     } finally {
       setIsLoggingOut(false);
     }
