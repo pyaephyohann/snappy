@@ -88,17 +88,15 @@ export default function SnapViewer({
 
               {/* Image Container */}
               <div className="relative flex-1 bg-card rounded-xl overflow-hidden border border-border min-h-[40vh] sm:min-h-[50vh]">
-                <div className="relative w-full h-full flex items-center justify-center">
-                  <Image
-                    src={imageUrl}
-                    alt={caption || 'Snap'}
-                    fill
-                    className="object-contain"
-                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 90vw, 80vw"
-                    priority
-                    unoptimized={imageUrl.includes('.svg') || imageUrl.includes('dicebear')}
-                  />
-                </div>
+                <Image
+                  src={imageUrl}
+                  alt={caption || 'Snap'}
+                  fill
+                  className="object-contain"
+                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 90vw, 80vw"
+                  priority
+                  unoptimized={imageUrl.includes('.svg') || imageUrl.includes('dicebear')}
+                />
               </div>
 
               {/* Caption */}
