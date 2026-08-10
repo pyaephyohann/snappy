@@ -8,3 +8,36 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
+model AccessCredential {
+  id           String   @id @default(cuid())
+  passcodeHash String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("access_credentials")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  profileImage String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  snaps        Snap[]
+
+  @@map("users")
+}
+
+model Snap {
+  id        String   @id @default(cuid())
+  imageUrl  String
+  caption   String?
+  userId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("snaps")
+}
