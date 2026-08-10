@@ -1,6 +1,22 @@
-import { redirect } from 'next/navigation';
+import { redirect, notFound } from 'next/navigation';
 import Link from 'next/link';
 import { getSession } from '@/lib/auth';
+import { prisma } from '@/lib/prisma';
+import FriendHeader from '@/components/friends/FriendHeader';
+import SnapCard from '@/components/friends/SnapCard';
+
+interface FriendWithSnaps {
+  id: string;
+  name: string;
+  profileImage: string;
+  createdAt: Date;
+  snaps: Array<{
+    id: string;
+    imageUrl: string;
+    caption: string | null;
+    createdAt: Date;
+  }>;
+}
 
 export default async function FriendProfilePage({
   params,
@@ -15,6 +31,31 @@ export default async function FriendProfilePage({
 
   const decodedUsername = decodeURIComponent(params.username);
 
+  // Fetch friend data with their snaps in a single query
+  const friend = await prisma.user.findFirst({
+    where: {
+      name: decodedUsername,
+    },
+    include: {
+      snaps: {
+        select: {
+          id: true,
+          imageUrl: true,
+          caption: true,
+          createdAt: true,
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      },
+    },
+  }) as FriendWithSnaps | null;
+
+  // If friend doesn't exist, show not-found page
+  if (!friend) {
+    notFound();
+  }
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -27,26 +68,44 @@ export default async function FriendProfilePage({
                 Hey, {session.username} 👋
               </p>
             </div>
+            <Link
+              href="/home"
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Back to Home
+            </Link>
           </div>
         </div>
       </header>
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="bg-card border border-border rounded-xl p-12 text-center">
-          <h2 className="text-2xl font-semibold text-foreground mb-4">
-            {decodedUsername}&apos;s Snaps
-          </h2>
-          <p className="text-muted-foreground">
-            This friend&apos;s snaps page will be implemented in the next milestone.
-          </p>
-          <Link
-            href="/home"
-            className="inline-block mt-6 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity"
-          >
-            Go Back
-          </Link>
-        </div>
+        {/* Friend Header */}
+        <FriendHeader
+          name={friend.name}
+          profileImage={friend.profileImage}
+          snapCount={friend.snaps?.length || 0}
+        />
+
+        {/* Snaps Grid */}
+        {!friend.snaps || friend.snaps.length === 0 ? (
+          <div className="bg-card border border-border rounded-xl p-12 text-center">
+            <p className="text-muted-foreground">
+              {friend.name} hasn&apos;t shared any snaps yet.
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {friend.snaps.map((snap) => (
+              <SnapCard
+                key={snap.id}
+                imageUrl={snap.imageUrl}
+                caption={snap.caption}
+                createdAt={snap.createdAt}
+              />
+            ))}
+          </div>
+        )}
       </main>
     </div>
   );

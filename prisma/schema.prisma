@@ -20,7 +20,7 @@ model AccessCredential {
 
 model User {
   id           String   @id @default(cuid())
-  name         String
+  name         String   @unique
   profileImage String
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
