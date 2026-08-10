@@ -1,10 +1,13 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { motion } from 'framer-motion';
+import { api } from '@/lib/axios';
+import axios from 'axios';
 
 const authSchema = z.object({
   username: z
@@ -23,6 +26,8 @@ type AuthFormData = z.infer<typeof authSchema>;
 export default function AuthForm() {
   const [showPasscode, setShowPasscode] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const router = useRouter();
 
   const {
     register,
@@ -35,11 +40,30 @@ export default function AuthForm() {
 
   const onSubmit = async (data: AuthFormData) => {
     setIsSubmitting(true);
-    console.log('Form submitted:', data);
-    // TODO: Implement authentication logic in Milestone 3B
-    setTimeout(() => {
+    setAuthError(null);
+
+    try {
+      const response = await api.post('/auth/login', data);
+
+      if (response.status === 200) {
+        // Successful authentication
+        router.push('/home');
+      }
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        if (error.response?.status === 401) {
+          setAuthError('Invalid credentials. Please check your passcode.');
+        } else if (error.response?.status === 400) {
+          setAuthError('Invalid request. Please check your input.');
+        } else {
+          setAuthError('An error occurred. Please try again.');
+        }
+      } else {
+        setAuthError('An error occurred. Please try again.');
+      }
+    } finally {
       setIsSubmitting(false);
-    }, 1000);
+    }
   };
 
   return (
@@ -174,15 +198,15 @@ export default function AuthForm() {
           </motion.div>
         </form>
 
-        {/* General Error State (placeholder for future API errors) */}
-        {false && (
+        {/* General Error State */}
+        {authError && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             className="mt-4 p-3 bg-destructive/10 border border-destructive/20 rounded-lg"
           >
             <p className="text-destructive text-sm text-center">
-              Authentication failed. Please check your credentials.
+              {authError}
             </p>
           </motion.div>
         )}
