@@ -133,6 +133,17 @@ select {
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
+/* Ensure minimum touch target size for mobile */
+@media (pointer: coarse) {
+  button,
+  a,
+  input[type="submit"],
+  input[type="button"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
 input:focus,
 textarea:focus,
 select:focus {
@@ -150,6 +161,15 @@ textarea::placeholder {
 button {
   cursor: pointer;
   font-family: inherit;
+}
+
+/* Ensure minimum touch target size for mobile touch devices */
+@media (pointer: coarse) {
+  button,
+  .cursor-pointer {
+    min-height: 44px;
+    min-width: 44px;
+  }
 }
 
 /* Scrollbar */

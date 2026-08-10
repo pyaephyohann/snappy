@@ -76,17 +76,17 @@ export default async function FriendProfilePage({
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-primary">Snappy</h1>
-              <p className="text-muted-foreground mt-1">
+              <h1 className="text-2xl sm:text-3xl font-bold text-primary">Snappy</h1>
+              <p className="text-muted-foreground text-sm sm:text-base mt-1">
                 Hey, {session.username} 👋
               </p>
             </div>
             <Link
               href="/home"
-              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors focus:outline-none focus:ring-2 focus:ring-ring rounded px-2 py-1"
             >
               ← Back to Friends
             </Link>
@@ -95,7 +95,7 @@ export default async function FriendProfilePage({
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-12">
         {/* Friend Header */}
         <FriendHeader
           name={friend.name}
@@ -105,13 +105,13 @@ export default async function FriendProfilePage({
 
         {/* Snaps Grid */}
         {!friend.snaps || friend.snaps.length === 0 ? (
-          <div className="bg-card border border-border rounded-xl p-12 text-center">
-            <p className="text-muted-foreground">
+          <div className="bg-card border border-border rounded-xl p-8 sm:p-12 text-center">
+            <p className="text-muted-foreground text-sm sm:text-base">
               {friend.name} hasn&apos;t shared any snaps yet.
             </p>
             <Link
               href="/home"
-              className="inline-block mt-4 text-primary hover:opacity-90 transition-opacity"
+              className="inline-block mt-4 px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity"
             >
               Back to Friends
             </Link>

@@ -37,15 +37,15 @@ export default function SnapCard({ imageUrl, caption, createdAt, interactive = f
           alt={caption || 'Snap'}
           fill
           className="object-cover"
-          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+          sizes="(max-width: 768px) 50vw, (max-width: 1200px) 50vw, 33vw"
           unoptimized={imageUrl.includes('.svg') || imageUrl.includes('dicebear')}
         />
       </div>
       
       {(caption || createdAt) && (
-        <div className="p-4">
+        <div className="p-2 sm:p-4">
           {caption && (
-            <p className="text-foreground text-sm mb-2 line-clamp-2">{caption}</p>
+            <p className="text-foreground text-xs sm:text-sm mb-1 sm:mb-2 line-clamp-2">{caption}</p>
           )}
           {createdAt && (
             <p className="text-muted-foreground text-xs">{formatDate(createdAt)}</p>

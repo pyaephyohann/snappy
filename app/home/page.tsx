@@ -26,11 +26,11 @@ export default async function HomePage() {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-primary">Snappy</h1>
-              <p className="text-muted-foreground mt-1">
+              <h1 className="text-2xl sm:text-3xl font-bold text-primary">Snappy</h1>
+              <p className="text-muted-foreground text-sm sm:text-base mt-1">
                 Hey, {session.username} 👋
               </p>
             </div>
@@ -39,17 +39,17 @@ export default async function HomePage() {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
         {/* Friends Section */}
         <section>
-          <h2 className="text-2xl font-semibold text-foreground mb-6">Your Friends</h2>
+          <h2 className="text-xl sm:text-2xl font-semibold text-foreground mb-4 sm:mb-6">Your Friends</h2>
           
           {friends.length === 0 ? (
-            <div className="bg-card border border-border rounded-xl p-12 text-center">
-              <p className="text-muted-foreground">No friends yet. Check back soon!</p>
+            <div className="bg-card border border-border rounded-xl p-8 sm:p-12 text-center">
+              <p className="text-muted-foreground text-sm sm:text-base">No friends yet. Check back soon!</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 sm:gap-6">
               {friends.map((friend) => (
                 <FriendCard
                   key={friend.id}

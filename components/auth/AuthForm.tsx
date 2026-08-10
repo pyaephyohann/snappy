@@ -71,24 +71,24 @@ export default function AuthForm() {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: 'easeOut' }}
-      className="w-full max-w-md"
+      className="w-full max-w-md px-4"
     >
-      <div className="bg-card border border-border rounded-2xl p-8 shadow-xl">
+      <div className="bg-card border border-border rounded-2xl p-6 sm:p-8 shadow-xl">
         {/* Logo and Tagline */}
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.5, delay: 0.1 }}
-          className="text-center mb-8"
+          className="text-center mb-6 sm:mb-8"
         >
-          <h1 className="text-4xl font-bold text-primary mb-2">Snappy</h1>
-          <p className="text-muted-foreground text-sm">
+          <h1 className="text-3xl sm:text-4xl font-bold text-primary mb-2">Snappy</h1>
+          <p className="text-muted-foreground text-xs sm:text-sm">
             A private space for friends to share and discover snaps
           </p>
         </motion.div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 sm:space-y-6">
           {/* Username Field */}
           <motion.div
             initial={{ opacity: 0, x: -20 }}
@@ -106,7 +106,7 @@ export default function AuthForm() {
               {...register('username')}
               aria-invalid={errors.username ? 'true' : 'false'}
               aria-describedby={errors.username ? 'username-error' : undefined}
-              className="w-full"
+              className="w-full px-4 py-3 sm:py-2.5 text-base border border-border rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-all"
             />
             {errors.username && (
               <motion.p
@@ -139,12 +139,12 @@ export default function AuthForm() {
                 {...register('passcode')}
                 aria-invalid={errors.passcode ? 'true' : 'false'}
                 aria-describedby={errors.passcode ? 'passcode-error' : undefined}
-                className="w-full pr-10"
+                className="w-full px-4 py-3 sm:py-2.5 text-base pr-12 border border-border rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-all"
               />
               <button
                 type="button"
                 onClick={() => setShowPasscode(!showPasscode)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors focus:outline-none focus:ring-2 focus:ring-ring rounded"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors focus:outline-none focus:ring-2 focus:ring-ring rounded p-1"
                 aria-label={showPasscode ? 'Hide passcode' : 'Show passcode'}
               >
                 {showPasscode ? (
@@ -181,7 +181,7 @@ export default function AuthForm() {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full bg-primary text-primary-foreground font-medium py-3 px-4 rounded-lg hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+              className="w-full bg-primary text-primary-foreground font-medium py-3 sm:py-2.5 px-4 rounded-lg hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 text-base"
             >
               {isSubmitting ? (
                 <span className="flex items-center justify-center gap-2">
