@@ -16,13 +16,16 @@ export default function Error({
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
+      {/* Simple Header */}
       <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-4">
           <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-primary">Snappy</h1>
-            </div>
+            <Link
+              href="/home"
+              className="text-xl sm:text-2xl lg:text-3xl font-bold text-primary hover:opacity-90 transition-opacity focus:outline-none focus:ring-2 focus:ring-ring rounded px-2 py-1"
+            >
+              Snappy
+            </Link>
             <Link
               href="/home"
               className="text-sm text-muted-foreground hover:text-foreground transition-colors focus:outline-none focus:ring-2 focus:ring-ring rounded px-2 py-1"

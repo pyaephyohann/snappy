@@ -1,0 +1,76 @@
+'use client';
+
+import { useState } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { api } from '@/lib/axios';
+import axios from 'axios';
+
+interface NavbarProps {
+  username: string;
+}
+
+export default function Navbar({ username }: NavbarProps) {
+  const router = useRouter();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [logoutError, setLogoutError] = useState<string | null>(null);
+
+  const handleLogout = async () => {
+    if (isLoggingOut) return;
+
+    setIsLoggingOut(true);
+    setLogoutError(null);
+
+    try {
+      await api.post('/auth/logout');
+      router.push('/');
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        setLogoutError('Failed to logout. Please try again.');
+      } else {
+        setLogoutError('An error occurred. Please try again.');
+      }
+    } finally {
+      setIsLoggingOut(false);
+    }
+  };
+
+  return (
+    <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-10">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-4">
+        <div className="flex items-center justify-between">
+          {/* Left: Snappy Branding */}
+          <Link
+            href="/home"
+            className="flex items-center gap-2 hover:opacity-90 transition-opacity focus:outline-none focus:ring-2 focus:ring-ring rounded px-2 py-1"
+          >
+            <span className="text-xl sm:text-2xl lg:text-3xl font-bold text-primary">Snappy</span>
+          </Link>
+
+          {/* Right: Username + Logout */}
+          <div className="flex items-center gap-3 sm:gap-4">
+            <span className="text-sm sm:text-base text-muted-foreground">
+              {username}
+            </span>
+            <button
+              onClick={handleLogout}
+              disabled={isLoggingOut}
+              className="px-3 py-1.5 sm:px-4 sm:py-2 text-sm sm:text-base bg-primary text-primary-foreground rounded-lg hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background disabled:opacity-50 disabled:cursor-not-allowed transition-all min-h-[36px] sm:min-h-[40px]"
+            >
+              {isLoggingOut ? 'Logging out...' : 'Logout'}
+            </button>
+          </div>
+        </div>
+
+        {/* Logout Error */}
+        {logoutError && (
+          <div className="mt-2 sm:mt-3 p-2 sm:p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
+            <p className="text-destructive text-xs sm:text-sm text-center">
+              {logoutError}
+            </p>
+          </div>
+        )}
+      </div>
+    </header>
+  );
+}
