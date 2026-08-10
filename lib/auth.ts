@@ -104,11 +104,21 @@ export async function clearSession(): Promise<void> {
 }
 
 export async function verifyPasscode(passcode: string): Promise<boolean> {
-  const credential = await prisma.accessCredential.findFirst();
-  
-  if (!credential) {
-    return false;
-  }
+  try {
+    console.log('verifyPasscode: Attempting database query...');
+    const credential = await prisma.accessCredential.findFirst();
+    console.log('verifyPasscode: Query completed, credential found:', !!credential);
+    
+    if (!credential) {
+      console.log('verifyPasscode: No credential found in database');
+      return false;
+    }
 
-  return bcrypt.compare(passcode, credential.passcodeHash);
+    const result = await bcrypt.compare(passcode, credential.passcodeHash);
+    console.log('verifyPasscode: bcrypt comparison completed');
+    return result;
+  } catch (error) {
+    console.error('verifyPasscode: Database error:', error);
+    throw error;
+  }
 }

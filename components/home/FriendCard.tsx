@@ -32,6 +32,8 @@ export default function FriendCard({ name, profileImage }: FriendCardProps) {
             fill
             className="object-cover"
             sizes="96px"
+            unoptimized={profileImage.includes('.svg') || profileImage.includes('dicebear')}
+            priority
           />
         </div>
         <h3 className="text-lg font-semibold text-foreground">{name}</h3>

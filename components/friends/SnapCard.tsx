@@ -6,12 +6,15 @@ import Image from 'next/image';
 interface SnapCardProps {
   imageUrl: string;
   caption?: string | null;
-  createdAt: Date;
+  createdAt: Date | string;
+  interactive?: boolean;
+  onClick?: () => void;
 }
 
-export default function SnapCard({ imageUrl, caption, createdAt }: SnapCardProps) {
-  const formatDate = (date: Date) => {
-    return new Date(date).toLocaleDateString('en-US', {
+export default function SnapCard({ imageUrl, caption, createdAt, interactive = false, onClick }: SnapCardProps) {
+  const formatDate = (date: Date | string) => {
+    const dateObj = typeof date === 'string' ? new Date(date) : date;
+    return dateObj.toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
       year: 'numeric',
@@ -23,7 +26,10 @@ export default function SnapCard({ imageUrl, caption, createdAt }: SnapCardProps
       initial={{ opacity: 0, scale: 0.9 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.3 }}
-      className="bg-card border border-border rounded-xl overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300"
+      onClick={onClick}
+      className={`bg-card border border-border rounded-xl overflow-hidden shadow-lg transition-all duration-300 ${
+        interactive ? 'hover:shadow-xl cursor-pointer' : ''
+      }`}
     >
       <div className="relative aspect-square">
         <Image
@@ -32,6 +38,7 @@ export default function SnapCard({ imageUrl, caption, createdAt }: SnapCardProps
           fill
           className="object-cover"
           sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+          unoptimized={imageUrl.includes('.svg') || imageUrl.includes('dicebear')}
         />
       </div>
       

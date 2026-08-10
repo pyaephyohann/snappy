@@ -1,57 +1,55 @@
-import { PrismaClient } from '@prisma/client';
-import { PrismaPg } from '@prisma/adapter-pg';
-import bcrypt from 'bcryptjs';
+import { PrismaClient } from "@prisma/client";
+import bcrypt from "bcryptjs";
 
-const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
-const prisma = new PrismaClient({ adapter });
+const prisma = new PrismaClient();
 
 async function main() {
-  console.log('🌱 Starting seed...');
+  console.log("🌱 Starting seed...");
 
   // Seed AccessCredential
-  const developmentPasscode = 'snappy123';
+  const developmentPasscode = "snappy123";
   const passcodeHash = await bcrypt.hash(developmentPasscode, 10);
 
   const existingCredential = await prisma.accessCredential.findFirst();
-  
+
   if (!existingCredential) {
     await prisma.accessCredential.create({
       data: {
         passcodeHash,
       },
     });
-    console.log('✅ Created access credential');
+    console.log("✅ Created access credential");
     console.log(`   Development passcode: ${developmentPasscode}`);
   } else {
-    console.log('⏭️  Access credential already exists, skipping');
+    console.log("⏭️  Access credential already exists, skipping");
   }
 
   // Seed Users
   const users = [
     {
-      name: 'Alice',
-      profileImage: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Alice',
+      name: "Alice",
+      profileImage: "/anya.jpeg",
     },
     {
-      name: 'Bob',
-      profileImage: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Bob',
+      name: "Bob",
+      profileImage: "/anya.jpeg",
     },
     {
-      name: 'Charlie',
-      profileImage: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Charlie',
+      name: "Charlie",
+      profileImage: "/anya.jpeg",
     },
     {
-      name: 'David',
-      profileImage: 'https://api.dicebear.com/7.x/avataaars/svg?seed=David',
+      name: "David",
+      profileImage: "/anya.jpeg",
     },
     {
-      name: 'Emma',
-      profileImage: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Emma',
+      name: "Emma",
+      profileImage: "/anya.jpeg",
     },
   ];
 
   const createdUsers = [];
-  
+
   for (const userData of users) {
     const existingUser = await prisma.user.findFirst({
       where: { name: userData.name },
@@ -72,37 +70,108 @@ async function main() {
   // Seed Snaps
   const snapData = [
     // Alice's snaps
-    { userId: createdUsers[0].id, imageUrl: 'https://picsum.photos/seed/alice1/400/300', caption: 'Morning coffee ☕' },
-    { userId: createdUsers[0].id, imageUrl: 'https://picsum.photos/seed/alice2/400/300', caption: 'Beautiful sunset' },
-    { userId: createdUsers[0].id, imageUrl: 'https://picsum.photos/seed/alice3/400/300', caption: 'Weekend hike' },
-    { userId: createdUsers[0].id, imageUrl: 'https://picsum.photos/seed/alice4/400/300' },
-    
+    {
+      userId: createdUsers[0].id,
+      imageUrl: "/anya.jpeg",
+      caption: "Morning coffee ☕",
+    },
+    {
+      userId: createdUsers[0].id,
+      imageUrl: "/anya.jpeg",
+      caption: "Beautiful sunset",
+    },
+    {
+      userId: createdUsers[0].id,
+      imageUrl: "/anya.jpeg",
+      caption: "Weekend hike",
+    },
+    {
+      userId: createdUsers[0].id,
+      imageUrl: "/anya.jpeg",
+    },
+
     // Bob's snaps
-    { userId: createdUsers[1].id, imageUrl: 'https://picsum.photos/seed/bob1/400/300', caption: 'New guitar 🎸' },
-    { userId: createdUsers[1].id, imageUrl: 'https://picsum.photos/seed/bob2/400/300', caption: 'Beach day' },
-    { userId: createdUsers[1].id, imageUrl: 'https://picsum.photos/seed/bob3/400/300' },
-    
+    {
+      userId: createdUsers[1].id,
+      imageUrl: "/anya.jpeg",
+      caption: "New guitar 🎸",
+    },
+    {
+      userId: createdUsers[1].id,
+      imageUrl: "/anya.jpeg",
+      caption: "Beach day",
+    },
+    {
+      userId: createdUsers[1].id,
+      imageUrl: "/anya.jpeg",
+    },
+
     // Charlie's snaps
-    { userId: createdUsers[2].id, imageUrl: 'https://picsum.photos/seed/charlie1/400/300', caption: 'Cooking experiment' },
-    { userId: createdUsers[2].id, imageUrl: 'https://picsum.photos/seed/charlie2/400/300', caption: 'City lights' },
-    { userId: createdUsers[2].id, imageUrl: 'https://picsum.photos/seed/charlie3/400/300', caption: 'Road trip' },
-    { userId: createdUsers[2].id, imageUrl: 'https://picsum.photos/seed/charlie4/400/300' },
-    
+    {
+      userId: createdUsers[2].id,
+      imageUrl: "/anya.jpeg",
+      caption: "Cooking experiment",
+    },
+    {
+      userId: createdUsers[2].id,
+      imageUrl: "/anya.jpeg",
+      caption: "City lights",
+    },
+    {
+      userId: createdUsers[2].id,
+      imageUrl: "/anya.jpeg",
+      caption: "Road trip",
+    },
+    {
+      userId: createdUsers[2].id,
+      imageUrl: "/anya.jpeg",
+    },
+
     // David's snaps
-    { userId: createdUsers[3].id, imageUrl: 'https://picsum.photos/seed/david1/400/300', caption: 'Snow day ❄️' },
-    { userId: createdUsers[3].id, imageUrl: 'https://picsum.photos/seed/david2/400/300', caption: 'Book lover' },
-    { userId: createdUsers[3].id, imageUrl: 'https://picsum.photos/seed/david3/400/300' },
-    
+    {
+      userId: createdUsers[3].id,
+      imageUrl: "/anya.jpeg",
+      caption: "Snow day ❄️",
+    },
+    {
+      userId: createdUsers[3].id,
+      imageUrl: "/anya.jpeg",
+      caption: "Book lover",
+    },
+    {
+      userId: createdUsers[3].id,
+      imageUrl: "/anya.jpeg",
+    },
+
     // Emma's snaps
-    { userId: createdUsers[4].id, imageUrl: 'https://picsum.photos/seed/emma1/400/300', caption: 'Garden bloom' },
-    { userId: createdUsers[4].id, imageUrl: 'https://picsum.photos/seed/emma2/400/300', caption: 'Art class' },
-    { userId: createdUsers[4].id, imageUrl: 'https://picsum.photos/seed/emma3/400/300', caption: 'Festival vibes' },
-    { userId: createdUsers[4].id, imageUrl: 'https://picsum.photos/seed/emma4/400/300' },
-    { userId: createdUsers[4].id, imageUrl: 'https://picsum.photos/seed/emma5/400/300', caption: 'Starry night' },
+    {
+      userId: createdUsers[4].id,
+      imageUrl: "/anya.jpeg",
+      caption: "Garden bloom",
+    },
+    {
+      userId: createdUsers[4].id,
+      imageUrl: "/anya.jpeg",
+      caption: "Art class",
+    },
+    {
+      userId: createdUsers[4].id,
+      imageUrl: "/anya.jpeg",
+      caption: "Festival vibes",
+    },
+    {
+      userId: createdUsers[4].id,
+      imageUrl: "/anya.jpeg",
+    },
+    {
+      userId: createdUsers[4].id,
+      imageUrl: "/anya.jpeg",
+      caption: "Starry night",
+    },
   ];
 
   let snapsCreated = 0;
-  
+
   for (const snap of snapData) {
     const existingSnap = await prisma.snap.findFirst({
       where: { imageUrl: snap.imageUrl },
@@ -117,12 +186,12 @@ async function main() {
   }
 
   console.log(`✅ Created ${snapsCreated} snaps`);
-  console.log('🌱 Seed completed successfully!');
+  console.log("🌱 Seed completed successfully!");
 }
 
 main()
   .catch((e) => {
-    console.error('❌ Seed failed:', e);
+    console.error("❌ Seed failed:", e);
     process.exit(1);
   })
   .finally(async () => {

@@ -3,7 +3,8 @@ import Link from 'next/link';
 import { getSession } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import FriendHeader from '@/components/friends/FriendHeader';
-import SnapCard from '@/components/friends/SnapCard';
+import SnapGallery from '@/components/friends/SnapGallery';
+import { Metadata } from 'next';
 
 interface FriendWithSnaps {
   id: string;
@@ -14,14 +15,28 @@ interface FriendWithSnaps {
     id: string;
     imageUrl: string;
     caption: string | null;
-    createdAt: Date;
+    createdAt: Date | string;
   }>;
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ username: string }>;
+}): Promise<Metadata> {
+  const { username } = await params;
+  const decodedUsername = decodeURIComponent(username);
+  
+  return {
+    title: `${decodedUsername}'s Snaps | Snappy`,
+    description: `View ${decodedUsername}'s snaps on Snappy`,
+  };
 }
 
 export default async function FriendProfilePage({
   params,
 }: {
-  params: { username: string };
+  params: Promise<{ username: string }>;
 }) {
   const session = await getSession();
 
@@ -29,7 +44,8 @@ export default async function FriendProfilePage({
     redirect('/');
   }
 
-  const decodedUsername = decodeURIComponent(params.username);
+  const { username } = await params;
+  const decodedUsername = decodeURIComponent(username);
 
   // Fetch friend data with their snaps in a single query
   const friend = await prisma.user.findFirst({
@@ -72,7 +88,7 @@ export default async function FriendProfilePage({
               href="/home"
               className="text-sm text-muted-foreground hover:text-foreground transition-colors"
             >
-              Back to Home
+              ← Back to Friends
             </Link>
           </div>
         </div>
@@ -93,18 +109,15 @@ export default async function FriendProfilePage({
             <p className="text-muted-foreground">
               {friend.name} hasn&apos;t shared any snaps yet.
             </p>
+            <Link
+              href="/home"
+              className="inline-block mt-4 text-primary hover:opacity-90 transition-opacity"
+            >
+              Back to Friends
+            </Link>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {friend.snaps.map((snap) => (
-              <SnapCard
-                key={snap.id}
-                imageUrl={snap.imageUrl}
-                caption={snap.caption}
-                createdAt={snap.createdAt}
-              />
-            ))}
-          </div>
+          <SnapGallery snaps={friend.snaps} friendName={friend.name} />
         )}
       </main>
     </div>

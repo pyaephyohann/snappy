@@ -19,6 +19,7 @@ export default function FriendHeader({ name, profileImage, snapCount }: FriendHe
               fill
               className="object-cover"
               sizes="128px"
+              unoptimized={profileImage.includes('.svg') || profileImage.includes('dicebear')}
             />
           </div>
         </div>
