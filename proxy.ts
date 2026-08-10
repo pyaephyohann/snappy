@@ -5,8 +5,8 @@ import { getSession } from '@/lib/auth';
 export default async function proxy(request: NextRequest) {
   const path = request.nextUrl.pathname;
 
-  // Protect /home and its sub-routes
-  if (path.startsWith('/home')) {
+  // Protect /home and /friends routes
+  if (path.startsWith('/home') || path.startsWith('/friends')) {
     const session = await getSession();
 
     if (!session) {
@@ -20,5 +20,5 @@ export default async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/home/:path*'],
+  matcher: ['/home/:path*', '/friends/:path*'],
 };
