@@ -17,7 +17,7 @@ export function GlowButton({
 }: GlowButtonProps) {
   return (
     <GlowingBorder radius={radius} className={glowClassName}>
-      <button type={type} className={className} {...props}>
+      <button {...props} type={type} className={className}>
         {children}
       </button>
     </GlowingBorder>
