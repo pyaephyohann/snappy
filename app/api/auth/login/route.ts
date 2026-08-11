@@ -16,10 +16,6 @@ const loginSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
-    console.log('Login attempt - checking environment...');
-    console.log('DATABASE_URL exists:', !!process.env.DATABASE_URL);
-    console.log('AUTH_SECRET exists:', !!process.env.AUTH_SECRET);
-
     const body = await request.json();
 
     // Validate request body
@@ -34,10 +30,8 @@ export async function POST(request: NextRequest) {
 
     const { username, passcode } = validationResult.data;
 
-    console.log('Attempting passcode verification...');
     // Verify passcode
     const isValidPasscode = await verifyPasscode(passcode);
-    console.log('Passcode verification completed, result:', isValidPasscode);
 
     if (!isValidPasscode) {
       return NextResponse.json(
@@ -46,18 +40,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log('Creating session...');
     // Create session
     await createSession(username);
-    console.log('Session created successfully');
 
     return NextResponse.json(
       { success: true, message: 'Authentication successful' },
       { status: 200 }
     );
 
-  } catch (error) {
-    console.error('Login error details:', error);
+  } catch {
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

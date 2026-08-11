@@ -1,10 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireSession } from '@/lib/auth';
 
 // Dynamic import to avoid Cloudinary SDK loading during build
 const CLOUDINARY_FOLDER = 'snappy/snaps';
 
 export async function POST(request: NextRequest) {
   try {
+    // Authenticate the request
+    const session = await requireSession();
+    
+    if (!session || !session.authenticated) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
     // Dynamically import cloudinary only at runtime
     const { v2: cloudinary } = await import('cloudinary');
 
