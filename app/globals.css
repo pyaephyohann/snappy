@@ -70,6 +70,7 @@
   /* Fonts */
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-caveat: var(--font-caveat);
 }
 
 /* Global Base Styles */
@@ -133,17 +134,6 @@ select {
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-/* Ensure minimum touch target size for mobile */
-@media (pointer: coarse) {
-  button,
-  a,
-  input[type="submit"],
-  input[type="button"] {
-    min-height: 44px;
-    min-width: 44px;
-  }
-}
-
 input:focus,
 textarea:focus,
 select:focus {
@@ -166,6 +156,9 @@ button {
 /* Ensure minimum touch target size for mobile touch devices */
 @media (pointer: coarse) {
   button,
+  a,
+  input[type="submit"],
+  input[type="button"],
   .cursor-pointer {
     min-height: 44px;
     min-width: 44px;
@@ -189,4 +182,13 @@ button {
 
 ::-webkit-scrollbar-thumb:hover {
   background: var(--border);
+}
+
+/* Splash Screen Styles */
+.bg-snap-white {
+  background-color: #ffffff;
+}
+
+.caveat-font {
+  font-family: var(--font-caveat), cursive, sans-serif;
 }

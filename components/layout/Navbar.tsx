@@ -1,8 +1,9 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import Image from "next/image";
 
 interface NavbarProps {
   username: string;
@@ -20,17 +21,17 @@ export default function Navbar({ username }: NavbarProps) {
     setLogoutError(null);
 
     try {
-      const response = await fetch('/api/auth/logout', {
-        method: 'POST',
+      const response = await fetch("/api/auth/logout", {
+        method: "POST",
       });
 
       if (response.ok) {
-        router.push('/');
+        router.push("/");
       } else {
-        setLogoutError('Failed to logout. Please try again.');
+        setLogoutError("Failed to logout. Please try again.");
       }
     } catch {
-      setLogoutError('An error occurred. Please try again.');
+      setLogoutError("An error occurred. Please try again.");
     } finally {
       setIsLoggingOut(false);
     }
@@ -38,14 +39,23 @@ export default function Navbar({ username }: NavbarProps) {
 
   return (
     <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-10">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-4">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between">
           {/* Left: Snappy Branding */}
           <Link
             href="/home"
             className="flex items-center gap-2 hover:opacity-90 transition-opacity focus:outline-none focus:ring-2 focus:ring-ring rounded px-2 py-1"
           >
-            <span className="text-xl sm:text-2xl lg:text-3xl font-bold text-primary">Snappy</span>
+            <Image
+              src="/logo.png"
+              alt="Snappy Logo"
+              width={96}
+              height={96}
+              className="w-24 h-24"
+            />
+            <span className="text-xl sm:text-2xl lg:text-3xl font-bold text-primary">
+              Snappy
+            </span>
           </Link>
 
           {/* Right: Username + Logout */}
@@ -58,7 +68,7 @@ export default function Navbar({ username }: NavbarProps) {
               disabled={isLoggingOut}
               className="px-3 py-1.5 sm:px-4 sm:py-2 text-sm sm:text-base bg-primary text-primary-foreground rounded-lg hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background disabled:opacity-50 disabled:cursor-not-allowed transition-all min-h-[36px] sm:min-h-[40px]"
             >
-              {isLoggingOut ? 'Logging out...' : 'Logout'}
+              {isLoggingOut ? "Logging out..." : "Logout"}
             </button>
           </div>
         </div>
