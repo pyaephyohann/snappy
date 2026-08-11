@@ -14,7 +14,7 @@ const createCommentSchema = z.object({
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { snapId: string } }
+  { params }: { params: Promise<{ snapId: string }> }
 ) {
   try {
     // Authenticate the request
@@ -27,7 +27,7 @@ export async function POST(
       );
     }
 
-    const { snapId } = params;
+    const { snapId } = await params;
 
     // Parse and validate request body
     const body = await request.json();
@@ -35,7 +35,7 @@ export async function POST(
     
     if (!validationResult.success) {
       return NextResponse.json(
-        { error: validationResult.error.errors[0].message },
+        { error: validationResult.error.issues[0].message },
         { status: 400 }
       );
     }
@@ -112,7 +112,7 @@ export async function POST(
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { snapId: string } }
+  { params }: { params: Promise<{ snapId: string }> }
 ) {
   try {
     // Authenticate the request
@@ -125,7 +125,7 @@ export async function GET(
       );
     }
 
-    const { snapId } = params;
+    const { snapId } = await params;
 
     // Verify snap exists
     const snap = await prisma.snap.findUnique({

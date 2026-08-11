@@ -54,20 +54,20 @@ export default function Navbar({ username }: NavbarProps) {
               height={96}
               className="w-24 h-24"
             />
-            <span className="text-xl sm:text-2xl lg:text-3xl font-bold text-primary">
+            <span className="text-2xl sm:text-4xl lg:text-5xl font-bold text-primary caveat-font">
               Snappy
             </span>
           </Link>
 
           {/* Right: Username + Logout */}
           <div className="flex items-center gap-3 sm:gap-4">
-            <span className="text-sm sm:text-base text-muted-foreground">
+            <span className="text-lg sm:text-xl lg:text-2xl text-muted-foreground caveat-font">
               {username}
             </span>
             <GlowButton
               onClick={handleLogout}
               disabled={isLoggingOut}
-              className="px-3 py-1.5 sm:px-4 sm:py-2 text-sm sm:text-base bg-primary text-primary-foreground rounded-lg hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background disabled:opacity-50 disabled:cursor-not-allowed transition-all min-h-[36px] sm:min-h-[40px]"
+              className="px-3 py-1.5 sm:px-4 sm:py-2 caveat-font text-xl sm:text-2xl bg-primary text-primary-foreground rounded-lg hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background disabled:opacity-50 disabled:cursor-not-allowed transition-all min-h-[36px] sm:min-h-[40px]"
             >
               {isLoggingOut ? "Logging out..." : "Logout"}
             </GlowButton>

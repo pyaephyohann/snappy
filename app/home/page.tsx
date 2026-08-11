@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import FriendCard from "@/components/home/FriendCard";
+import HeroCarousel from "@/components/home/HeroCarousel";
 import Navbar from "@/components/layout/Navbar";
 import GlowingBorder from "@/components/ui/glowing-border";
 
@@ -31,6 +32,8 @@ export default async function HomePage() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+        <HeroCarousel />
+
         {/* Friends Section */}
         <section>
           <h2 className="text-xl sm:text-2xl font-semibold text-foreground mb-4 sm:mb-6">

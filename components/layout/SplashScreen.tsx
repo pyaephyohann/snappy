@@ -1,7 +1,6 @@
 "use client";
 
 import { motion } from "framer-motion";
-import CameraSplash from "./CameraSplash";
 
 const SplashScreen = () => {
   const text = "Snappy";

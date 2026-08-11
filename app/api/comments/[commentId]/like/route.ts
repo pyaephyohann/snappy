@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { commentId: string } }
+  { params }: { params: Promise<{ commentId: string }> }
 ) {
   try {
     // Authenticate the request
@@ -17,7 +17,7 @@ export async function POST(
       );
     }
 
-    const { commentId } = params;
+    const { commentId } = await params;
 
     // Verify comment exists
     const comment = await prisma.comment.findUnique({

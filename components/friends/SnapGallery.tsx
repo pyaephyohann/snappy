@@ -17,38 +17,40 @@ interface SnapGalleryProps {
 }
 
 export default function SnapGallery({ snaps, friendName }: SnapGalleryProps) {
-  const [selectedSnap, setSelectedSnap] = useState<Snap | null>(null);
-
-  const handleSnapClick = (snap: Snap) => {
-    setSelectedSnap(snap);
-  };
+  const [viewerIndex, setViewerIndex] = useState<number | null>(null);
 
   const handleCloseViewer = () => {
-    setSelectedSnap(null);
+    setViewerIndex(null);
   };
+
+  const viewerSnap = viewerIndex !== null ? snaps[viewerIndex] : null;
 
   return (
     <>
       <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
-        {snaps.map((snap) => (
+        {snaps.map((snap, index) => (
           <SnapCard
             key={snap.id}
             imageUrl={snap.imageUrl}
             caption={snap.caption}
             createdAt={snap.createdAt}
+            friendName={friendName}
+            snapIndex={index}
             interactive
-            onClick={() => handleSnapClick(snap)}
+            onClick={() => setViewerIndex(index)}
           />
         ))}
       </div>
 
-      {selectedSnap && (
+      {viewerSnap && viewerIndex !== null && (
         <SnapViewer
-          isOpen={!!selectedSnap}
+          key={viewerSnap.id}
+          isOpen
           onClose={handleCloseViewer}
-          imageUrl={selectedSnap.imageUrl}
-          caption={selectedSnap.caption}
+          imageUrl={viewerSnap.imageUrl}
+          caption={viewerSnap.caption}
           friendName={friendName}
+          snapIndex={viewerIndex}
         />
       )}
     </>

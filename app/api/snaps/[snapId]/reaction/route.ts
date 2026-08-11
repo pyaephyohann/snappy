@@ -11,7 +11,7 @@ const toggleReactionSchema = z.object({
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { snapId: string } }
+  { params }: { params: Promise<{ snapId: string }> }
 ) {
   try {
     // Authenticate the request
@@ -24,7 +24,7 @@ export async function POST(
       );
     }
 
-    const { snapId } = params;
+    const { snapId } = await params;
 
     // Parse and validate request body
     const body = await request.json();
