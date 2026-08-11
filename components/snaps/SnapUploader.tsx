@@ -5,20 +5,19 @@ import { useState, useEffect } from "react";
 import { useDropzone } from "react-dropzone";
 
 interface SnapUploaderProps {
-  targetUserId: string; // Used for upload API in parent component
-  onUpload?: (file: File) => Promise<void>;
+  onUpload?: (file: File, caption?: string) => Promise<void>;
 }
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
+const MAX_CAPTION_LENGTH = 500;
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export default function SnapUploader({
-  targetUserId,
   onUpload,
 }: SnapUploaderProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [caption, setCaption] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<"idle" | "success">("idle");
@@ -67,7 +66,7 @@ export default function SnapUploader({
     setUploadPhase("uploading");
 
     try {
-      await onUpload(selectedFile);
+      await onUpload(selectedFile, caption);
       setUploadPhase("saving");
       setUploadStatus("success");
 
@@ -128,6 +127,7 @@ export default function SnapUploader({
     setError(null);
     setSelectedFile(null);
     setPreviewUrl(null);
+    setCaption("");
     setUploadStatus("idle");
     setUploadPhase("idle");
   };
@@ -139,6 +139,7 @@ export default function SnapUploader({
       setPreviewUrl(null);
     }
     setSelectedFile(null);
+    setCaption("");
     setError(null);
     setUploadStatus("idle");
     setUploadPhase("idle");
@@ -279,6 +280,35 @@ export default function SnapUploader({
                           : "Select or Drop an image to preview"}
                       </p>
                     </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Caption Input */}
+              {previewUrl && (
+                <div className="mb-6">
+                  <label
+                    htmlFor="caption-input"
+                    className="block text-sm font-medium text-foreground mb-2"
+                  >
+                    Caption
+                  </label>
+                  <textarea
+                    id="caption-input"
+                    value={caption}
+                    onChange={(e) => {
+                      if (e.target.value.length <= MAX_CAPTION_LENGTH) {
+                        setCaption(e.target.value);
+                      }
+                    }}
+                    placeholder="Write a caption..."
+                    rows={3}
+                    className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none text-sm"
+                    maxLength={MAX_CAPTION_LENGTH}
+                    disabled={isUploading || uploadStatus === "success"}
+                  />
+                  <div className="mt-1 text-xs text-muted-foreground text-right">
+                    {caption.length}/{MAX_CAPTION_LENGTH}
                   </div>
                 </div>
               )}

@@ -33,7 +33,7 @@ export default async function HomePage() {
         {/* Friends Section */}
         <section>
           <h2 className="text-xl sm:text-2xl font-semibold text-foreground mb-4 sm:mb-6">
-            Your Friends
+            Friends
           </h2>
 
           {friends.length === 0 ? (

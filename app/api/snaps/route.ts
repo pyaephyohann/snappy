@@ -7,6 +7,7 @@ const createSnapSchema = z.object({
   targetUserId: z.string().min(1, 'Target user ID is required'),
   imageUrl: z.string().url('Invalid image URL'),
   publicId: z.string().min(1, 'Public ID is required'),
+  caption: z.string().max(500, 'Caption must be less than 500 characters').optional(),
 });
 
 const CLOUDINARY_DOMAIN = 'res.cloudinary.com';
@@ -69,7 +70,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { targetUserId, imageUrl, publicId } = validationResult.data;
+    const { targetUserId, imageUrl, publicId, caption } = validationResult.data;
+
+    // Normalize empty caption to null
+    const normalizedCaption = caption && caption.trim().length > 0 ? caption.trim() : null;
 
     // Validate Cloudinary URL
     if (!validateCloudinaryUrl(imageUrl)) {
@@ -105,6 +109,7 @@ export async function POST(request: NextRequest) {
         userId: targetUserId, // Snap belongs to target user
         imageUrl,
         publicId,
+        caption: normalizedCaption,
       },
     });
 

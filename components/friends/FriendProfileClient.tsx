@@ -27,7 +27,7 @@ export default function FriendProfileClient({ friend }: FriendProfileClientProps
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
 
-  const handleUpload = async (file: File) => {
+  const handleUpload = async (file: File, caption?: string) => {
     try {
       setError(null);
 
@@ -75,6 +75,7 @@ export default function FriendProfileClient({ friend }: FriendProfileClientProps
           targetUserId: friend.id,
           imageUrl: uploadData.secure_url,
           publicId: uploadData.public_id,
+          caption: caption || undefined,
         }),
       });
 
@@ -104,7 +105,7 @@ export default function FriendProfileClient({ friend }: FriendProfileClientProps
           profileImage={friend.profileImage}
           snapCount={friend.snaps.length}
         >
-          <SnapUploader targetUserId={friend.id} onUpload={handleUpload} />
+          <SnapUploader onUpload={handleUpload} />
         </FriendHeader>
 
         <div className="bg-card border border-border rounded-xl p-8 sm:p-12 text-center">
@@ -129,7 +130,7 @@ export default function FriendProfileClient({ friend }: FriendProfileClientProps
         profileImage={friend.profileImage}
         snapCount={friend.snaps.length}
       >
-        <SnapUploader targetUserId={friend.id} onUpload={handleUpload} />
+        <SnapUploader onUpload={handleUpload} />
       </FriendHeader>
 
       {!friend.snaps || friend.snaps.length === 0 ? (
@@ -154,7 +155,7 @@ export default function FriendProfileClient({ friend }: FriendProfileClientProps
           <p className="text-muted-foreground text-sm sm:text-base mb-6">
             Be the first to add a snap to this collection.
           </p>
-          <SnapUploader targetUserId={friend.id} onUpload={handleUpload} />
+          <SnapUploader onUpload={handleUpload} />
         </div>
       ) : (
         <SnapGallery snaps={friend.snaps} friendName={friend.name} />
