@@ -2,6 +2,8 @@
 
 import { useEffect } from 'react';
 import Link from 'next/link';
+import { GlowButton } from '@/components/ui/glow-button';
+import { GlowLink } from '@/components/ui/glow-link';
 
 export default function Error({
   error,
@@ -47,18 +49,18 @@ export default function Error({
             We encountered an error while loading this friend&apos;s snaps.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center">
-            <button
+            <GlowButton
               onClick={reset}
               className="px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity"
             >
               Try Again
-            </button>
-            <Link
+            </GlowButton>
+            <GlowLink
               href="/home"
-              className="px-6 py-3 border border-border rounded-lg hover:bg-muted transition-colors"
+              className="px-6 py-3 border border-border rounded-lg hover:bg-muted transition-colors bg-card"
             >
               Back to Friends
-            </Link>
+            </GlowLink>
           </div>
         </div>
       </main>

@@ -20,27 +20,78 @@ model AccessCredential {
 }
 
 model User {
-  id           String   @id @default(cuid())
-  name         String   @unique
-  profileImage String
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  snaps        Snap[]
+  id             String        @id @default(cuid())
+  name           String        @unique
+  profileImage   String
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  snaps          Snap[]
+  reactions      Reaction[]
+  comments       Comment[]
+  commentLikes   CommentLike[]
 
   @@map("users")
 }
 
 model Snap {
-  id        String   @id @default(cuid())
+  id        String      @id @default(cuid())
   imageUrl  String
   publicId  String
   caption   String?
   userId    String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reactions Reaction[]
+  comments  Comment[]
 
   @@index([userId])
   @@index([createdAt])
   @@map("snaps")
+}
+
+model Reaction {
+  id        String   @id @default(cuid())
+  type      String
+  userId    String
+  snapId    String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  snap Snap @relation(fields: [snapId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, snapId])
+  @@index([snapId])
+  @@map("reactions")
+}
+
+model Comment {
+  id        String        @id @default(cuid())
+  content   String
+  userId    String
+  snapId    String
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  snap         Snap         @relation(fields: [snapId], references: [id], onDelete: Cascade)
+  commentLikes CommentLike[]
+
+  @@index([snapId])
+  @@index([createdAt])
+  @@map("comments")
+}
+
+model CommentLike {
+  id        String   @id @default(cuid())
+  userId    String
+  commentId String
+  createdAt DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  comment Comment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, commentId])
+  @@index([commentId])
+  @@map("comment_likes")
 }

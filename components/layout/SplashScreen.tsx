@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import { motion } from "framer-motion";
 import CameraSplash from "./CameraSplash";
@@ -22,19 +22,19 @@ const SplashScreen = () => {
   };
 
   return (
-    <div className="h-screen bg-snap-white flex items-center justify-center">
-      <div className="relative flex items-center gap-8 ml-[6rem]">
+    <div className="h-screen flex items-center justify-center">
+      <div className="relative">
         {/* Camera Splash */}
-        <div className="absolute -left-32 -top-20">
+        {/* <div className="absolute -left-32 -top-20">
           <CameraSplash />
-        </div>
+        </div> */}
 
         {/* Text */}
         <motion.h1
           variants={container}
           initial="hidden"
           animate="visible"
-          className="text-5xl ml-[1rem] font-bold flex caveat-font"
+          className="text-5xl font-bold flex caveat-font"
         >
           {text.split("").map((char, index) => (
             <motion.span key={index} variants={letter}>

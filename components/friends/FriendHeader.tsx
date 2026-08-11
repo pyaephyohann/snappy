@@ -1,4 +1,5 @@
 import Image from 'next/image';
+import GlowingBorder from '@/components/ui/glowing-border';
 
 interface FriendHeaderProps {
   name: string;
@@ -12,18 +13,20 @@ export default function FriendHeader({ name, profileImage, snapCount, children }
     <div className="bg-card border border-border rounded-2xl p-4 sm:p-6 lg:p-8 mb-6 sm:mb-8 shadow-lg">
       <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
         {/* Profile Image */}
-        <div className="relative w-20 h-20 sm:w-28 sm:h-28 lg:w-32 lg:h-32 flex-shrink-0">
-          <div className="w-full h-full rounded-full overflow-hidden ring-3 sm:ring-4 ring-primary/20">
-            <Image
-              src={profileImage}
-              alt={`${name}'s profile`}
-              fill
-              className="object-cover"
-              sizes="80px, 112px, 128px"
-              unoptimized={profileImage.includes('.svg') || profileImage.includes('dicebear')}
-            />
+        <GlowingBorder radius="full" className="w-20 h-20 sm:w-28 sm:h-28 lg:w-32 lg:h-32 shrink-0">
+          <div className="relative w-full h-full">
+            <div className="w-full h-full rounded-full overflow-hidden relative">
+              <Image
+                src={profileImage}
+                alt={`${name}'s profile`}
+                fill
+                className="object-cover"
+                sizes="80px, 112px, 128px"
+                unoptimized={profileImage.includes('.svg') || profileImage.includes('dicebear')}
+              />
+            </div>
           </div>
-        </div>
+        </GlowingBorder>
 
         {/* Friend Info */}
         <div className="flex-1 text-center sm:text-left">

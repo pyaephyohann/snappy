@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
+import GlowingBorder from '@/components/ui/glowing-border';
 
 interface SnapViewerProps {
   isOpen: boolean;
@@ -87,17 +88,19 @@ export default function SnapViewer({
               </div>
 
               {/* Image Container */}
-              <div className="relative flex-1 bg-card rounded-xl overflow-hidden border border-border min-h-[40vh] sm:min-h-[50vh]">
-                <Image
-                  src={imageUrl}
-                  alt={caption || 'Snap'}
-                  fill
-                  className="object-contain"
-                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 90vw, 80vw"
-                  priority
-                  unoptimized={imageUrl.includes('.svg') || imageUrl.includes('dicebear')}
-                />
-              </div>
+              <GlowingBorder radius="xl" intensity="strong" className="flex-1 min-h-[40vh] sm:min-h-[50vh]">
+                <div className="relative h-full min-h-[40vh] sm:min-h-[50vh] bg-card rounded-xl overflow-hidden border border-border">
+                  <Image
+                    src={imageUrl}
+                    alt={caption || 'Snap'}
+                    fill
+                    className="object-contain"
+                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 90vw, 80vw"
+                    priority
+                    unoptimized={imageUrl.includes('.svg') || imageUrl.includes('dicebear')}
+                  />
+                </div>
+              </GlowingBorder>
 
               {/* Caption */}
               {caption && (

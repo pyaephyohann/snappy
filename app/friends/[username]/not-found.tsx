@@ -1,7 +1,7 @@
-import Link from 'next/link';
 import { getSession } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import Navbar from '@/components/layout/Navbar';
+import { GlowLink } from '@/components/ui/glow-link';
 
 export default async function NotFound() {
   const session = await getSession();
@@ -25,12 +25,12 @@ export default async function NotFound() {
           <p className="text-muted-foreground text-sm sm:text-base mb-6 sm:mb-8">
             The friend you&apos;re looking for doesn&apos;t exist or has been removed.
           </p>
-          <Link
+          <GlowLink
             href="/home"
             className="inline-block px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity"
           >
             Back to Friends
-          </Link>
+          </GlowLink>
         </div>
       </main>
     </div>

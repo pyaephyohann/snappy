@@ -1,7 +1,8 @@
 'use client';
 
-import Link from 'next/link';
 import { useEffect } from 'react';
+import { GlowButton } from '@/components/ui/glow-button';
+import { GlowLink } from '@/components/ui/glow-link';
 
 export default function Error({
   error,
@@ -26,18 +27,18 @@ export default function Error({
           An unexpected error occurred. Please try again.
         </p>
         <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center">
-          <button
+          <GlowButton
             onClick={reset}
             className="px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity focus:outline-none focus:ring-2 focus:ring-ring"
           >
             Try Again
-          </button>
-          <Link
+          </GlowButton>
+          <GlowLink
             href="/"
-            className="px-6 py-3 border border-border rounded-lg hover:bg-muted transition-colors focus:outline-none focus:ring-2 focus:ring-ring"
+            className="px-6 py-3 border border-border rounded-lg hover:bg-muted transition-colors focus:outline-none focus:ring-2 focus:ring-ring bg-card"
           >
             Go to Home
-          </Link>
+          </GlowLink>
         </div>
       </div>
     </div>

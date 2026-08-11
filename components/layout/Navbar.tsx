@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import { GlowButton } from "@/components/ui/glow-button";
 
 interface NavbarProps {
   username: string;
@@ -63,13 +64,13 @@ export default function Navbar({ username }: NavbarProps) {
             <span className="text-sm sm:text-base text-muted-foreground">
               {username}
             </span>
-            <button
+            <GlowButton
               onClick={handleLogout}
               disabled={isLoggingOut}
               className="px-3 py-1.5 sm:px-4 sm:py-2 text-sm sm:text-base bg-primary text-primary-foreground rounded-lg hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background disabled:opacity-50 disabled:cursor-not-allowed transition-all min-h-[36px] sm:min-h-[40px]"
             >
               {isLoggingOut ? "Logging out..." : "Logout"}
-            </button>
+            </GlowButton>
           </div>
         </div>
 

@@ -3,6 +3,7 @@ import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import FriendCard from "@/components/home/FriendCard";
 import Navbar from "@/components/layout/Navbar";
+import GlowingBorder from "@/components/ui/glowing-border";
 
 export default async function HomePage() {
   const session = await getSession();
@@ -37,11 +38,13 @@ export default async function HomePage() {
           </h2>
 
           {friends.length === 0 ? (
-            <div className="bg-card border border-border rounded-xl p-8 sm:p-12 text-center">
-              <p className="text-muted-foreground text-sm sm:text-base">
-                No friends yet. Check back soon!
-              </p>
-            </div>
+            <GlowingBorder radius="xl">
+              <div className="bg-card border border-border rounded-xl p-8 sm:p-12 text-center">
+                <p className="text-muted-foreground text-sm sm:text-base">
+                  No friends yet. Check back soon!
+                </p>
+              </div>
+            </GlowingBorder>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 sm:gap-6">
               {friends.map((friend) => (

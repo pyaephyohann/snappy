@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import { GlowLink } from '@/components/ui/glow-link';
 
 export default function NotFound() {
   return (
@@ -11,12 +11,12 @@ export default function NotFound() {
         <p className="text-muted-foreground text-sm sm:text-base mb-8">
           The page you&apos;re looking for doesn&apos;t exist.
         </p>
-        <Link
+        <GlowLink
           href="/"
           className="inline-block px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity focus:outline-none focus:ring-2 focus:ring-ring"
         >
           Go to Home
-        </Link>
+        </GlowLink>
       </div>
     </div>
   );

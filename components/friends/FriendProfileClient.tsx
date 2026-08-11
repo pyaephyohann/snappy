@@ -5,6 +5,7 @@ import { useState } from 'react';
 import FriendHeader from './FriendHeader';
 import SnapGallery from './SnapGallery';
 import SnapUploader from '../snaps/SnapUploader';
+import { GlowButton } from '@/components/ui/glow-button';
 
 interface FriendWithSnaps {
   id: string;
@@ -112,12 +113,12 @@ export default function FriendProfileClient({ friend }: FriendProfileClientProps
           <p className="text-muted-foreground text-sm sm:text-base mb-4">
             Something went wrong. We couldn&apos;t load the Snaps right now.
           </p>
-          <button
+          <GlowButton
             onClick={handleRetry}
             className="px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity focus:outline-none focus:ring-2 focus:ring-ring"
           >
             Try Again
-          </button>
+          </GlowButton>
         </div>
       </>
     );

@@ -192,3 +192,87 @@ button {
 .caveat-font {
   font-family: var(--font-caveat), cursive, sans-serif;
 }
+
+/* ── Running Glow Border ── */
+
+@property --glow-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@keyframes glow-border-spin {
+  to {
+    --glow-angle: 360deg;
+  }
+}
+
+.glow-border {
+  --glow-border-width: 2px;
+  --glow-speed: 3.5s;
+  position: relative;
+  isolation: isolate;
+  padding: var(--glow-border-width);
+  overflow: hidden;
+}
+
+.glow-border::before,
+.glow-border::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 200%;
+  height: 200%;
+  transform: translate(-50%, -50%);
+  background: conic-gradient(
+    from var(--glow-angle),
+    transparent 0deg,
+    transparent 260deg,
+    rgba(139, 92, 246, 0.15) 290deg,
+    rgba(139, 92, 246, 0.5) 320deg,
+    #8b5cf6 340deg,
+    #a78bfa 350deg,
+    #c084fc 355deg,
+    #8b5cf6 360deg
+  );
+  animation: glow-border-spin var(--glow-speed) linear infinite;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.glow-border::after {
+  filter: blur(10px);
+  opacity: 0.35;
+}
+
+.glow-border-strong {
+  --glow-border-width: 3px;
+  --glow-speed: 3s;
+}
+
+.glow-border-strong::after {
+  filter: blur(14px);
+  opacity: 0.45;
+}
+
+.glow-border > * {
+  position: relative;
+  z-index: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glow-border::before {
+    animation: none;
+    background: linear-gradient(
+      135deg,
+      rgba(139, 92, 246, 0.35),
+      rgba(139, 92, 246, 0.08)
+    );
+  }
+
+  .glow-border::after {
+    animation: none;
+    display: none;
+  }
+}
