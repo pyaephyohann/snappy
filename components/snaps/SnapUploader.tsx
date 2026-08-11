@@ -1,0 +1,271 @@
+'use client';
+
+import { useState, useRef, useEffect } from 'react';
+
+interface SnapUploaderProps {
+  targetUserId: string; // Used in Milestone 7E for upload API call
+  onUpload?: (file: File) => Promise<void>;
+}
+
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export default function SnapUploader({ targetUserId, onUpload }: SnapUploaderProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState<'idle' | 'success'>('idle');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    return () => {
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
+    };
+  }, [previewUrl]);
+
+  const handleOpen = () => {
+    setIsOpen(true);
+    setError(null);
+    setSelectedFile(null);
+    setPreviewUrl(null);
+    setUploadStatus('idle');
+  };
+
+  const handleClose = () => {
+    setIsOpen(false);
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+      setPreviewUrl(null);
+    }
+    setSelectedFile(null);
+    setError(null);
+    setUploadStatus('idle');
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setError(null);
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      setError('Please select an image.');
+      return;
+    }
+
+    // Validate file size
+    if (file.size > MAX_FILE_SIZE) {
+      setError('That image is too large. Please choose an image under 10 MB.');
+      return;
+    }
+
+    setSelectedFile(file);
+    setPreviewUrl(URL.createObjectURL(file));
+  };
+
+  const handleUpload = async () => {
+    if (!selectedFile || !onUpload) return;
+
+    setIsUploading(true);
+    setError(null);
+
+    try {
+      await onUpload(selectedFile);
+      setUploadStatus('success');
+      
+      setTimeout(() => {
+        handleClose();
+      }, 1500);
+    } catch {
+      setError('Upload failed. Please try again.');
+      setIsUploading(false);
+    }
+  };
+
+  const handleCancel = () => {
+    handleClose();
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      handleClose();
+    }
+  };
+
+  return (
+    <>
+      {/* Add Snap Button */}
+      <button
+        onClick={handleOpen}
+        className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background text-sm sm:text-base"
+        aria-label="Add snap"
+      >
+        <svg
+          className="w-5 h-5"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+          aria-hidden="true"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M12 4v16m8-8H4"
+          />
+        </svg>
+        Add Snap
+      </button>
+
+      {/* Upload Modal */}
+      {isOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="upload-modal-title"
+          onKeyDown={handleKeyDown}
+        >
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={handleClose}
+            aria-hidden="true"
+          />
+
+          {/* Modal Content */}
+          <div className="relative bg-card border border-border rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-auto">
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 sm:p-6 border-b border-border">
+              <h2
+                id="upload-modal-title"
+                className="text-lg sm:text-xl font-semibold text-foreground"
+              >
+                Add Snap
+              </h2>
+              <button
+                onClick={handleClose}
+                className="p-2 text-muted-foreground hover:text-foreground transition-colors focus:outline-none focus:ring-2 focus:ring-ring rounded"
+                aria-label="Close modal"
+              >
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-4 sm:p-6">
+              {/* Error Message */}
+              {error && (
+                <div
+                  className="mb-4 p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-destructive text-sm"
+                  role="alert"
+                >
+                  {error}
+                </div>
+              )}
+
+              {/* Image Preview */}
+              {previewUrl ? (
+                <div className="mb-6">
+                  <div className="relative aspect-square sm:aspect-video w-full bg-muted rounded-lg overflow-hidden border border-border">
+                    {/* img element used for local blob URL preview - Next.js Image doesn't support blob URLs */}
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={previewUrl}
+                      alt="Selected image preview"
+                      className="w-full h-full object-contain"
+                    />
+                  </div>
+                  <p className="mt-2 text-sm text-muted-foreground text-center">
+                    {selectedFile?.name}
+                  </p>
+                </div>
+              ) : (
+                <div className="mb-6">
+                  <div className="aspect-square sm:aspect-video w-full bg-muted rounded-lg border-2 border-dashed border-border flex items-center justify-center">
+                    <div className="text-center p-6">
+                      <svg
+                        className="w-12 h-12 mx-auto text-muted-foreground mb-3"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                        aria-hidden="true"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                        />
+                      </svg>
+                      <p className="text-sm text-muted-foreground">
+                        Select an image to preview
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* File Input */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleFileSelect}
+                className="hidden"
+                aria-label="Select image file"
+              />
+
+              {/* Action Buttons */}
+              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isUploading || uploadStatus === 'success'}
+                  className="flex-1 px-4 py-3 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/80 transition-colors focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base"
+                >
+                  {previewUrl ? 'Change Image' : 'Select Image'}
+                </button>
+
+                <button
+                  onClick={handleCancel}
+                  disabled={isUploading || uploadStatus === 'success'}
+                  className="flex-1 px-4 py-3 border border-border text-foreground rounded-lg hover:bg-muted transition-colors focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base"
+                >
+                  Cancel
+                </button>
+
+                {onUpload && (
+                  <button
+                    onClick={handleUpload}
+                    disabled={!selectedFile || isUploading || uploadStatus === 'success'}
+                    className="flex-1 px-4 py-3 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base"
+                  >
+                    {isUploading ? 'Uploading...' : uploadStatus === 'success' ? 'Uploaded ✓' : 'Upload'}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}

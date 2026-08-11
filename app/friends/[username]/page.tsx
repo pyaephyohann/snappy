@@ -2,8 +2,7 @@ import { redirect, notFound } from 'next/navigation';
 import Link from 'next/link';
 import { getSession } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import FriendHeader from '@/components/friends/FriendHeader';
-import SnapGallery from '@/components/friends/SnapGallery';
+import FriendProfileClient from '@/components/friends/FriendProfileClient';
 import Navbar from '@/components/layout/Navbar';
 import { Metadata } from 'next';
 
@@ -90,29 +89,8 @@ export default async function FriendProfilePage({
           </Link>
         </div>
 
-        {/* Friend Header */}
-        <FriendHeader
-          name={friend.name}
-          profileImage={friend.profileImage}
-          snapCount={friend.snaps?.length || 0}
-        />
-
-        {/* Snaps Grid */}
-        {!friend.snaps || friend.snaps.length === 0 ? (
-          <div className="bg-card border border-border rounded-xl p-8 sm:p-12 text-center">
-            <p className="text-muted-foreground text-sm sm:text-base">
-              {friend.name} hasn&apos;t shared any snaps yet.
-            </p>
-            <Link
-              href="/home"
-              className="inline-block mt-4 px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity"
-            >
-              Back to Friends
-            </Link>
-          </div>
-        ) : (
-          <SnapGallery snaps={friend.snaps} friendName={friend.name} />
-        )}
+        {/* Friend Profile Content */}
+        <FriendProfileClient friend={friend} />
       </main>
     </div>
   );

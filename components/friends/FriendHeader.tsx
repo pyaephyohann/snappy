@@ -4,9 +4,10 @@ interface FriendHeaderProps {
   name: string;
   profileImage: string;
   snapCount: number;
+  children?: React.ReactNode;
 }
 
-export default function FriendHeader({ name, profileImage, snapCount }: FriendHeaderProps) {
+export default function FriendHeader({ name, profileImage, snapCount, children }: FriendHeaderProps) {
   return (
     <div className="bg-card border border-border rounded-2xl p-4 sm:p-6 lg:p-8 mb-6 sm:mb-8 shadow-lg">
       <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
@@ -31,6 +32,13 @@ export default function FriendHeader({ name, profileImage, snapCount }: FriendHe
             {snapCount} {snapCount === 1 ? 'snap' : 'snaps'}
           </p>
         </div>
+
+        {/* Add Snap Button */}
+        {children && (
+          <div className="flex-shrink-0">
+            {children}
+          </div>
+        )}
       </div>
     </div>
   );
