@@ -1,7 +1,8 @@
-'use client';
+"use client";
 
 /* eslint-disable @next/next/no-img-element */
-import { useState, useRef, useEffect } from 'react';
+import { useState, useEffect } from "react";
+import { useDropzone } from "react-dropzone";
 
 interface SnapUploaderProps {
   targetUserId: string; // Used for upload API in parent component
@@ -11,15 +12,19 @@ interface SnapUploaderProps {
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-export default function SnapUploader({ targetUserId, onUpload }: SnapUploaderProps) {
+export default function SnapUploader({
+  targetUserId,
+  onUpload,
+}: SnapUploaderProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
-  const [uploadStatus, setUploadStatus] = useState<'idle' | 'success'>('idle');
-  const [uploadPhase, setUploadPhase] = useState<'idle' | 'selecting' | 'uploading' | 'saving'>('idle');
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadStatus, setUploadStatus] = useState<"idle" | "success">("idle");
+  const [uploadPhase, setUploadPhase] = useState<
+    "idle" | "selecting" | "uploading" | "saving"
+  >("idle");
 
   useEffect(() => {
     return () => {
@@ -29,45 +34,26 @@ export default function SnapUploader({ targetUserId, onUpload }: SnapUploaderPro
     };
   }, [previewUrl]);
 
-  const handleOpen = () => {
-    setIsOpen(true);
-    setError(null);
-    setSelectedFile(null);
-    setPreviewUrl(null);
-    setUploadStatus('idle');
-    setUploadPhase('idle');
-  };
-
-  const handleClose = () => {
-    setIsOpen(false);
-    if (previewUrl) {
-      URL.revokeObjectURL(previewUrl);
-      setPreviewUrl(null);
-    }
-    setSelectedFile(null);
-    setError(null);
-    setUploadStatus('idle');
-    setUploadPhase('idle');
-    setIsUploading(false);
-  };
-
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
+  const handleFileValidation = (file: File): boolean => {
     setError(null);
 
     // Validate file type
-    if (!file.type.startsWith('image/')) {
-      setError('Please select an image.');
-      return;
+    if (!file.type.startsWith("image/")) {
+      setError("Please select an image.");
+      return false;
     }
 
     // Validate file size
     if (file.size > MAX_FILE_SIZE) {
-      setError('That image is too large. Please choose an image under 10 MB.');
-      return;
+      setError("That image is too large. Please choose an image under 10 MB.");
+      return false;
     }
+
+    return true;
+  };
+
+  const handleFileSelect = (file: File) => {
+    if (!handleFileValidation(file)) return;
 
     setSelectedFile(file);
     setPreviewUrl(URL.createObjectURL(file));
@@ -78,20 +64,22 @@ export default function SnapUploader({ targetUserId, onUpload }: SnapUploaderPro
 
     setIsUploading(true);
     setError(null);
-    setUploadPhase('uploading');
+    setUploadPhase("uploading");
 
     try {
       await onUpload(selectedFile);
-      setUploadPhase('saving');
-      setUploadStatus('success');
-      
+      setUploadPhase("saving");
+      setUploadStatus("success");
+
       setTimeout(() => {
         handleClose();
       }, 1500);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Upload failed. Please try again.');
+      setError(
+        err instanceof Error ? err.message : "Upload failed. Please try again.",
+      );
       setIsUploading(false);
-      setUploadPhase('idle');
+      setUploadPhase("idle");
     }
   };
 
@@ -100,9 +88,61 @@ export default function SnapUploader({ targetUserId, onUpload }: SnapUploaderPro
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Escape') {
+    if (e.key === "Escape") {
       handleClose();
     }
+  };
+
+  const { getRootProps, getInputProps, isDragActive, isDragReject, open } =
+    useDropzone({
+      accept: {
+        "image/*": [],
+      },
+      maxSize: MAX_FILE_SIZE,
+      multiple: false,
+      onDrop: (acceptedFiles) => {
+        if (acceptedFiles.length > 0) {
+          handleFileSelect(acceptedFiles[0]);
+        }
+      },
+      onDropRejected: (fileRejections) => {
+        if (fileRejections.length > 0) {
+          const rejection = fileRejections[0];
+          if (rejection.errors.some((e) => e.code === "file-too-large")) {
+            setError(
+              "That image is too large. Please choose an image under 10 MB.",
+            );
+          } else if (
+            rejection.errors.some((e) => e.code === "file-invalid-type")
+          ) {
+            setError("Please select an image.");
+          } else {
+            setError("Please select a valid image file.");
+          }
+        }
+      },
+    });
+
+  const handleOpen = () => {
+    setIsOpen(true);
+    setError(null);
+    setSelectedFile(null);
+    setPreviewUrl(null);
+    setUploadStatus("idle");
+    setUploadPhase("idle");
+  };
+
+  const handleClose = () => {
+    setIsOpen(false);
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+      setPreviewUrl(null);
+    }
+    setSelectedFile(null);
+    setError(null);
+    setUploadStatus("idle");
+    setUploadPhase("idle");
+    setIsUploading(false);
   };
 
   return (
@@ -207,7 +247,17 @@ export default function SnapUploader({ targetUserId, onUpload }: SnapUploaderPro
                 </div>
               ) : (
                 <div className="mb-6">
-                  <div className="aspect-square sm:aspect-video w-full bg-muted rounded-lg border-2 border-dashed border-border flex items-center justify-center">
+                  <div
+                    {...getRootProps()}
+                    className={`aspect-square sm:aspect-video w-full bg-muted rounded-lg border-2 border-dashed border-border flex items-center justify-center transition-colors ${
+                      isDragActive
+                        ? "border-primary bg-primary/5"
+                        : isDragReject
+                          ? "border-destructive bg-destructive/5"
+                          : ""
+                    }`}
+                  >
+                    <input {...getInputProps()} />
                     <div className="text-center p-6">
                       <svg
                         className="w-12 h-12 mx-auto text-muted-foreground mb-3"
@@ -224,36 +274,28 @@ export default function SnapUploader({ targetUserId, onUpload }: SnapUploaderPro
                         />
                       </svg>
                       <p className="text-sm text-muted-foreground">
-                        Select an image to preview
+                        {isDragActive
+                          ? "Drop image here"
+                          : "Select or Drop an image to preview"}
                       </p>
                     </div>
                   </div>
                 </div>
               )}
 
-              {/* File Input */}
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handleFileSelect}
-                className="hidden"
-                aria-label="Select image file"
-              />
-
               {/* Action Buttons */}
               <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
                 <button
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={isUploading || uploadStatus === 'success'}
+                  onClick={open}
+                  disabled={isUploading || uploadStatus === "success"}
                   className="flex-1 px-4 py-3 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/80 transition-colors focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base"
                 >
-                  {previewUrl ? 'Change Image' : 'Select Image'}
+                  {previewUrl ? "Change Image" : "Select Image"}
                 </button>
 
                 <button
                   onClick={handleCancel}
-                  disabled={isUploading || uploadStatus === 'success'}
+                  disabled={isUploading || uploadStatus === "success"}
                   className="flex-1 px-4 py-3 border border-border text-foreground rounded-lg hover:bg-muted transition-colors focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base"
                 >
                   Cancel
@@ -262,12 +304,18 @@ export default function SnapUploader({ targetUserId, onUpload }: SnapUploaderPro
                 {onUpload && (
                   <button
                     onClick={handleUpload}
-                    disabled={!selectedFile || isUploading || uploadStatus === 'success'}
+                    disabled={
+                      !selectedFile || isUploading || uploadStatus === "success"
+                    }
                     className="flex-1 px-4 py-3 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base"
                   >
-                    {uploadPhase === 'uploading' ? 'Uploading image...' : 
-                     uploadPhase === 'saving' ? 'Saving snap...' :
-                     uploadStatus === 'success' ? 'Uploaded ✓' : 'Upload'}
+                    {uploadPhase === "uploading"
+                      ? "Uploading image..."
+                      : uploadPhase === "saving"
+                        ? "Saving snap..."
+                        : uploadStatus === "success"
+                          ? "Uploaded ✓"
+                          : "Upload"}
                   </button>
                 )}
               </div>
