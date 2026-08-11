@@ -1,9 +1,10 @@
 'use client';
 
+/* eslint-disable @next/next/no-img-element */
 import { useState, useRef, useEffect } from 'react';
 
 interface SnapUploaderProps {
-  targetUserId: string; // Used in Milestone 7E for upload API call
+  targetUserId: string; // Used for upload API in parent component
   onUpload?: (file: File) => Promise<void>;
 }
 
@@ -17,6 +18,7 @@ export default function SnapUploader({ targetUserId, onUpload }: SnapUploaderPro
   const [error, setError] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'success'>('idle');
+  const [uploadPhase, setUploadPhase] = useState<'idle' | 'selecting' | 'uploading' | 'saving'>('idle');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -33,6 +35,7 @@ export default function SnapUploader({ targetUserId, onUpload }: SnapUploaderPro
     setSelectedFile(null);
     setPreviewUrl(null);
     setUploadStatus('idle');
+    setUploadPhase('idle');
   };
 
   const handleClose = () => {
@@ -44,6 +47,8 @@ export default function SnapUploader({ targetUserId, onUpload }: SnapUploaderPro
     setSelectedFile(null);
     setError(null);
     setUploadStatus('idle');
+    setUploadPhase('idle');
+    setIsUploading(false);
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -73,17 +78,20 @@ export default function SnapUploader({ targetUserId, onUpload }: SnapUploaderPro
 
     setIsUploading(true);
     setError(null);
+    setUploadPhase('uploading');
 
     try {
       await onUpload(selectedFile);
+      setUploadPhase('saving');
       setUploadStatus('success');
       
       setTimeout(() => {
         handleClose();
       }, 1500);
-    } catch {
-      setError('Upload failed. Please try again.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Upload failed. Please try again.');
       setIsUploading(false);
+      setUploadPhase('idle');
     }
   };
 
@@ -187,7 +195,6 @@ export default function SnapUploader({ targetUserId, onUpload }: SnapUploaderPro
                 <div className="mb-6">
                   <div className="relative aspect-square sm:aspect-video w-full bg-muted rounded-lg overflow-hidden border border-border">
                     {/* img element used for local blob URL preview - Next.js Image doesn't support blob URLs */}
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={previewUrl}
                       alt="Selected image preview"
@@ -258,7 +265,9 @@ export default function SnapUploader({ targetUserId, onUpload }: SnapUploaderPro
                     disabled={!selectedFile || isUploading || uploadStatus === 'success'}
                     className="flex-1 px-4 py-3 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base"
                   >
-                    {isUploading ? 'Uploading...' : uploadStatus === 'success' ? 'Uploaded ✓' : 'Upload'}
+                    {uploadPhase === 'uploading' ? 'Uploading image...' : 
+                     uploadPhase === 'saving' ? 'Saving snap...' :
+                     uploadStatus === 'success' ? 'Uploaded ✓' : 'Upload'}
                   </button>
                 )}
               </div>

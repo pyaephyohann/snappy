@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
     });
 
     const body = await request.json();
-    const { timestamp, public_id, upload_preset } = body;
+    const { timestamp } = body;
 
     if (!timestamp) {
       return NextResponse.json(
@@ -56,15 +56,6 @@ export async function POST(request: NextRequest) {
       timestamp: timestamp.toString(),
       folder: CLOUDINARY_FOLDER,
     };
-
-    // Add optional parameters
-    if (public_id) {
-      paramsToSign.public_id = public_id;
-    }
-
-    if (upload_preset) {
-      paramsToSign.upload_preset = upload_preset;
-    }
 
     // Generate signature using Cloudinary SDK
     const signature = cloudinary.utils.api_sign_request(
