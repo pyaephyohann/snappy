@@ -73,99 +73,119 @@ async function main() {
     {
       userId: createdUsers[0].id,
       imageUrl: "/anya.jpeg",
+      publicId: "legacy-snap-alice-1",
       caption: "Morning coffee ☕",
     },
     {
       userId: createdUsers[0].id,
       imageUrl: "/anya.jpeg",
+      publicId: "legacy-snap-alice-2",
       caption: "Beautiful sunset",
     },
     {
       userId: createdUsers[0].id,
       imageUrl: "/anya.jpeg",
+      publicId: "legacy-snap-alice-3",
       caption: "Weekend hike",
     },
     {
       userId: createdUsers[0].id,
       imageUrl: "/anya.jpeg",
+      publicId: "legacy-snap-alice-4",
     },
 
     // Bob's snaps
     {
       userId: createdUsers[1].id,
       imageUrl: "/anya.jpeg",
+      publicId: "legacy-snap-bob-1",
       caption: "New guitar 🎸",
     },
     {
       userId: createdUsers[1].id,
       imageUrl: "/anya.jpeg",
+      publicId: "legacy-snap-bob-2",
       caption: "Beach day",
     },
     {
       userId: createdUsers[1].id,
       imageUrl: "/anya.jpeg",
+      publicId: "legacy-snap-bob-3",
     },
 
     // Charlie's snaps
     {
       userId: createdUsers[2].id,
       imageUrl: "/anya.jpeg",
+      publicId: "legacy-snap-charlie-1",
       caption: "Cooking experiment",
     },
     {
       userId: createdUsers[2].id,
       imageUrl: "/anya.jpeg",
+      publicId: "legacy-snap-charlie-2",
       caption: "City lights",
     },
     {
       userId: createdUsers[2].id,
       imageUrl: "/anya.jpeg",
+      publicId: "legacy-snap-charlie-3",
       caption: "Road trip",
     },
     {
       userId: createdUsers[2].id,
       imageUrl: "/anya.jpeg",
+      publicId: "legacy-snap-charlie-4",
     },
 
     // David's snaps
     {
       userId: createdUsers[3].id,
       imageUrl: "/anya.jpeg",
+      publicId: "legacy-snap-david-1",
       caption: "Snow day ❄️",
     },
     {
       userId: createdUsers[3].id,
       imageUrl: "/anya.jpeg",
+      publicId: "legacy-snap-david-2",
       caption: "Book lover",
     },
     {
       userId: createdUsers[3].id,
       imageUrl: "/anya.jpeg",
+      publicId: "legacy-snap-david-3",
     },
 
     // Emma's snaps
     {
       userId: createdUsers[4].id,
       imageUrl: "/anya.jpeg",
+      publicId: "legacy-snap-emma-1",
       caption: "Garden bloom",
     },
     {
       userId: createdUsers[4].id,
       imageUrl: "/anya.jpeg",
+      publicId: "legacy-snap-emma-2",
       caption: "Art class",
     },
     {
       userId: createdUsers[4].id,
       imageUrl: "/anya.jpeg",
+      publicId: "legacy-snap-emma-3",
       caption: "Festival vibes",
     },
     {
       userId: createdUsers[4].id,
       imageUrl: "/anya.jpeg",
+      publicId: "legacy-snap-emma-4",
+      caption: "Starry night",
     },
     {
       userId: createdUsers[4].id,
       imageUrl: "/anya.jpeg",
+      publicId: "legacy-snap-emma-5",
       caption: "Starry night",
     },
   ];

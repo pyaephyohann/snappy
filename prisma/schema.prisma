@@ -33,6 +33,7 @@ model User {
 model Snap {
   id        String   @id @default(cuid())
   imageUrl  String
+  publicId  String
   caption   String?
   userId    String
   createdAt DateTime @default(now())
@@ -40,5 +41,6 @@ model Snap {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@index([createdAt])
   @@map("snaps")
 }

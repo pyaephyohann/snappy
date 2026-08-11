@@ -1,3 +1,5 @@
+'use client';
+
 import { motion } from "framer-motion";
 import CameraSplash from "./CameraSplash";
 
@@ -20,7 +22,7 @@ const SplashScreen = () => {
   };
 
   return (
-    <div className="h-screen flex items-center justify-center">
+    <div className="h-screen bg-snap-white flex items-center justify-center">
       <div className="relative flex items-center gap-8 ml-[6rem]">
         {/* Camera Splash */}
         <div className="absolute -left-32 -top-20">
