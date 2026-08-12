@@ -31,6 +31,7 @@ export default function SnapGallery({ snaps, friendName }: SnapGalleryProps) {
         {snaps.map((snap, index) => (
           <SnapCard
             key={snap.id}
+            id={snap.id}
             imageUrl={snap.imageUrl}
             caption={snap.caption}
             createdAt={snap.createdAt}
@@ -51,6 +52,7 @@ export default function SnapGallery({ snaps, friendName }: SnapGalleryProps) {
           caption={viewerSnap.caption}
           friendName={friendName}
           snapIndex={viewerIndex}
+          snapId={viewerSnap.id}
         />
       )}
     </>
