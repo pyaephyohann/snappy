@@ -55,6 +55,10 @@ export default function SnapUploader({
   const handleFileSelect = (file: File) => {
     if (!handleFileValidation(file)) return;
 
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+    }
+
     setSelectedFile(file);
     setPreviewUrl(URL.createObjectURL(file));
   };
@@ -222,6 +226,9 @@ export default function SnapUploader({
 
             {/* Content */}
             <div className="p-4 sm:p-6">
+              {/* Hidden file input always mounted in modal DOM so open() / Change Image works */}
+              <input {...getInputProps()} />
+
               {/* Error Message */}
               {error && (
                 <div
@@ -259,7 +266,6 @@ export default function SnapUploader({
                           : ""
                     }`}
                   >
-                    <input {...getInputProps()} />
                     <div className="text-center p-6">
                       <svg
                         className="w-12 h-12 mx-auto text-muted-foreground mb-3"

@@ -1,8 +1,21 @@
 'use client';
 
 import { useCallback, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import Image from 'next/image';
+// Temporarily disabled for production: Share
+/*
+import {
+  FacebookShareButton,
+  FacebookIcon,
+  WhatsappShareButton,
+  WhatsappIcon,
+  XShareButton,
+  XIcon,
+  TelegramShareButton,
+  TelegramIcon,
+} from 'react-share';
+*/
 import GlowingBorder from '@/components/ui/glowing-border';
 import { GlowButton } from '@/components/ui/glow-button';
 import { buildSnapFilename, downloadImage } from '@/lib/download-image';
@@ -18,6 +31,8 @@ interface SnapCardProps {
   onClick?: () => void;
 }
 
+// Temporarily disabled for production: Comments interface
+/*
 interface Comment {
   id: string;
   content: string;
@@ -30,7 +45,10 @@ interface Comment {
   likeCount: number;
   liked: boolean;
 }
+*/
 
+// Temporarily disabled for production: Reaction types & constants
+/*
 const REACTION_TYPES = ['LIKE', 'LOVE', 'HAHA', 'WOW', 'SAD', 'ANGRY'] as const;
 
 const REACTION_EMOJIS: Record<string, string> = {
@@ -42,19 +60,10 @@ const REACTION_EMOJIS: Record<string, string> = {
   ANGRY: '😡',
 };
 
-const REACTION_NAMES: Record<string, string> = {
-  LIKE: 'Like',
-  LOVE: 'Love',
-  HAHA: 'Haha',
-  WOW: 'Wow',
-  SAD: 'Sad',
-  ANGRY: 'Angry',
-};
-
 const MAX_COMMENT_LENGTH = 500;
+*/
 
 export default function SnapCard({
-  id,
   imageUrl,
   caption,
   createdAt,
@@ -65,15 +74,20 @@ export default function SnapCard({
 }: SnapCardProps) {
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);
+
+  // Temporarily disabled for production: Emoji Picker, Comments, Share states & handlers
+  /*
   const [showReactionPicker, setShowReactionPicker] = useState(false);
   const [showComments, setShowComments] = useState(false);
   const [userReaction, setUserReaction] = useState<string | null>(null);
-  const [reactionCount, setReactionCount] = useState(0);
   const [comments, setComments] = useState<Comment[]>([]);
   const [commentsLoading, setCommentsLoading] = useState(false);
   const [commentsError, setCommentsError] = useState<string | null>(null);
   const [commentInput, setCommentInput] = useState('');
   const [commentSubmitting, setCommentSubmitting] = useState(false);
+  const [showShareMenu, setShowShareMenu] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
+  */
 
   const formatDate = (date: Date | string) => {
     const dateObj = typeof date === 'string' ? new Date(date) : date;
@@ -105,9 +119,14 @@ export default function SnapCard({
     [friendName, snapIndex, imageUrl, isDownloading],
   );
 
-  const handleReaction = async (type: string) => {
+  // Temporarily disabled for production: Reaction, Comment, Share handlers
+  /*
+  const handleReaction = async (type: string, event?: React.MouseEvent) => {
+    if (event) {
+      event.stopPropagation();
+    }
     try {
-      const response = await fetch(`/api/snaps/${id}/reaction`, {
+      const response = await fetch(`/api/snaps/${_id}/reaction`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ type }),
@@ -116,7 +135,6 @@ export default function SnapCard({
       if (response.ok) {
         const data = await response.json();
         setUserReaction(data.reaction?.type || null);
-        setReactionCount(prev => data.reaction ? prev + 1 : prev - 1);
       }
     } catch (error) {
       console.error('Reaction error:', error);
@@ -129,7 +147,7 @@ export default function SnapCard({
       setCommentsLoading(true);
       setCommentsError(null);
       try {
-        const response = await fetch(`/api/snaps/${id}/comments`);
+        const response = await fetch(`/api/snaps/${_id}/comments`);
         if (response.ok) {
           const data = await response.json();
           setComments(data.comments);
@@ -152,7 +170,7 @@ export default function SnapCard({
 
     setCommentSubmitting(true);
     try {
-      const response = await fetch(`/api/snaps/${id}/comments`, {
+      const response = await fetch(`/api/snaps/${_id}/comments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ content: trimmedComment }),
@@ -192,6 +210,44 @@ export default function SnapCard({
       console.error('Comment like error:', error);
     }
   };
+
+  const getSnapUrl = () => {
+    if (typeof window !== 'undefined') {
+      return `${window.location.origin}/friends/${encodeURIComponent(friendName)}`;
+    }
+    return '';
+  };
+
+  const getShareText = () => {
+    return caption || 'Check out this Snap on Snappy!';
+  };
+
+  const handleCopyLink = async () => {
+    const url = getSnapUrl();
+    try {
+      await navigator.clipboard.writeText(url);
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2000);
+    } catch (error) {
+      console.error('Failed to copy link:', error);
+    }
+  };
+
+  const handleNativeShare = async () => {
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      try {
+        await navigator.share({
+          title: `${friendName}'s Snap`,
+          text: getShareText(),
+          url: getSnapUrl(),
+        });
+        setShowShareMenu(false);
+      } catch (error) {
+        console.error('Native share failed:', error);
+      }
+    }
+  };
+  */
 
   return (
     <motion.div
@@ -281,40 +337,34 @@ export default function SnapCard({
             </div>
           </div>
 
-          {(caption || createdAt) && (
-            <div className="p-2 sm:p-4">
-              {caption && (
-                <p className="text-foreground text-xs sm:text-sm mb-1 sm:mb-2 line-clamp-2">{caption}</p>
-              )}
-              {createdAt && (
-                <p className="text-muted-foreground text-xs">{formatDate(createdAt)}</p>
-              )}
-            </div>
-          )}
+          {/* Caption Area */}
+          <div className="p-2 sm:p-4 h-16 sm:h-20 overflow-y-auto overflow-x-hidden caption-scroll">
+            {caption && (
+              <p className="text-foreground text-xs sm:text-sm mb-1 sm:mb-2">{caption}</p>
+            )}
+            {createdAt && (
+              <p className="text-muted-foreground text-xs">{formatDate(createdAt)}</p>
+            )}
+          </div>
 
-          {/* Social Actions */}
+          {/* Social Actions - Temporarily disabled for production */}
+          {/*
           <div className="px-2 sm:px-4 pb-3 sm:pb-4">
-            <div className="flex items-center gap-3 sm:gap-4 border-t border-border pt-3">
-              {/* Reaction */}
-              <div className="relative">
+            <div className="flex items-center gap-2 sm:gap-3 border-t border-border pt-3">
+              <div className="relative flex-shrink-0">
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  onClick={() => setShowReactionPicker(!showReactionPicker)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-secondary/50 hover:bg-secondary/80 transition-colors focus:outline-none focus:ring-2 focus:ring-ring text-sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowReactionPicker(!showReactionPicker);
+                  }}
+                  className="flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-secondary/50 hover:bg-secondary/80 transition-colors focus:outline-none focus:ring-2 focus:ring-ring"
                   aria-label="React to snap"
                 >
-                  <span className="text-lg">
+                  <span className="text-xl sm:text-2xl">
                     {userReaction ? REACTION_EMOJIS[userReaction] : '👍'}
                   </span>
-                  <span className="text-xs text-muted-foreground">
-                    {userReaction ? REACTION_NAMES[userReaction] : 'React'}
-                  </span>
-                  {reactionCount > 0 && (
-                    <span className="text-xs text-muted-foreground ml-1">
-                      {reactionCount}
-                    </span>
-                  )}
                 </motion.button>
 
                 <AnimatePresence>
@@ -322,13 +372,17 @@ export default function SnapCard({
                     <>
                       <div
                         className="fixed inset-0 z-50"
-                        onClick={() => setShowReactionPicker(false)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowReactionPicker(false);
+                        }}
                       />
                       <motion.div
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: 10 }}
                         className="absolute bottom-full left-0 mb-2 z-50"
+                        onClick={(e) => e.stopPropagation()}
                       >
                         <div className="bg-card border border-border rounded-lg shadow-xl p-2 flex gap-1">
                           {REACTION_TYPES.map((type) => (
@@ -336,10 +390,10 @@ export default function SnapCard({
                               key={type}
                               whileHover={{ scale: 1.2 }}
                               whileTap={{ scale: 0.9 }}
-                              onClick={() => handleReaction(type)}
+                              onClick={(e) => handleReaction(type, e)}
                               className="p-2 hover:bg-secondary/50 rounded-lg transition-colors text-2xl"
-                              aria-label={REACTION_NAMES[type]}
-                              title={REACTION_NAMES[type]}
+                              aria-label={type.toLowerCase()}
+                              title={type}
                             >
                               {REACTION_EMOJIS[type]}
                             </motion.button>
@@ -351,41 +405,144 @@ export default function SnapCard({
                 </AnimatePresence>
               </div>
 
-              {/* Comment */}
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                onClick={handleCommentToggle}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-secondary/50 hover:bg-secondary/80 transition-colors focus:outline-none focus:ring-2 focus:ring-ring text-sm"
-                aria-label="Comment on snap"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleCommentToggle();
+                }}
+                className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg bg-secondary/50 hover:bg-secondary/80 transition-colors focus:outline-none focus:ring-2 focus:ring-ring flex-shrink-0"
+                aria-label="View comments"
               >
-                <span className="text-lg">💬</span>
-                <span className="text-xs text-muted-foreground">
-                  Comment
-                </span>
+                <svg
+                  className="w-5 h-5 sm:w-6 sm:h-6"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                  />
+                </svg>
                 {comments.length > 0 && (
-                  <span className="text-xs text-muted-foreground ml-1">
+                  <span className="text-xs text-muted-foreground">
                     {comments.length}
                   </span>
                 )}
               </motion.button>
 
-              {/* Share (placeholder for Milestone 8C) */}
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-secondary/50 hover:bg-secondary/80 transition-colors focus:outline-none focus:ring-2 focus:ring-ring text-sm opacity-50 cursor-not-allowed"
-                aria-label="Share snap"
-                disabled
-              >
-                <span className="text-lg">📤</span>
-                <span className="text-xs text-muted-foreground">
-                  Share
-                </span>
-              </motion.button>
+              <div className="relative flex-shrink-0">
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setShowShareMenu(!showShareMenu)}
+                  className="flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-secondary/50 hover:bg-secondary/80 transition-colors focus:outline-none focus:ring-2 focus:ring-ring"
+                  aria-label="Share snap"
+                >
+                  <svg
+                    className="w-5 h-5 sm:w-6 sm:h-6"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
+                    />
+                  </svg>
+                </motion.button>
+
+                <AnimatePresence>
+                  {showShareMenu && (
+                    <>
+                      <div
+                        className="fixed inset-0 z-50"
+                        onClick={() => setShowShareMenu(false)}
+                      />
+                      <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 10 }}
+                        className="absolute bottom-full right-0 mb-2 z-50"
+                      >
+                        <div className="bg-card border border-border rounded-lg shadow-xl p-3 min-w-[200px]">
+                          <div className="flex flex-col gap-2">
+                            {typeof navigator !== 'undefined' && 'share' in navigator && (
+                              <motion.button
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                onClick={handleNativeShare}
+                                className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-secondary/50 transition-colors text-sm"
+                                aria-label="Share using native share"
+                              >
+                                <span className="text-lg">📱</span>
+                                <span>Share</span>
+                              </motion.button>
+                            )}
+                            
+                            <FacebookShareButton
+                              url={getSnapUrl()}
+                              className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-secondary/50 transition-colors text-sm"
+                              aria-label="Share on Facebook"
+                            >
+                              <FacebookIcon size={20} round />
+                              <span>Facebook</span>
+                            </FacebookShareButton>
+                            
+                            <WhatsappShareButton
+                              url={getSnapUrl()}
+                              className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-secondary/50 transition-colors text-sm"
+                              aria-label="Share on WhatsApp"
+                            >
+                              <WhatsappIcon size={20} round />
+                              <span>WhatsApp</span>
+                            </WhatsappShareButton>
+                            
+                            <XShareButton
+                              url={getSnapUrl()}
+                              className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-secondary/50 transition-colors text-sm"
+                              aria-label="Share on X"
+                            >
+                              <XIcon size={20} round />
+                              <span>X</span>
+                            </XShareButton>
+                            
+                            <TelegramShareButton
+                              url={getSnapUrl()}
+                              className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-secondary/50 transition-colors text-sm"
+                              aria-label="Share on Telegram"
+                            >
+                              <TelegramIcon size={20} round />
+                              <span>Telegram</span>
+                            </TelegramShareButton>
+                            
+                            <div className="border-t border-border pt-2 mt-1">
+                              <motion.button
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                onClick={handleCopyLink}
+                                className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-secondary/50 transition-colors text-sm w-full"
+                                aria-label="Copy link"
+                              >
+                                <span className="text-lg">🔗</span>
+                                <span>{linkCopied ? 'Link copied!' : 'Copy link'}</span>
+                              </motion.button>
+                            </div>
+                          </div>
+                        </div>
+                      </motion.div>
+                    </>
+                  )}
+                </AnimatePresence>
+              </div>
             </div>
 
-            {/* Comments Section */}
             <AnimatePresence>
               {showComments && (
                 <motion.div
@@ -459,7 +616,6 @@ export default function SnapCard({
                     </div>
                   )}
 
-                  {/* Comment Input */}
                   <div className="mt-3 pt-3 border-t border-border">
                     <div className="flex gap-2">
                       <input
@@ -491,8 +647,10 @@ export default function SnapCard({
               )}
             </AnimatePresence>
           </div>
+          */}
         </div>
       </GlowingBorder>
     </motion.div>
   );
 }
+

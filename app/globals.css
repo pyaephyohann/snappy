@@ -184,6 +184,24 @@ button {
   background: var(--border);
 }
 
+/* Subtle scrollbar for caption area */
+.caption-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+
+.caption-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.caption-scroll::-webkit-scrollbar-thumb {
+  background: var(--muted);
+  border-radius: 2px;
+}
+
+.caption-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--border);
+}
+
 /* Splash Screen Styles */
 .bg-snap-white {
   background-color: #ffffff;

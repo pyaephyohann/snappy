@@ -1,7 +1,6 @@
-import { PrismaClient } from "@prisma/client";
+import "dotenv/config";
+import { prisma } from "../lib/prisma";
 import bcrypt from "bcryptjs";
-
-const prisma = new PrismaClient();
 
 async function main() {
   console.log("🌱 Starting seed...");
@@ -24,27 +23,53 @@ async function main() {
     console.log("⏭️  Access credential already exists, skipping");
   }
 
+  // Seed AdminCredential
+  const existingAdminCredential = await prisma.adminCredential.findFirst();
+
+  if (!existingAdminCredential) {
+    const adminPasscodeHash = await bcrypt.hash(developmentPasscode, 10);
+    await prisma.adminCredential.create({
+      data: {
+        passcodeHash: adminPasscodeHash,
+      },
+    });
+    console.log("✅ Created admin credential");
+    console.log(`   Development admin passcode: ${developmentPasscode}`);
+  } else {
+    console.log("⏭️  Admin credential already exists, skipping");
+  }
+
   // Seed Users
   const users = [
     {
+      name: "Ikki",
+      profileImage: "/anya.jpeg",
+      role: "ADMIN" as const,
+    },
+    {
       name: "Alice",
       profileImage: "/anya.jpeg",
+      role: "USER" as const,
     },
     {
       name: "Bob",
       profileImage: "/anya.jpeg",
+      role: "USER" as const,
     },
     {
       name: "Charlie",
       profileImage: "/anya.jpeg",
+      role: "USER" as const,
     },
     {
       name: "David",
       profileImage: "/anya.jpeg",
+      role: "USER" as const,
     },
     {
       name: "Emma",
       profileImage: "/anya.jpeg",
+      role: "USER" as const,
     },
   ];
 
@@ -62,8 +87,17 @@ async function main() {
       createdUsers.push(user);
       console.log(`✅ Created user: ${user.name}`);
     } else {
-      createdUsers.push(existingUser);
-      console.log(`⏭️  User already exists: ${existingUser.name}, skipping`);
+      if (userData.role === "ADMIN" && existingUser.role !== "ADMIN") {
+        const updatedUser = await prisma.user.update({
+          where: { id: existingUser.id },
+          data: { role: "ADMIN" },
+        });
+        createdUsers.push(updatedUser);
+        console.log(`✅ Promoted user to admin: ${updatedUser.name}`);
+      } else {
+        createdUsers.push(existingUser);
+        console.log(`⏭️  User already exists: ${existingUser.name}, skipping`);
+      }
     }
   }
 

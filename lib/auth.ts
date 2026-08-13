@@ -117,3 +117,20 @@ export async function verifyPasscode(passcode: string): Promise<boolean> {
     throw error;
   }
 }
+
+export async function updateSharedPasscode(passcode: string): Promise<void> {
+  const passcodeHash = await bcrypt.hash(passcode, 10);
+  const existingCredential = await prisma.accessCredential.findFirst();
+
+  if (existingCredential) {
+    await prisma.accessCredential.update({
+      where: { id: existingCredential.id },
+      data: { passcodeHash },
+    });
+    return;
+  }
+
+  await prisma.accessCredential.create({
+    data: { passcodeHash },
+  });
+}

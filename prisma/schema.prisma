@@ -2,12 +2,17 @@
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
-  provider = "prisma-client-js"
+  provider = "prisma-client"
+  output   = "../generated/prisma"
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider = "postgresql"
+}
+
+enum UserRole {
+  USER
+  ADMIN
 }
 
 model AccessCredential {
@@ -19,10 +24,20 @@ model AccessCredential {
   @@map("access_credentials")
 }
 
+model AdminCredential {
+  id           String   @id @default(cuid())
+  passcodeHash String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("admin_credentials")
+}
+
 model User {
   id             String        @id @default(cuid())
   name           String        @unique
   profileImage   String
+  role           UserRole      @default(USER)
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
   snaps          Snap[]

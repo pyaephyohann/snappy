@@ -5,17 +5,15 @@ import { getSession } from '@/lib/auth';
 export default async function proxy(request: NextRequest) {
   const path = request.nextUrl.pathname;
 
-  // Protect /home and /friends routes
+  // Protect /home and /friends routes (user app only)
   if (path.startsWith('/home') || path.startsWith('/friends')) {
     const session = await getSession();
 
     if (!session) {
-      // Redirect to auth page if not authenticated
       return NextResponse.redirect(new URL('/', request.url));
     }
   }
 
-  // Allow access to auth page and other public routes
   return NextResponse.next();
 }
 
