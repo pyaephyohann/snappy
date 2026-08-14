@@ -5,7 +5,12 @@ import Image from "next/image";
 import { motion } from "framer-motion";
 import ConfirmDialog from "@/components/admin/ConfirmDialog";
 import UserFormModal from "@/components/admin/UserFormModal";
-import { EditIcon, PlusIcon, SearchIcon, TrashIcon } from "@/components/admin/icons";
+import {
+  EditIcon,
+  PlusIcon,
+  SearchIcon,
+  TrashIcon,
+} from "@/components/admin/icons";
 import { useToast } from "@/components/admin/ToastProvider";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { AdminUser } from "@/lib/admin-types";
@@ -35,7 +40,9 @@ export default function UsersPageClient() {
       if (search.trim()) params.set("search", search.trim());
       if (roleFilter !== "ALL") params.set("role", roleFilter);
 
-      const response = await adminFetch(`/api/admin/users?${params.toString()}`);
+      const response = await adminFetch(
+        `/api/admin/users?${params.toString()}`,
+      );
       if (!response.ok) {
         throw new Error("Failed to load users");
       }
@@ -93,7 +100,7 @@ export default function UsersPageClient() {
           method: modalMode === "create" ? "POST" : "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(data),
-        }
+        },
       );
 
       const result = (await response.json()) as { error?: string };
@@ -104,7 +111,9 @@ export default function UsersPageClient() {
       }
 
       showToast(
-        modalMode === "create" ? "User created successfully" : "User updated successfully"
+        modalMode === "create"
+          ? "User created successfully"
+          : "User updated successfully",
       );
       setModalOpen(false);
       await fetchUsers();
@@ -146,7 +155,9 @@ export default function UsersPageClient() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold">Users</h1>
-          <p className="mt-1 text-sm text-muted-foreground">{filteredCountLabel}</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {filteredCountLabel}
+          </p>
         </div>
         <button
           type="button"
@@ -160,7 +171,6 @@ export default function UsersPageClient() {
 
       <div className="flex flex-col gap-3 sm:flex-row">
         <div className="relative flex-1">
-          <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <input
             type="search"
             value={search}
@@ -181,7 +191,11 @@ export default function UsersPageClient() {
                   : "border border-border text-muted-foreground hover:text-foreground"
               }`}
             >
-              {filter === "ALL" ? "All" : filter === "USER" ? "Users" : "Admins"}
+              {filter === "ALL"
+                ? "All"
+                : filter === "USER"
+                  ? "Users"
+                  : "Admins"}
             </button>
           ))}
         </div>
@@ -214,11 +228,21 @@ export default function UsersPageClient() {
             <table className="min-w-full divide-y divide-border">
               <thead className="bg-muted/40">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">User</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Role</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Snaps</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Created</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground">Actions</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    User
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    Role
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    Snaps
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    Created
+                  </th>
+                  <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -242,16 +266,22 @@ export default function UsersPageClient() {
                       </div>
                     </td>
                     <td className="px-4 py-4">
-                      <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-                        user.role === "ADMIN"
-                          ? "bg-primary/10 text-primary"
-                          : "bg-muted text-muted-foreground"
-                      }`}>
+                      <span
+                        className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+                          user.role === "ADMIN"
+                            ? "bg-primary/10 text-primary"
+                            : "bg-muted text-muted-foreground"
+                        }`}
+                      >
                         {user.role}
                       </span>
                     </td>
-                    <td className="px-4 py-4 text-sm text-muted-foreground">{user.snapCount}</td>
-                    <td className="px-4 py-4 text-sm text-muted-foreground">{formatAdminDate(user.createdAt)}</td>
+                    <td className="px-4 py-4 text-sm text-muted-foreground">
+                      {user.snapCount}
+                    </td>
+                    <td className="px-4 py-4 text-sm text-muted-foreground">
+                      {formatAdminDate(user.createdAt)}
+                    </td>
                     <td className="px-4 py-4">
                       <div className="flex justify-end gap-2">
                         <button
@@ -283,7 +313,10 @@ export default function UsersPageClient() {
 
           <div className="space-y-3 md:hidden">
             {users.map((user) => (
-              <div key={user.id} className="rounded-2xl border border-border bg-card p-4">
+              <div
+                key={user.id}
+                className="rounded-2xl border border-border bg-card p-4"
+              >
                 <div className="flex items-center gap-3">
                   <Image
                     src={user.profileImage}

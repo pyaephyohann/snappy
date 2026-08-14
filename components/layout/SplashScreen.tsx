@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import CameraSplash from "./CameraSplash";
 
 const SplashScreen = () => {
   const text = "Snappy";
@@ -24,9 +25,9 @@ const SplashScreen = () => {
     <div className="h-screen flex items-center justify-center">
       <div className="relative">
         {/* Camera Splash */}
-        {/* <div className="absolute -left-32 -top-20">
+        <div className="absolute -left-32 -top-20">
           <CameraSplash />
-        </div> */}
+        </div>
 
         {/* Text */}
         <motion.h1

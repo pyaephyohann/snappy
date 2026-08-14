@@ -75,7 +75,10 @@ export default function SnapsPageClient() {
         }),
       });
 
-      const result = (await response.json()) as { error?: string; snap?: AdminSnap };
+      const result = (await response.json()) as {
+        error?: string;
+        snap?: AdminSnap;
+      };
 
       if (!response.ok || !result.snap) {
         setFormError(result.error ?? "Failed to update snap");
@@ -83,7 +86,9 @@ export default function SnapsPageClient() {
       }
 
       setSnaps((current) =>
-        current.map((snap) => (snap.id === result.snap!.id ? result.snap! : snap))
+        current.map((snap) =>
+          snap.id === result.snap!.id ? result.snap! : snap,
+        ),
       );
       showToast("Snap updated successfully");
       setEditOpen(false);
@@ -109,7 +114,9 @@ export default function SnapsPageClient() {
         return;
       }
 
-      setSnaps((current) => current.filter((snap) => snap.id !== selectedSnap.id));
+      setSnaps((current) =>
+        current.filter((snap) => snap.id !== selectedSnap.id),
+      );
       showToast("Snap deleted successfully");
       setDeleteOpen(false);
       setSelectedSnap(null);
@@ -125,12 +132,13 @@ export default function SnapsPageClient() {
       <div>
         <h1 className="text-2xl font-semibold">Snaps</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          {loading ? "Loading snaps..." : `${snaps.length} snap${snaps.length === 1 ? "" : "s"}`}
+          {loading
+            ? "Loading snaps..."
+            : `${snaps.length} snap${snaps.length === 1 ? "" : "s"}`}
         </p>
       </div>
 
       <div className="relative max-w-xl">
-        <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
         <input
           type="search"
           value={search}
@@ -188,7 +196,9 @@ export default function SnapsPageClient() {
                   </div>
                 </div>
                 {snap.caption && (
-                  <p className="line-clamp-2 text-sm text-muted-foreground">{snap.caption}</p>
+                  <p className="line-clamp-2 text-sm text-muted-foreground">
+                    {snap.caption}
+                  </p>
                 )}
                 <div className="flex gap-2">
                   <button
