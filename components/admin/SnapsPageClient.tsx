@@ -5,7 +5,7 @@ import Image from "next/image";
 import { motion } from "framer-motion";
 import ConfirmDialog from "@/components/admin/ConfirmDialog";
 import SnapFormModal from "@/components/admin/SnapFormModal";
-import { EditIcon, SearchIcon, TrashIcon } from "@/components/admin/icons";
+import { EditIcon, TrashIcon } from "@/components/admin/icons";
 import { useToast } from "@/components/admin/ToastProvider";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { AdminSnap, AdminUser } from "@/lib/admin-types";

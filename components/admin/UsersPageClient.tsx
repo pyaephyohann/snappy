@@ -8,7 +8,6 @@ import UserFormModal from "@/components/admin/UserFormModal";
 import {
   EditIcon,
   PlusIcon,
-  SearchIcon,
   TrashIcon,
 } from "@/components/admin/icons";
 import { useToast } from "@/components/admin/ToastProvider";
