@@ -122,6 +122,7 @@ export async function verifyAdminPasscode(
     const credential = await prisma.adminCredential.findFirst();
 
     if (!credential) {
+      console.error("No admin credential found in database");
       recordFailedAttempt(clientKey);
       return false;
     }
@@ -135,7 +136,8 @@ export async function verifyAdminPasscode(
 
     clearFailedAttempts(clientKey);
     return true;
-  } catch {
+  } catch (error) {
+    console.error("Error verifying admin passcode:", error instanceof Error ? error.message : "Unknown error");
     recordFailedAttempt(clientKey);
     return false;
   }

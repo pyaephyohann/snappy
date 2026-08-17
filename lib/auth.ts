@@ -108,12 +108,14 @@ export async function verifyPasscode(passcode: string): Promise<boolean> {
     const credential = await prisma.accessCredential.findFirst();
     
     if (!credential) {
+      console.error("No access credential found in database");
       return false;
     }
 
     const result = await bcrypt.compare(passcode, credential.passcodeHash);
     return result;
   } catch (error) {
+    console.error("Error verifying passcode:", error instanceof Error ? error.message : "Unknown error");
     throw error;
   }
 }

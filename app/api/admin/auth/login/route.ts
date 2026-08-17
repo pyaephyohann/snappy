@@ -32,6 +32,7 @@ export async function POST(request: NextRequest) {
     const isValid = await verifyAdminPasscode(validation.data.passcode, clientIp);
 
     if (!isValid) {
+      console.error("Admin login failed: Invalid passcode");
       return NextResponse.json(
         { error: "Invalid admin passcode" },
         { status: 401 }
@@ -43,10 +44,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true });
   } catch (error) {
     if (error instanceof AdminAuthError) {
+      console.error("Admin auth error:", error.message);
       return NextResponse.json({ error: error.message }, { status: error.status });
     }
 
-    console.error("Admin login error:", error);
+    console.error("Admin login error:", error instanceof Error ? error.message : "Unknown error");
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
