@@ -105,17 +105,23 @@ export async function clearSession(): Promise<void> {
 
 export async function verifyPasscode(passcode: string): Promise<boolean> {
   try {
+    console.log('[AUTH] Starting passcode verification');
+    console.log('[AUTH] DATABASE_URL set:', !!process.env.DATABASE_URL);
+    
     const credential = await prisma.accessCredential.findFirst();
     
     if (!credential) {
-      console.error("No access credential found in database");
+      console.error("[AUTH] No access credential found in database");
       return false;
     }
 
+    console.log('[AUTH] Access credential found in database');
     const result = await bcrypt.compare(passcode, credential.passcodeHash);
+    console.log('[AUTH] Passcode comparison result:', result);
     return result;
   } catch (error) {
-    console.error("Error verifying passcode:", error instanceof Error ? error.message : "Unknown error");
+    console.error("[AUTH] Error verifying passcode:", error instanceof Error ? error.message : "Unknown error");
+    console.error("[AUTH] Error stack:", error instanceof Error ? error.stack : "No stack trace");
     throw error;
   }
 }

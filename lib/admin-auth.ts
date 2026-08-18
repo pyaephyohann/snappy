@@ -119,15 +119,21 @@ export async function verifyAdminPasscode(
   assertNotRateLimited(clientKey);
 
   try {
+    console.log('[ADMIN AUTH] Starting admin passcode verification');
+    console.log('[ADMIN AUTH] DATABASE_URL set:', !!process.env.DATABASE_URL);
+    console.log('[ADMIN AUTH] Client key:', clientKey);
+    
     const credential = await prisma.adminCredential.findFirst();
 
     if (!credential) {
-      console.error("No admin credential found in database");
+      console.error("[ADMIN AUTH] No admin credential found in database");
       recordFailedAttempt(clientKey);
       return false;
     }
 
+    console.log('[ADMIN AUTH] Admin credential found in database');
     const isValid = await bcrypt.compare(passcode, credential.passcodeHash);
+    console.log('[ADMIN AUTH] Passcode comparison result:', isValid);
 
     if (!isValid) {
       recordFailedAttempt(clientKey);
@@ -137,7 +143,8 @@ export async function verifyAdminPasscode(
     clearFailedAttempts(clientKey);
     return true;
   } catch (error) {
-    console.error("Error verifying admin passcode:", error instanceof Error ? error.message : "Unknown error");
+    console.error("[ADMIN AUTH] Error verifying admin passcode:", error instanceof Error ? error.message : "Unknown error");
+    console.error("[ADMIN AUTH] Error stack:", error instanceof Error ? error.stack : "No stack trace");
     recordFailedAttempt(clientKey);
     return false;
   }

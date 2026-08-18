@@ -15,10 +15,13 @@ const loginSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
+    console.log('[ADMIN LOGIN] Starting admin login request');
+    
     const body = await request.json();
     const validation = loginSchema.safeParse(body);
 
     if (!validation.success) {
+      console.log('[ADMIN LOGIN] Validation failed:', validation.error);
       return NextResponse.json(
         { error: "Invalid request data" },
         { status: 400 }
@@ -29,26 +32,34 @@ export async function POST(request: NextRequest) {
       request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
       request.headers.get("x-real-ip");
 
+    console.log('[ADMIN LOGIN] Client IP:', clientIp);
+    console.log('[ADMIN LOGIN] DATABASE_URL set:', !!process.env.DATABASE_URL);
+    console.log('[ADMIN LOGIN] AUTH_SECRET set:', !!process.env.AUTH_SECRET);
+
     const isValid = await verifyAdminPasscode(validation.data.passcode, clientIp);
+    console.log('[ADMIN LOGIN] Passcode validation result:', isValid);
 
     if (!isValid) {
-      console.error("Admin login failed: Invalid passcode");
+      console.error("[ADMIN LOGIN] Admin login failed: Invalid passcode");
       return NextResponse.json(
         { error: "Invalid admin passcode" },
         { status: 401 }
       );
     }
 
+    console.log('[ADMIN LOGIN] Creating admin session');
     await createAdminSession();
+    console.log('[ADMIN LOGIN] Admin session created successfully');
 
     return NextResponse.json({ success: true });
   } catch (error) {
     if (error instanceof AdminAuthError) {
-      console.error("Admin auth error:", error.message);
+      console.error("[ADMIN LOGIN] Admin auth error:", error.message);
       return NextResponse.json({ error: error.message }, { status: error.status });
     }
 
-    console.error("Admin login error:", error instanceof Error ? error.message : "Unknown error");
+    console.error("[ADMIN LOGIN] Admin login error:", error instanceof Error ? error.message : "Unknown error");
+    console.error("[ADMIN LOGIN] Error stack:", error instanceof Error ? error.stack : "No stack trace");
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
