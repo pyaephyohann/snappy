@@ -31,9 +31,10 @@ async function test() {
     console.log("   Token created:", token.length > 0 ? "OK" : "FAIL");
 
     console.log("\n✅ All production auth checks passed");
-  } catch (err) {
-    console.error("\n❌ Error:", err.message);
-    console.error("   Stack:", err.stack);
+  } catch (err: unknown) {
+    const error = err instanceof Error ? err : new Error(String(err));
+    console.error("\n❌ Error:", error.message);
+    console.error("   Stack:", error.stack);
   } finally {
     await prisma.$disconnect();
   }
