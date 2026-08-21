@@ -7,7 +7,7 @@ import {
   isPrismaUniqueError,
   requireAdminApi,
 } from "@/lib/admin-api";
-import type { Prisma } from "@/generated/prisma/client";
+import type { Prisma } from "@prisma/client";
 
 const createUserSchema = z.object({
   name: z

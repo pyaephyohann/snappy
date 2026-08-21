@@ -1,4 +1,4 @@
-import { PrismaClient } from "../generated/prisma/client";
+import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 
@@ -31,7 +31,7 @@ async function test() {
     console.log("   Token created:", token.length > 0 ? "OK" : "FAIL");
 
     console.log("\n✅ All production auth checks passed");
-  } catch (err: any) {
+  } catch (err) {
     console.error("\n❌ Error:", err.message);
     console.error("   Stack:", err.stack);
   } finally {
