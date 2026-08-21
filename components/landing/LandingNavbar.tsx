@@ -45,7 +45,7 @@ export default function LandingNavbar() {
         }`}
       >
         <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16 sm:h-20">
+          <div className="flex items-center justify-between">
             {/* Logo */}
             <Link
               href="/"
@@ -54,13 +54,13 @@ export default function LandingNavbar() {
             >
               <Image
                 src="/logo.png"
-                alt=""
-                width={40}
-                height={40}
-                className="w-8 h-8 sm:w-10 sm:h-10 group-hover:scale-110 transition-transform duration-200"
+                alt="Snappy Logo"
+                width={96}
+                height={96}
+                className="w-24 h-24 group-hover:scale-105 transition-transform duration-200"
                 priority
               />
-              <span className="text-xl sm:text-2xl font-bold text-primary caveat-font">
+              <span className="text-2xl sm:text-4xl lg:text-5xl font-bold text-primary caveat-font">
                 Snappy
               </span>
             </Link>

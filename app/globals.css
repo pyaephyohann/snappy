@@ -103,14 +103,15 @@ body {
   outline-offset: 2px;
 }
 
-/* Links */
-a {
+/* Links — plain text links get primary color, but links with a
+   background (buttons) keep their own text color. */
+a:not([class*="bg-"]) {
   color: var(--primary);
   text-decoration: none;
   transition: color 0.15s ease;
 }
 
-a:hover {
+a:not([class*="bg-"]):hover {
   color: #a78bfa;
 }
 
