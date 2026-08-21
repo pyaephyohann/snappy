@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { createSession, verifyPasscode } from '@/lib/auth';
 
+const isDev = process.env.NODE_ENV !== 'production';
+
 const loginSchema = z.object({
   username: z
     .string()
@@ -16,53 +18,53 @@ const loginSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
-    console.log('[AUTH LOGIN] Starting login request');
-    
+    if (isDev) console.log('[AUTH LOGIN] Starting login request');
+
     const body = await request.json();
 
     // Validate request body
     const validationResult = loginSchema.safeParse(body);
-    
+
     if (!validationResult.success) {
-      console.log('[AUTH LOGIN] Validation failed:', validationResult.error);
+      if (isDev) console.log('[AUTH LOGIN] Validation failed:', validationResult.error);
       return NextResponse.json(
         { error: 'Invalid request data' },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     const { username, passcode } = validationResult.data;
-    console.log('[AUTH LOGIN] Username provided:', username);
-    console.log('[AUTH LOGIN] DATABASE_URL set:', !!process.env.DATABASE_URL);
-    console.log('[AUTH LOGIN] AUTH_SECRET set:', !!process.env.AUTH_SECRET);
+    if (isDev) console.log('[AUTH LOGIN] Username provided:', username);
 
-    // Verify passcode
-    const isValidPasscode = await verifyPasscode(passcode);
-    console.log('[AUTH LOGIN] Passcode validation result:', isValidPasscode);
+    // Authentication is passcode-only. The username is a free-form display
+    // value — any username + correct passcode succeeds.
+    const valid = await verifyPasscode(passcode);
 
-    if (!isValidPasscode) {
+    if (!valid) {
+      if (isDev) console.log('[AUTH LOGIN] Invalid passcode for username:', username);
       return NextResponse.json(
-        { error: 'Invalid credentials' },
-        { status: 401 }
+        { error: 'Invalid passcode. Please try again.' },
+        { status: 401 },
       );
     }
 
-    // Create session
-    console.log('[AUTH LOGIN] Creating session for user:', username);
+    // Create session with the username the user typed
+    if (isDev) console.log('[AUTH LOGIN] Creating session for:', username);
     await createSession(username);
-    console.log('[AUTH LOGIN] Session created successfully');
+    if (isDev) console.log('[AUTH LOGIN] Session created successfully');
 
     return NextResponse.json(
       { success: true, message: 'Authentication successful' },
-      { status: 200 }
+      { status: 200 },
     );
 
   } catch (error) {
-    console.error('[AUTH LOGIN] Error:', error instanceof Error ? error.message : 'Unknown error');
-    console.error('[AUTH LOGIN] Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+    if (isDev) {
+      console.error('[AUTH LOGIN] Error:', error instanceof Error ? error.message : 'Unknown error');
+    }
     return NextResponse.json(
       { error: 'Internal server error' },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

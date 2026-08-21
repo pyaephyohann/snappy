@@ -1,14 +1,7 @@
 import { NextResponse } from "next/server";
 import { AdminAuthError, requireAdminSession } from "@/lib/admin-auth";
 
-// TEMPORARY AUTHENTICATION BYPASS FOR DEBUGGING
-const BYPASS_AUTH = process.env.BYPASS_AUTH === "true";
-
 export async function requireAdminApi() {
-  // TEMPORARY: Skip authentication check if BYPASS_AUTH is enabled
-  if (BYPASS_AUTH) {
-    return;
-  }
   return requireAdminSession();
 }
 

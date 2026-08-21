@@ -6,14 +6,10 @@ import HeroCarousel from "@/components/home/HeroCarousel";
 import Navbar from "@/components/layout/Navbar";
 import GlowingBorder from "@/components/ui/glowing-border";
 
-// TEMPORARY AUTHENTICATION BYPASS FOR DEBUGGING
-const BYPASS_AUTH = process.env.BYPASS_AUTH === "true";
-
 export default async function HomePage() {
   const session = await getSession();
 
-  // TEMPORARY: Skip authentication check if BYPASS_AUTH is enabled
-  if (!session && !BYPASS_AUTH) {
+  if (!session) {
     redirect("/");
   }
 
@@ -32,7 +28,7 @@ export default async function HomePage() {
   return (
     <div className="min-h-screen bg-background">
       {/* Navbar */}
-      <Navbar username={session?.username || "Guest"} />
+      <Navbar username={session.username} />
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">

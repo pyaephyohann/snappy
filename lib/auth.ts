@@ -5,7 +5,25 @@ import crypto from 'crypto';
 
 const SESSION_COOKIE_NAME = 'snappy_session';
 const SESSION_MAX_AGE = 60 * 60 * 24 * 7; // 7 days in seconds
-const SESSION_SECRET = process.env.AUTH_SECRET || 'dev-secret-change-in-production';
+
+/**
+ * Returns the HMAC secret used to sign session tokens.
+ *
+ * CRITICAL: AUTH_SECRET **must** be set in every environment (Vercel, CI, etc.).
+ * The old fallback to a hardcoded dev secret meant that production sessions
+ * were signed with a value visible in the public source code, making
+ * token forgery trivial.
+ */
+function getSessionSecret(): string {
+  const secret = process.env.AUTH_SECRET;
+  if (!secret) {
+    throw new Error(
+      '[AUTH] FATAL: AUTH_SECRET environment variable is not set. ' +
+      'Set a strong, random value in your Vercel environment variables.',
+    );
+  }
+  return secret;
+}
 
 export interface SessionData {
   username: string;
@@ -13,39 +31,41 @@ export interface SessionData {
 }
 
 function createSessionToken(data: SessionData): string {
+  const secret = getSessionSecret();
   const timestamp = Date.now();
   const payload = JSON.stringify({ ...data, timestamp });
   const signature = crypto
-    .createHmac('sha256', SESSION_SECRET)
+    .createHmac('sha256', secret)
     .update(payload)
     .digest('hex');
-  
+
   return Buffer.from(`${payload}.${signature}`).toString('base64');
 }
 
 function verifySessionToken(token: string): SessionData | null {
   try {
+    const secret = getSessionSecret();
     const decoded = Buffer.from(token, 'base64').toString('utf-8');
     const [payload, signature] = decoded.split('.');
-    
+
     if (!payload || !signature) {
       return null;
     }
 
     const expectedSignature = crypto
-      .createHmac('sha256', SESSION_SECRET)
+      .createHmac('sha256', secret)
       .update(payload)
       .digest('hex');
-    
+
     if (signature !== expectedSignature) {
       return null;
     }
 
     const data = JSON.parse(payload) as SessionData & { timestamp: number };
-    
+
     // Check session age (7 days)
-    const sessionAge = Date.now() - data.timestamp;
-    if (sessionAge > SESSION_MAX_AGE * 1000) {
+    const sessionAgeMs = Date.now() - data.timestamp;
+    if (sessionAgeMs > SESSION_MAX_AGE * 1000) {
       return null;
     }
 
@@ -60,7 +80,7 @@ function verifySessionToken(token: string): SessionData | null {
 
 export async function createSession(username: string): Promise<void> {
   const cookieStore = await cookies();
-  
+
   const sessionData: SessionData = {
     username,
     authenticated: true,
@@ -90,7 +110,7 @@ export async function getSession(): Promise<SessionData | null> {
 
 export async function requireSession(): Promise<SessionData> {
   const session = await getSession();
-  
+
   if (!session) {
     throw new Error('Unauthorized');
   }
@@ -103,27 +123,28 @@ export async function clearSession(): Promise<void> {
   cookieStore.delete(SESSION_COOKIE_NAME);
 }
 
-export async function verifyPasscode(passcode: string): Promise<boolean> {
-  try {
-    console.log('[AUTH] Starting passcode verification');
-    console.log('[AUTH] DATABASE_URL set:', !!process.env.DATABASE_URL);
-    
-    const credential = await prisma.accessCredential.findFirst();
-    
-    if (!credential) {
-      console.error("[AUTH] No access credential found in database");
-      return false;
-    }
+/**
+ * Verify a passcode against the shared access credential.
+ *
+ * Authentication is passcode-only: the username is a free-form display
+ * value that does NOT affect authentication success or failure.
+ * Any username + correct passcode → authenticated.
+ */
+export async function verifyPasscode(
+  passcode: string,
+): Promise<boolean> {
+  const isDev = process.env.NODE_ENV !== 'production';
 
-    console.log('[AUTH] Access credential found in database');
-    const result = await bcrypt.compare(passcode, credential.passcodeHash);
-    console.log('[AUTH] Passcode comparison result:', result);
-    return result;
-  } catch (error) {
-    console.error("[AUTH] Error verifying passcode:", error instanceof Error ? error.message : "Unknown error");
-    console.error("[AUTH] Error stack:", error instanceof Error ? error.stack : "No stack trace");
-    throw error;
+  const credential = await prisma.accessCredential.findFirst();
+  if (!credential) {
+    if (isDev) console.error('[AUTH] No access credential found in database');
+    return false;
   }
+
+  const isValid = await bcrypt.compare(passcode, credential.passcodeHash);
+  if (isDev) console.log('[AUTH] Passcode verification:', isValid ? 'valid' : 'invalid');
+
+  return isValid;
 }
 
 export async function updateSharedPasscode(passcode: string): Promise<void> {

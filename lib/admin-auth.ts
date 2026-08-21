@@ -5,17 +5,41 @@ import { prisma } from "./prisma";
 
 const ADMIN_SESSION_COOKIE_NAME = "snappy_admin_session";
 const ADMIN_SESSION_MAX_AGE = 60 * 60 * 8; // 8 hours
-const SESSION_SECRET = process.env.AUTH_SECRET || "dev-secret-change-in-production";
+
+/**
+ * Returns the HMAC secret used to sign admin session tokens.
+ * Same secret as user sessions — consistent signing across the app.
+ */
+function getAdminSessionSecret(): string {
+  const secret = process.env.AUTH_SECRET;
+  if (!secret) {
+    throw new Error(
+      "[ADMIN AUTH] FATAL: AUTH_SECRET environment variable is not set. " +
+      "Set a strong, random value in your Vercel environment variables.",
+    );
+  }
+  return secret;
+}
 
 const MAX_FAILED_ATTEMPTS = 5;
 const LOCKOUT_WINDOW_MS = 15 * 60 * 1000;
 
+/**
+ * In-memory rate limiting.
+ *
+ * NOTE: In a serverless environment (Vercel), each function invocation
+ * has its own in-memory state. This means the rate limit resets on every
+ * cold start. For true rate limiting you would need an external store
+ * (Redis, database, etc.). This in-memory version still provides some
+ * protection within a single function lifetime and prevents rapid-fire
+ * attacks from the same instance.
+ */
 const failedAttempts = new Map<string, { count: number; lockedUntil: number }>();
 
 export class AdminAuthError extends Error {
   constructor(
     message: string,
-    public status: 401 | 403 | 429
+    public status: 401 | 403 | 429,
   ) {
     super(message);
     this.name = "AdminAuthError";
@@ -27,10 +51,11 @@ export interface AdminSessionData {
 }
 
 function createAdminSessionToken(data: AdminSessionData): string {
+  const secret = getAdminSessionSecret();
   const timestamp = Date.now();
   const payload = JSON.stringify({ ...data, timestamp });
   const signature = crypto
-    .createHmac("sha256", SESSION_SECRET)
+    .createHmac("sha256", secret)
     .update(payload)
     .digest("hex");
 
@@ -39,6 +64,7 @@ function createAdminSessionToken(data: AdminSessionData): string {
 
 function verifyAdminSessionToken(token: string): AdminSessionData | null {
   try {
+    const secret = getAdminSessionSecret();
     const decoded = Buffer.from(token, "base64").toString("utf-8");
     const [payload, signature] = decoded.split(".");
 
@@ -47,7 +73,7 @@ function verifyAdminSessionToken(token: string): AdminSessionData | null {
     }
 
     const expectedSignature = crypto
-      .createHmac("sha256", SESSION_SECRET)
+      .createHmac("sha256", secret)
       .update(payload)
       .digest("hex");
 
@@ -57,8 +83,8 @@ function verifyAdminSessionToken(token: string): AdminSessionData | null {
 
     const data = JSON.parse(payload) as AdminSessionData & { timestamp: number };
 
-    const sessionAge = Date.now() - data.timestamp;
-    if (sessionAge > ADMIN_SESSION_MAX_AGE * 1000) {
+    const sessionAgeMs = Date.now() - data.timestamp;
+    if (sessionAgeMs > ADMIN_SESSION_MAX_AGE * 1000) {
       return null;
     }
 
@@ -113,27 +139,26 @@ function clearFailedAttempts(clientKey: string) {
 
 export async function verifyAdminPasscode(
   passcode: string,
-  clientIp?: string | null
+  clientIp?: string | null,
 ): Promise<boolean> {
   const clientKey = getClientKey(clientIp ?? null);
   assertNotRateLimited(clientKey);
 
+  const isDev = process.env.NODE_ENV !== "production";
+
   try {
-    console.log('[ADMIN AUTH] Starting admin passcode verification');
-    console.log('[ADMIN AUTH] DATABASE_URL set:', !!process.env.DATABASE_URL);
-    console.log('[ADMIN AUTH] Client key:', clientKey);
-    
+    if (isDev) console.log("[ADMIN AUTH] Starting admin passcode verification");
+
     const credential = await prisma.adminCredential.findFirst();
 
     if (!credential) {
-      console.error("[ADMIN AUTH] No admin credential found in database");
+      if (isDev) console.error("[ADMIN AUTH] No admin credential found in database");
       recordFailedAttempt(clientKey);
       return false;
     }
 
-    console.log('[ADMIN AUTH] Admin credential found in database');
     const isValid = await bcrypt.compare(passcode, credential.passcodeHash);
-    console.log('[ADMIN AUTH] Passcode comparison result:', isValid);
+    if (isDev) console.log("[ADMIN AUTH] Passcode comparison result:", isValid);
 
     if (!isValid) {
       recordFailedAttempt(clientKey);
@@ -143,8 +168,9 @@ export async function verifyAdminPasscode(
     clearFailedAttempts(clientKey);
     return true;
   } catch (error) {
-    console.error("[ADMIN AUTH] Error verifying admin passcode:", error instanceof Error ? error.message : "Unknown error");
-    console.error("[ADMIN AUTH] Error stack:", error instanceof Error ? error.stack : "No stack trace");
+    if (isDev) {
+      console.error("[ADMIN AUTH] Error verifying admin passcode:", error instanceof Error ? error.message : "Unknown error");
+    }
     recordFailedAttempt(clientKey);
     return false;
   }

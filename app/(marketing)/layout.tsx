@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Caveat } from "next/font/google";
-import "./globals.css";
+import "../globals.css";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -18,11 +18,16 @@ const caveat = Caveat({
 });
 
 export const metadata: Metadata = {
-  title: "Snappy",
-  description: "A private space for friends to share and discover snaps.",
+  title: "Snappy — Share Moments. Stay Connected.",
+  description:
+    "Snappy is a private social app for friends to share quick photo snaps with each other. Share moments, stay connected.",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default function MarketingLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <html
       lang="en"

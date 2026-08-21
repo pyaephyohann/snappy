@@ -49,13 +49,14 @@ export default function AuthForm() {
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include",
         body: JSON.stringify(data),
       });
 
       if (response.ok) {
         router.push("/home");
       } else if (response.status === 401) {
-        setAuthError("Invalid credentials. Please check your passcode.");
+        setAuthError("Invalid passcode. Please try again.");
       } else if (response.status === 400) {
         setAuthError("Invalid request. Please check your input.");
       } else {
