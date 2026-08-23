@@ -39,39 +39,42 @@ export default function AuthForm() {
     mode: "onBlur",
   });
 
-  const onSubmit = useCallback(async (data: AuthFormData) => {
-    setIsSubmitting(true);
-    setAuthError(null);
+  const onSubmit = useCallback(
+    async (data: AuthFormData) => {
+      setIsSubmitting(true);
+      setAuthError(null);
 
-    try {
-      const response = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-        body: JSON.stringify(data),
-      });
+      try {
+        const response = await fetch("/api/auth/login", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+          body: JSON.stringify(data),
+        });
 
-      if (response.ok) {
-        const result = await response.json() as { redirectTo?: string };
-        // Use the server-determined redirect URL (role-based)
-        const redirectUrl = result.redirectTo || "/home";
-        router.push(redirectUrl);
-      } else if (response.status === 401) {
-        setAuthError("Invalid username or passcode.");
-      } else if (response.status === 400) {
-        setAuthError("Invalid request. Please check your input.");
-      } else {
+        if (response.ok) {
+          const result = (await response.json()) as { redirectTo?: string };
+          // Use the server-determined redirect URL (role-based)
+          const redirectUrl = result.redirectTo || "/home";
+          router.push(redirectUrl);
+        } else if (response.status === 401) {
+          setAuthError("Invalid username or passcode.");
+        } else if (response.status === 400) {
+          setAuthError("Invalid request. Please check your input.");
+        } else {
+          setAuthError("An error occurred. Please try again.");
+        }
+      } catch {
         setAuthError("An error occurred. Please try again.");
+      } finally {
+        isSubmittingRef.current = false;
+        setIsSubmitting(false);
       }
-    } catch {
-      setAuthError("An error occurred. Please try again.");
-    } finally {
-      isSubmittingRef.current = false;
-      setIsSubmitting(false);
-    }
-  }, [router]);
+    },
+    [router],
+  );
 
   return (
     <motion.div
@@ -143,7 +146,7 @@ export default function AuthForm() {
             <input
               id="username"
               type="text"
-              placeholder="Enter your username"
+              placeholder="Enter your desired name"
               autoComplete="username"
               disabled={isSubmitting}
               {...register("username")}
