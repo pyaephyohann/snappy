@@ -189,32 +189,6 @@ export async function verifyPasscode(
     return { valid: true, role: 'USER' };
   }
 
-  // Fallback: check database credentials (legacy support)
-  // This uses dynamic import to avoid bundling Prisma in edge runtime
-  try {
-    const { prisma } = await import('./prisma');
-
-    // Check user credential
-    const credential = await prisma.accessCredential.findFirst();
-    if (credential) {
-      const isValid = await bcrypt.compare(passcode, credential.passcodeHash);
-      if (isValid) {
-        return { valid: true, role: 'USER' };
-      }
-    }
-
-    // Check admin credential
-    const adminCredential = await prisma.adminCredential.findFirst();
-    if (adminCredential) {
-      const isValid = await bcrypt.compare(passcode, adminCredential.passcodeHash);
-      if (isValid) {
-        return { valid: true, role: 'ADMIN' };
-      }
-    }
-  } catch {
-    // If Prisma is not available (e.g., edge runtime), only env vars work
-  }
-
   return { valid: false, role: 'USER' };
 }
 

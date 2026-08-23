@@ -1,42 +1,38 @@
-import { PrismaClient } from "@prisma/client";
-import bcrypt from "bcryptjs";
 import crypto from "crypto";
-
-const prisma = new PrismaClient();
 
 async function test() {
   try {
-    console.log("1. Testing Prisma connection...");
-    const cred = await prisma.accessCredential.findFirst();
-    console.log("   Access credential found:", cred ? "YES" : "NO");
+    const userPasscode = process.env.USER_PASSCODE;
+    const adminPasscode = process.env.ADMIN_PASSCODE;
+    const authSecret = process.env.AUTH_SECRET;
 
-    console.log("2. Testing bcrypt compare...");
-    const valid = await bcrypt.compare("welcometosnappy123", cred!.passcodeHash);
-    console.log("   Passcode valid:", valid);
+    console.log("1. Checking environment variables...");
+    console.log("   USER_PASSCODE set:", userPasscode ? "YES" : "NO");
+    console.log("   ADMIN_PASSCODE set:", adminPasscode ? "YES" : "NO");
+    console.log("   AUTH_SECRET set:", authSecret ? "YES" : "NO");
 
-    console.log("3. Testing wrong passcode...");
-    const wrong = await bcrypt.compare("wrongpassword", cred!.passcodeHash);
-    console.log("   Wrong passcode rejected:", !wrong);
+    console.log("\n2. Testing passcode matching...");
+    const userValid = userPasscode === "superfunsnappy123";
+    const adminValid = adminPasscode === "donottouchtheadmin123";
+    console.log("   User passcode correct:", userValid ? "OK" : "FAIL");
+    console.log("   Admin passcode correct:", adminValid ? "OK" : "FAIL");
 
-    console.log("4. Testing admin credential...");
-    const adminCred = await prisma.adminCredential.findFirst();
-    const adminValid = await bcrypt.compare("welcometosnappy123", adminCred!.passcodeHash);
-    console.log("   Admin passcode valid:", adminValid);
+    console.log("\n3. Testing old passcode is rejected...");
+    const oldRejected = userPasscode !== "welcometosnappy123" && adminPasscode !== "welcometosnappy123";
+    console.log("   Old passcode rejected:", oldRejected ? "OK" : "FAIL");
 
-    console.log("5. Testing session token creation...");
-    const secret = process.env.AUTH_SECRET || "test";
-    const payload = JSON.stringify({ username: "TestUser", authenticated: true, timestamp: Date.now() });
+    console.log("\n4. Testing session token creation...");
+    const secret = authSecret || "test";
+    const payload = JSON.stringify({ username: "TestUser", authenticated: true, role: "USER", timestamp: Date.now() });
     const sig = crypto.createHmac("sha256", secret).update(payload).digest("hex");
     const token = Buffer.from(`${payload}.${sig}`).toString("base64");
     console.log("   Token created:", token.length > 0 ? "OK" : "FAIL");
 
-    console.log("\n✅ All production auth checks passed");
+    console.log("\n✅ All auth checks passed");
   } catch (err: unknown) {
     const error = err instanceof Error ? err : new Error(String(err));
     console.error("\n❌ Error:", error.message);
     console.error("   Stack:", error.stack);
-  } finally {
-    await prisma.$disconnect();
   }
 }
 

@@ -1,14 +1,7 @@
 import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
-import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
-
-/**
- * Default passcode for all credentials.
- * In production, override via the DEFAULT_PASSCODE env var.
- */
-const DEFAULT_PASSCODE = "welcometosnappy123";
 
 async function main() {
   const isProduction = process.env.NODE_ENV === "production";
@@ -17,9 +10,6 @@ async function main() {
   console.log("🌱 Starting seed...");
   console.log(`   Mode: ${resetMode ? "RESET (full wipe)" : "safe (idempotent)"}`);
   console.log(`   Environment: ${isProduction ? "production" : "development"}`);
-
-  const passcodeToUse = process.env.DEFAULT_PASSCODE || DEFAULT_PASSCODE;
-  const passcodeHash = await bcrypt.hash(passcodeToUse, 10);
 
   // ── Reset mode: wipe all data first ─────────────────────────────
   if (resetMode) {
@@ -35,55 +25,6 @@ async function main() {
     await prisma.adminCredential.deleteMany();
 
     console.log("✅ All data deleted");
-  }
-
-  // ── Seed AccessCredential (user login) ───────────────────────────
-  const existingCredential = await prisma.accessCredential.findFirst();
-
-  if (!existingCredential) {
-    await prisma.accessCredential.create({
-      data: { passcodeHash },
-    });
-    console.log("\n✅ Created access credential (user login)");
-    if (!isProduction) {
-      console.log(`   Passcode: ${passcodeToUse}`);
-    }
-  } else if (resetMode) {
-    // In reset mode, always recreate
-    await prisma.accessCredential.update({
-      where: { id: existingCredential.id },
-      data: { passcodeHash },
-    });
-    console.log("\n✅ Updated access credential (user login)");
-    if (!isProduction) {
-      console.log(`   Passcode: ${passcodeToUse}`);
-    }
-  } else {
-    console.log("\n⏭️  Access credential already exists, skipping");
-  }
-
-  // ── Seed AdminCredential ────────────────────────────────────────
-  const existingAdminCredential = await prisma.adminCredential.findFirst();
-
-  if (!existingAdminCredential) {
-    await prisma.adminCredential.create({
-      data: { passcodeHash },
-    });
-    console.log("✅ Created admin credential");
-    if (!isProduction) {
-      console.log(`   Passcode: ${passcodeToUse}`);
-    }
-  } else if (resetMode) {
-    await prisma.adminCredential.update({
-      where: { id: existingAdminCredential.id },
-      data: { passcodeHash },
-    });
-    console.log("✅ Updated admin credential");
-    if (!isProduction) {
-      console.log(`   Passcode: ${passcodeToUse}`);
-    }
-  } else {
-    console.log("⏭️  Admin credential already exists, skipping");
   }
 
   // ── Seed Users (development only) ───────────────────────────────
