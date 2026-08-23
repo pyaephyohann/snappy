@@ -7,7 +7,6 @@ const LINKS = {
   product: [
     { label: "Features", href: "#features" },
     { label: "How It Works", href: "#how-it-works" },
-    { label: "About", href: "#about" },
   ],
   account: [
     { label: "Login", href: "/login" },
@@ -19,9 +18,9 @@ export default function Footer() {
   return (
     <footer className="border-t border-border/50 bg-card/30">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10 sm:gap-8">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-10 sm:gap-8">
           {/* Brand */}
-          <div className="sm:col-span-2 lg:col-span-2">
+          <div className="sm:col-span-1">
             <Link
               href="/"
               className="inline-flex items-center gap-2 group focus:outline-none focus:ring-2 focus:ring-ring rounded-lg px-2 py-1 -ml-2"
@@ -38,9 +37,8 @@ export default function Footer() {
                 Snappy
               </span>
             </Link>
-            <p className="mt-4 text-sm text-muted-foreground max-w-sm leading-relaxed">
-              A private social app for friends to share quick photo snaps with
-              each other. Share moments. Stay connected.
+            <p className="mt-4 text-sm text-muted-foreground max-w-xs leading-relaxed">
+              Share moments. Stay connected.
             </p>
           </div>
 

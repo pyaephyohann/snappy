@@ -2,11 +2,13 @@
 
 import { motion } from "framer-motion";
 
+const EASE = [0.22, 1, 0.36, 1] as const;
+
 const FEATURES = [
   {
     title: "Quick Snaps",
     description:
-      "Share your moments instantly with your friends. Capture and send in seconds.",
+      "Capture a moment and send it to your friends in seconds. It's fast, simple, and fun.",
     icon: (
       <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
@@ -15,9 +17,9 @@ const FEATURES = [
     ),
   },
   {
-    title: "Stay Connected",
+    title: "Your Friends' World",
     description:
-      "See what your friends are sharing without the noise of traditional social media.",
+      "See what your friends are up to through their snaps. Stay in the loop without the noise.",
     icon: (
       <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -27,7 +29,7 @@ const FEATURES = [
   {
     title: "React & Comment",
     description:
-      "React to moments and leave comments to keep conversations going.",
+      "Drop a reaction or leave a comment on your friends' snaps. Keep the conversation alive.",
     icon: (
       <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
@@ -35,12 +37,12 @@ const FEATURES = [
     ),
   },
   {
-    title: "Your People",
+    title: "Focused Social",
     description:
-      "Keep your social space focused on the people you actually know.",
+      "No algorithms deciding what you see. No ads tracking you. Just the people you actually care about.",
     icon: (
       <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
       </svg>
     ),
   },
@@ -57,7 +59,7 @@ const container = {
 
 const item = {
   hidden: { opacity: 0, y: 20 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] as const } },
+  show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: EASE } },
 };
 
 export default function Features() {
@@ -76,7 +78,8 @@ export default function Features() {
             <span className="text-primary">stay close.</span>
           </h2>
           <p className="mt-4 sm:mt-5 text-lg text-muted-foreground max-w-2xl mx-auto">
-            No algorithms. No ads. Just you and your friends sharing what matters.
+            No algorithms. No ads. Just you and your friends sharing what
+            matters.
           </p>
         </motion.div>
 

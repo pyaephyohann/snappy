@@ -3,6 +3,8 @@
 import { motion } from "framer-motion";
 import Link from "next/link";
 
+const EASE = [0.22, 1, 0.36, 1] as const;
+
 export default function FinalCTA() {
   return (
     <section className="relative py-20 sm:py-28 overflow-hidden">
@@ -16,7 +18,7 @@ export default function FinalCTA() {
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-100px" }}
-          transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+          transition={{ duration: 0.7, ease: EASE }}
           className="relative bg-card border border-border/60 rounded-3xl p-8 sm:p-12 lg:p-16 text-center shadow-2xl shadow-black/20 overflow-hidden"
         >
           {/* Decorative floating elements */}
@@ -58,12 +60,11 @@ export default function FinalCTA() {
             transition={{ duration: 0.6, delay: 0.1 }}
           >
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight mb-4 sm:mb-5">
-              Ready to make your{" "}
-              <span className="caveat-font text-primary">moments</span>{" "}
-              snappy?
+              Ready to share your{" "}
+              <span className="caveat-font text-primary">next moment</span>?
             </h2>
             <p className="text-lg sm:text-xl text-muted-foreground max-w-xl mx-auto mb-8 sm:mb-10">
-              Join Snappy and start sharing the little moments that matter.
+              Start sharing moments with your people on Snappy.
             </p>
             <Link
               href="/login"

@@ -3,7 +3,7 @@ import Hero from "@/components/landing/Hero";
 import SocialProof from "@/components/landing/SocialProof";
 import Features from "@/components/landing/Features";
 import HowItWorks from "@/components/landing/HowItWorks";
-import AppPreview from "@/components/landing/AppPreview";
+import ProductShowcase from "@/components/landing/ProductShowcase";
 import FinalCTA from "@/components/landing/FinalCTA";
 import Footer from "@/components/landing/Footer";
 
@@ -16,7 +16,7 @@ export default function LandingPage() {
         <SocialProof />
         <Features />
         <HowItWorks />
-        <AppPreview />
+        <ProductShowcase />
         <FinalCTA />
       </main>
       <Footer />
