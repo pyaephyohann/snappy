@@ -16,7 +16,7 @@ const userFormSchema = z.object({
   role: z.enum(["USER", "ADMIN"]),
   passcode: z
     .string()
-    .max(20, "Passcode must be less than 20 characters")
+    .max(128, "Passcode must be less than 128 characters")
     .optional()
     .refine((value) => !value || value.length >= 4, {
       message: "Passcode must be at least 4 characters",

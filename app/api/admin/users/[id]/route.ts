@@ -20,7 +20,7 @@ const updateUserSchema = z.object({
   passcode: z
     .string()
     .min(4, "Passcode must be at least 4 characters")
-    .max(20, "Passcode must be less than 20 characters")
+    .max(128, "Passcode must be less than 128 characters")
     .optional(),
 });
 
