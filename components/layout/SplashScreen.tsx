@@ -22,19 +22,17 @@ const SplashScreen = () => {
   };
 
   return (
-    <div className="h-screen flex items-center justify-center">
-      <div className="relative">
-        {/* Camera Splash */}
-        <div className="absolute -left-32 -top-20">
-          <CameraSplash />
-        </div>
+    <div className="h-screen flex flex-col items-center justify-center">
+      {/* Camera + Text as a single centered group */}
+      <div className="flex flex-col items-center">
+        <CameraSplash />
 
-        {/* Text */}
+        {/* Text — naturally centered below camera */}
         <motion.h1
           variants={container}
           initial="hidden"
           animate="visible"
-          className="text-5xl font-bold flex caveat-font"
+          className="text-5xl font-bold flex caveat-font mt-2"
         >
           {text.split("").map((char, index) => (
             <motion.span key={index} variants={letter}>

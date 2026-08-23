@@ -2,19 +2,19 @@ import { motion } from "framer-motion";
 
 const CameraSplash = () => {
   return (
-    <div className="relative">
-      {/* Hanger */}
+    <div className="relative flex flex-col items-center">
+      {/* Hanger — positioned above the camera, centered */}
       <img
         src="/hanger.png"
         alt="Hanger"
-        className="absoute -top-12 w-32 z-10 "
+        className="absolute -top-12 w-32 z-10"
       />
 
-      {/* Camera */}
+      {/* Camera — animates in from above, lands centered */}
       <motion.img
         src="/logo.png"
         alt="Camera"
-        className="absolute top-18 origin-top ml-4"
+        className="w-24 h-24 origin-top"
         initial={{ y: -400, rotate: 0 }}
         animate={{
           y: 0,
