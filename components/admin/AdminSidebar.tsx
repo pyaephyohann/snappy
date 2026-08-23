@@ -11,17 +11,18 @@ import {
 } from "@/components/admin/icons";
 
 interface AdminSidebarProps {
+  uuid: string;
   onNavigate?: () => void;
 }
 
-const navItems = [
-  { href: "/admin", label: "Dashboard", icon: DashboardIcon, exact: true },
-  { href: "/admin/users", label: "Users", icon: UsersIcon, exact: false },
-  { href: "/admin/snaps", label: "Snaps", icon: SnapsIcon, exact: false },
-];
-
-export default function AdminSidebar({ onNavigate }: AdminSidebarProps) {
+export default function AdminSidebar({ uuid, onNavigate }: AdminSidebarProps) {
   const pathname = usePathname();
+
+  const navItems = [
+    { href: `/admin/${uuid}`, label: "Dashboard", icon: DashboardIcon, exact: true },
+    { href: `/admin/${uuid}/users`, label: "Users", icon: UsersIcon, exact: false },
+    { href: `/admin/${uuid}/snaps`, label: "Snaps", icon: SnapsIcon, exact: false },
+  ];
 
   const isActive = (href: string, exact: boolean) =>
     exact ? pathname === href : pathname.startsWith(href);
@@ -30,7 +31,7 @@ export default function AdminSidebar({ onNavigate }: AdminSidebarProps) {
     <aside className="flex h-full flex-col border-r border-border bg-card/60">
       <div className="border-b border-border px-5 py-5">
         <Link
-          href="/admin"
+          href={`/admin/${uuid}`}
           onClick={onNavigate}
           className="flex items-center gap-2 text-primary"
         >

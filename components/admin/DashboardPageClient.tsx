@@ -16,7 +16,13 @@ interface DashboardStats {
   adminCount: number;
 }
 
-export default function DashboardPageClient({ username }: { username: string }) {
+export default function DashboardPageClient({
+  username,
+  uuid,
+}: {
+  username: string;
+  uuid: string;
+}) {
   const router = useRouter();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [recentSnaps, setRecentSnaps] = useState<AdminSnap[]>([]);
@@ -33,7 +39,7 @@ export default function DashboardPageClient({ username }: { username: string }) 
       const response = await adminFetch("/api/admin/stats");
 
       if (response.status === 401) {
-        router.replace("/admin");
+        router.replace("/");
         router.refresh();
         return;
       }
@@ -67,7 +73,7 @@ export default function DashboardPageClient({ username }: { username: string }) 
         if (cancelled) return;
 
         if (response.status === 401) {
-          router.replace("/admin");
+          router.replace("/");
           router.refresh();
           return;
         }
@@ -162,7 +168,7 @@ export default function DashboardPageClient({ username }: { username: string }) 
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold">Recent Snaps</h2>
           <Link
-            href="/admin/snaps"
+            href={`/admin/${uuid}/snaps`}
             className="text-sm font-medium text-primary hover:opacity-90"
           >
             View all
@@ -214,7 +220,7 @@ export default function DashboardPageClient({ username }: { username: string }) 
                     </div>
                   </div>
                   <Link
-                    href="/admin/snaps"
+                    href={`/admin/${uuid}/snaps`}
                     className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-muted"
                   >
                     Manage

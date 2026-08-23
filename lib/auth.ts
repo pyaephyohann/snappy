@@ -1,5 +1,4 @@
 import { cookies } from 'next/headers';
-import { prisma } from './prisma';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 
@@ -10,9 +9,6 @@ const SESSION_MAX_AGE = 60 * 60 * 24 * 7; // 7 days in seconds
  * Returns the HMAC secret used to sign session tokens.
  *
  * CRITICAL: AUTH_SECRET **must** be set in every environment (Vercel, CI, etc.).
- * The old fallback to a hardcoded dev secret meant that production sessions
- * were signed with a value visible in the public source code, making
- * token forgery trivial.
  */
 function getSessionSecret(): string {
   const secret = process.env.AUTH_SECRET;
@@ -25,9 +21,12 @@ function getSessionSecret(): string {
   return secret;
 }
 
+export type UserRole = 'USER' | 'ADMIN';
+
 export interface SessionData {
   username: string;
   authenticated: boolean;
+  role: UserRole;
 }
 
 function createSessionToken(data: SessionData): string {
@@ -72,18 +71,24 @@ function verifySessionToken(token: string): SessionData | null {
     return {
       username: data.username,
       authenticated: data.authenticated,
+      // Backward compatibility: old tokens without role default to USER
+      role: data.role ?? 'USER',
     };
   } catch {
     return null;
   }
 }
 
-export async function createSession(username: string): Promise<void> {
+/**
+ * Create a session with role (USER or ADMIN).
+ */
+export async function createSession(username: string, role: UserRole = 'USER'): Promise<void> {
   const cookieStore = await cookies();
 
   const sessionData: SessionData = {
     username,
     authenticated: true,
+    role,
   };
 
   const sessionToken = createSessionToken(sessionData);
@@ -118,36 +123,30 @@ export async function requireSession(): Promise<SessionData> {
   return session;
 }
 
+/**
+ * Require an admin session. Returns the session or throws if not admin.
+ */
+export async function requireAdminSession(): Promise<SessionData> {
+  const session = await getSession();
+
+  if (!session || !session.authenticated || session.role !== 'ADMIN') {
+    throw new Error('Unauthorized');
+  }
+
+  return session;
+}
+
 export async function clearSession(): Promise<void> {
   const cookieStore = await cookies();
   cookieStore.delete(SESSION_COOKIE_NAME);
 }
 
 /**
- * Verify a passcode against the shared access credential.
- *
- * Authentication is passcode-only: the username is a free-form display
- * value that does NOT affect authentication success or failure.
- * Any username + correct passcode → authenticated.
+ * Update the shared access passcode in the database.
+ * Used by admin API routes when creating/updating users.
  */
-export async function verifyPasscode(
-  passcode: string,
-): Promise<boolean> {
-  const isDev = process.env.NODE_ENV !== 'production';
-
-  const credential = await prisma.accessCredential.findFirst();
-  if (!credential) {
-    if (isDev) console.error('[AUTH] No access credential found in database');
-    return false;
-  }
-
-  const isValid = await bcrypt.compare(passcode, credential.passcodeHash);
-  if (isDev) console.log('[AUTH] Passcode verification:', isValid ? 'valid' : 'invalid');
-
-  return isValid;
-}
-
 export async function updateSharedPasscode(passcode: string): Promise<void> {
+  const { prisma } = await import('./prisma');
   const passcodeHash = await bcrypt.hash(passcode, 10);
   const existingCredential = await prisma.accessCredential.findFirst();
 
@@ -162,4 +161,75 @@ export async function updateSharedPasscode(passcode: string): Promise<void> {
   await prisma.accessCredential.create({
     data: { passcodeHash },
   });
+}
+
+/**
+ * Verify a passcode against environment-variable credentials.
+ *
+ * The role is determined by which passcode matches:
+ *   - USER_PASSCODE → role: USER
+ *   - ADMIN_PASSCODE → role: ADMIN
+ *
+ * Also falls back to database credentials for backward compatibility.
+ * Authentication is passcode-only: the username is a free-form display
+ * value that does NOT affect authentication success or failure.
+ */
+export async function verifyPasscode(
+  passcode: string,
+): Promise<{ valid: boolean; role: UserRole }> {
+  const userPasscode = process.env.USER_PASSCODE;
+  const adminPasscode = process.env.ADMIN_PASSCODE;
+
+  // Check environment variable passcodes first
+  if (adminPasscode && passcode === adminPasscode) {
+    return { valid: true, role: 'ADMIN' };
+  }
+
+  if (userPasscode && passcode === userPasscode) {
+    return { valid: true, role: 'USER' };
+  }
+
+  // Fallback: check database credentials (legacy support)
+  // This uses dynamic import to avoid bundling Prisma in edge runtime
+  try {
+    const { prisma } = await import('./prisma');
+
+    // Check user credential
+    const credential = await prisma.accessCredential.findFirst();
+    if (credential) {
+      const isValid = await bcrypt.compare(passcode, credential.passcodeHash);
+      if (isValid) {
+        return { valid: true, role: 'USER' };
+      }
+    }
+
+    // Check admin credential
+    const adminCredential = await prisma.adminCredential.findFirst();
+    if (adminCredential) {
+      const isValid = await bcrypt.compare(passcode, adminCredential.passcodeHash);
+      if (isValid) {
+        return { valid: true, role: 'ADMIN' };
+      }
+    }
+  } catch {
+    // If Prisma is not available (e.g., edge runtime), only env vars work
+  }
+
+  return { valid: false, role: 'USER' };
+}
+
+/**
+ * Get the admin secret route UUID from environment variables.
+ */
+export function getAdminUuid(): string | null {
+  return process.env.ADMIN_SECRET_ROUTE_UUID ?? null;
+}
+
+/**
+ * Validate that a given UUID matches the admin secret route UUID.
+ */
+export function isValidAdminUuid(uuid: string): boolean {
+  const adminUuid = getAdminUuid();
+  if (!adminUuid) return false;
+  return uuid === adminUuid;
 }

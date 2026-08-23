@@ -3,6 +3,14 @@ import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import { prisma } from "./prisma";
 
+/**
+ * NOTE: Admin sessions are now stored in the unified snappy_session cookie
+ * with role: "ADMIN". This file is kept for backward compatibility with
+ * existing admin API routes that call requireAdminSession() / getAdminSession().
+ *
+ * The primary auth flow is in lib/auth.ts.
+ */
+
 const ADMIN_SESSION_COOKIE_NAME = "snappy_admin_session";
 const ADMIN_SESSION_MAX_AGE = 60 * 60 * 8; // 8 hours
 
@@ -137,6 +145,10 @@ function clearFailedAttempts(clientKey: string) {
   failedAttempts.delete(clientKey);
 }
 
+/**
+ * Verify an admin passcode. Uses env var ADMIN_PASSCODE first,
+ * falls back to database credential.
+ */
 export async function verifyAdminPasscode(
   passcode: string,
   clientIp?: string | null,
@@ -147,6 +159,14 @@ export async function verifyAdminPasscode(
   const isDev = process.env.NODE_ENV !== "production";
 
   try {
+    // Check env var first
+    const adminPasscode = process.env.ADMIN_PASSCODE;
+    if (adminPasscode && passcode === adminPasscode) {
+      clearFailedAttempts(clientKey);
+      return true;
+    }
+
+    // Fallback to database credential
     if (isDev) console.log("[ADMIN AUTH] Starting admin passcode verification");
 
     const credential = await prisma.adminCredential.findFirst();
@@ -193,6 +213,11 @@ export async function updateAdminPasscode(passcode: string): Promise<void> {
   });
 }
 
+/**
+ * Create a legacy admin session cookie.
+ * NOTE: The primary session is now in lib/auth.ts with role-based tokens.
+ * This is kept for backward compatibility.
+ */
 export async function createAdminSession(): Promise<void> {
   const cookieStore = await cookies();
   const sessionToken = createAdminSessionToken({ authenticated: true });
@@ -223,9 +248,24 @@ export async function getAdminSession(): Promise<AdminSessionData | null> {
   return verifyAdminSessionToken(sessionToken.value);
 }
 
+/**
+ * Require an admin session. Checks both the unified session (role-based)
+ * and the legacy admin session cookie for backward compatibility.
+ */
 export async function requireAdminSession(): Promise<AdminSessionData> {
-  const session = await getAdminSession();
+  // First check the unified session with role
+  try {
+    const { getSession } = await import("./auth");
+    const session = await getSession();
+    if (session && session.authenticated && session.role === "ADMIN") {
+      return { authenticated: true };
+    }
+  } catch {
+    // If unified auth module not available, fall through to legacy
+  }
 
+  // Fallback to legacy admin session
+  const session = await getAdminSession();
   if (!session) {
     throw new AdminAuthError("Unauthorized", 401);
   }

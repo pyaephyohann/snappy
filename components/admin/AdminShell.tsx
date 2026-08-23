@@ -9,10 +9,11 @@ import { adminFetch } from "@/lib/admin-client";
 
 interface AdminShellProps {
   username: string;
+  uuid: string;
   children: React.ReactNode;
 }
 
-export default function AdminShell({ username, children }: AdminShellProps) {
+export default function AdminShell({ username, uuid, children }: AdminShellProps) {
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -24,7 +25,7 @@ export default function AdminShell({ username, children }: AdminShellProps) {
     try {
       const response = await adminFetch("/api/admin/auth/logout", { method: "POST" });
       if (response.ok) {
-        router.push("/admin");
+        router.push("/");
         router.refresh();
       }
     } finally {
@@ -37,7 +38,7 @@ export default function AdminShell({ username, children }: AdminShellProps) {
         <div className="flex min-h-screen">
           <div className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-64 lg:flex-col">
             <div className="flex h-full flex-col">
-              <AdminSidebar />
+              <AdminSidebar uuid={uuid} />
               <AdminSidebarFooter
                 username={username}
                 onLogout={handleLogout}
@@ -96,7 +97,7 @@ export default function AdminShell({ username, children }: AdminShellProps) {
                   </button>
                 </div>
                 <div className="flex-1 overflow-y-auto">
-                  <AdminSidebar onNavigate={() => setMobileOpen(false)} />
+                  <AdminSidebar uuid={uuid} onNavigate={() => setMobileOpen(false)} />
                 </div>
                 <AdminSidebarFooter
                   username={username}

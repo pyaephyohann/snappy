@@ -15,6 +15,7 @@ export async function GET() {
     return NextResponse.json({
       authenticated: true,
       username: session.username,
+      role: session.role,
     });
   } catch (error) {
     console.error('Session error:', error);

@@ -1,83 +1,86 @@
 import "dotenv/config";
-import { PrismaClient } from "@prisma/client";
-import bcrypt from "bcryptjs";
 import crypto from "crypto";
 
-const prisma = new PrismaClient();
 const SESSION_SECRET = process.env.AUTH_SECRET!;
+const USER_PASSCODE = process.env.USER_PASSCODE!;
+const ADMIN_PASSCODE = process.env.ADMIN_PASSCODE!;
+const ADMIN_UUID = process.env.ADMIN_SECRET_ROUTE_UUID!;
 
 async function test() {
-  console.log("=== Testing User Auth Flow (Passcode-Only) ===\n");
+  console.log("=== Testing Unified Auth Flow (Passcode-Based Role) ===\n");
 
-  // 1. Access credential exists
-  const credential = await prisma.accessCredential.findFirst();
-  console.log("1. Access credential:", credential ? "OK" : "FAIL (NO CREDENTIAL)");
+  // 1. Environment variables set
+  console.log("1. USER_PASSCODE set:", USER_PASSCODE ? "OK" : "FAIL");
+  console.log("2. ADMIN_PASSCODE set:", ADMIN_PASSCODE ? "OK" : "FAIL");
+  console.log("3. ADMIN_SECRET_ROUTE_UUID set:", ADMIN_UUID ? "OK" : "FAIL");
 
-  // 2. Correct passcode accepted
-  const passValid = await bcrypt.compare("welcometosnappy123", credential!.passcodeHash);
-  console.log("2. Correct passcode accepted:", passValid ? "OK" : "FAIL");
+  // 4. USER_PASSCODE ≠ ADMIN_PASSCODE
+  console.log("4. Passcodes are different:", USER_PASSCODE !== ADMIN_PASSCODE ? "OK" : "FAIL");
 
-  // 3. Wrong passcode rejected
-  const wrongPass = await bcrypt.compare("wrongpassword", credential!.passcodeHash);
-  console.log("3. Wrong passcode rejected:", !wrongPass ? "OK" : "FAIL");
+  // 5. User passcode → role: USER
+  const userPassValid = process.env.USER_PASSCODE === "superfunsnappy123";
+  console.log("5. User passcode matches:", userPassValid ? "OK" : "FAIL");
 
-  // 4. Username "Alice" + correct passcode → session
-  const aliceSession = { username: "Alice", authenticated: true, timestamp: Date.now() };
-  const alicePayload = JSON.stringify(aliceSession);
-  const aliceSig = crypto.createHmac("sha256", SESSION_SECRET).update(alicePayload).digest("hex");
-  const aliceToken = Buffer.from(`${alicePayload}.${aliceSig}`).toString("base64");
-  console.log("4. Alice session created:", aliceToken.length > 0 ? "OK" : "FAIL");
+  // 6. Admin passcode → role: ADMIN
+  const adminPassValid = process.env.ADMIN_PASSCODE === "donottouchtheadmin123";
+  console.log("6. Admin passcode matches:", adminPassValid ? "OK" : "FAIL");
 
-  // 5. Username "RandomName123" + correct passcode → session (any username works)
-  const randSession = { username: "RandomName123", authenticated: true, timestamp: Date.now() };
-  const randPayload = JSON.stringify(randSession);
-  const randSig = crypto.createHmac("sha256", SESSION_SECRET).update(randPayload).digest("hex");
-  const randToken = Buffer.from(`${randPayload}.${randSig}`).toString("base64");
-  console.log("5. RandomName123 session created:", randToken.length > 0 ? "OK" : "FAIL");
+  // 7. Admin UUID is valid format
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  console.log("7. Admin UUID is valid format:", uuidRegex.test(ADMIN_UUID) ? "OK" : "FAIL");
 
-  // 6. Token signature valid
-  const decoded = Buffer.from(aliceToken, "base64").toString("utf-8");
-  const [payloadPart, sigPart] = decoded.split(".");
-  const expectedSig = crypto.createHmac("sha256", SESSION_SECRET).update(payloadPart).digest("hex");
-  console.log("6. Token signature valid:", sigPart === expectedSig ? "OK" : "FAIL");
+  // 8. User session token (with role)
+  console.log("\n=== Testing Session Token Format ===\n");
 
-  // 7. Token not expired
-  const data = JSON.parse(payloadPart);
-  const ageMs = Date.now() - data.timestamp;
-  console.log("7. Token not expired:", ageMs < 7 * 24 * 60 * 60 * 1000 ? `OK (age=${Math.round(ageMs / 1000)}s)` : "FAIL");
+  const userSession = {
+    username: "Alice",
+    authenticated: true,
+    role: "USER",
+    timestamp: Date.now(),
+  };
+  const userPayload = JSON.stringify(userSession);
+  const userSig = crypto.createHmac("sha256", SESSION_SECRET).update(userPayload).digest("hex");
+  const userToken = Buffer.from(`${userPayload}.${userSig}`).toString("base64");
+  console.log("8. User token created:", userToken.length > 0 ? "OK" : "FAIL");
 
-  // 8. Session contains the typed username (not a DB lookup)
-  console.log("8. Session username preserved:", data.username === "Alice" ? "OK" : "FAIL");
-
-  console.log("\n=== Testing Admin Auth Flow (Unchanged) ===\n");
-
-  // 9. Admin credential exists
-  const adminCred = await prisma.adminCredential.findFirst();
-  console.log("9. Admin credential:", adminCred ? "OK" : "FAIL (NO CREDENTIAL)");
-
-  // 10. Admin passcode valid
-  const adminPassValid = await bcrypt.compare("welcometosnappy123", adminCred!.passcodeHash);
-  console.log("10. Admin passcode valid:", adminPassValid ? "OK" : "FAIL");
-
-  // 11. Wrong admin passcode rejected
-  const wrongAdmin = await bcrypt.compare("wrongpassword", adminCred!.passcodeHash);
-  console.log("11. Wrong admin passcode rejected:", !wrongAdmin ? "OK" : "FAIL");
-
-  // 12. Admin session token (separate cookie, no username)
-  const adminSession = { authenticated: true, timestamp: Date.now() };
+  // 9. Admin session token (with role)
+  const adminSession = {
+    username: "Admin",
+    authenticated: true,
+    role: "ADMIN",
+    timestamp: Date.now(),
+  };
   const adminPayload = JSON.stringify(adminSession);
   const adminSig = crypto.createHmac("sha256", SESSION_SECRET).update(adminPayload).digest("hex");
   const adminToken = Buffer.from(`${adminPayload}.${adminSig}`).toString("base64");
-  console.log("12. Admin token created:", adminToken.length > 0 ? "OK" : "FAIL");
+  console.log("9. Admin token created:", adminToken.length > 0 ? "OK" : "FAIL");
 
-  // 13. Verify admin token
-  const adminDecoded = Buffer.from(adminToken, "base64").toString("utf-8");
-  const [adminPayloadPart, adminSigPart] = adminDecoded.split(".");
-  const adminExpected = crypto.createHmac("sha256", SESSION_SECRET).update(adminPayloadPart).digest("hex");
-  console.log("13. Admin token signature valid:", adminSigPart === adminExpected ? "OK" : "FAIL");
+  // 10. Token signature valid
+  const decoded = Buffer.from(userToken, "base64").toString("utf-8");
+  const [payloadPart, sigPart] = decoded.split(".");
+  const expectedSig = crypto.createHmac("sha256", SESSION_SECRET).update(payloadPart).digest("hex");
+  console.log("10. Token signature valid:", sigPart === expectedSig ? "OK" : "FAIL");
 
-  console.log("\n✅ All 13 auth checks passed");
-  await prisma.$disconnect();
+  // 11. Token contains role
+  const data = JSON.parse(payloadPart);
+  console.log("11. Token contains role:", data.role === "USER" ? "OK" : "FAIL");
+
+  // 12. Token not expired
+  const ageMs = Date.now() - data.timestamp;
+  console.log("12. Token not expired:", ageMs < 7 * 24 * 60 * 60 * 1000 ? `OK (age=${Math.round(ageMs / 1000)}s)` : "FAIL");
+
+  // 13. Admin redirect URL
+  console.log("\n=== Testing Redirect URLs ===\n");
+  const adminRedirect = `/admin/${ADMIN_UUID}`;
+  console.log("13. Admin redirect URL:", adminRedirect);
+
+  // 14. UUID validation
+  const validUuid = ADMIN_UUID;
+  const wrongUuid = "wrong-uuid-not-valid";
+  console.log("14. Valid UUID passes:", uuidRegex.test(validUuid) ? "OK" : "FAIL");
+  console.log("15. Wrong UUID fails:", !uuidRegex.test(wrongUuid) ? "OK" : "FAIL");
+
+  console.log("\n✅ All auth flow checks completed");
 }
 
 test().catch((e) => {

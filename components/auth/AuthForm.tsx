@@ -54,9 +54,12 @@ export default function AuthForm() {
       });
 
       if (response.ok) {
-        router.push("/home");
+        const result = await response.json() as { redirectTo?: string };
+        // Use the server-determined redirect URL (role-based)
+        const redirectUrl = result.redirectTo || "/home";
+        router.push(redirectUrl);
       } else if (response.status === 401) {
-        setAuthError("Invalid passcode. Please try again.");
+        setAuthError("Invalid username or passcode.");
       } else if (response.status === 400) {
         setAuthError("Invalid request. Please check your input.");
       } else {

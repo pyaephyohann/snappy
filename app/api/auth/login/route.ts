@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { createSession, verifyPasscode } from '@/lib/auth';
+import { createSession, verifyPasscode, getAdminUuid } from '@/lib/auth';
 
 const isDev = process.env.NODE_ENV !== 'production';
 
@@ -36,25 +36,33 @@ export async function POST(request: NextRequest) {
     const { username, passcode } = validationResult.data;
     if (isDev) console.log('[AUTH LOGIN] Username provided:', username);
 
-    // Authentication is passcode-only. The username is a free-form display
-    // value — any username + correct passcode succeeds.
-    const valid = await verifyPasscode(passcode);
+    // Verify passcode and determine role
+    const { valid, role } = await verifyPasscode(passcode);
 
     if (!valid) {
       if (isDev) console.log('[AUTH LOGIN] Invalid passcode for username:', username);
       return NextResponse.json(
-        { error: 'Invalid passcode. Please try again.' },
+        { error: 'Invalid username or passcode.' },
         { status: 401 },
       );
     }
 
-    // Create session with the username the user typed
-    if (isDev) console.log('[AUTH LOGIN] Creating session for:', username);
-    await createSession(username);
+    // Create session with the username and determined role
+    if (isDev) console.log('[AUTH LOGIN] Creating session for:', username, 'role:', role);
+    await createSession(username, role);
     if (isDev) console.log('[AUTH LOGIN] Session created successfully');
 
+    // Determine redirect URL based on role
+    let redirectTo = '/home';
+    if (role === 'ADMIN') {
+      const adminUuid = getAdminUuid();
+      if (adminUuid) {
+        redirectTo = `/admin/${adminUuid}`;
+      }
+    }
+
     return NextResponse.json(
-      { success: true, message: 'Authentication successful' },
+      { success: true, role, redirectTo },
       { status: 200 },
     );
 
