@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import SnappyLogo from "@/components/ui/SnappyLogo";
 import {
   BackIcon,
   DashboardIcon,
@@ -33,12 +34,9 @@ export default function AdminSidebar({ uuid, onNavigate }: AdminSidebarProps) {
         <Link
           href={`/admin/${uuid}`}
           onClick={onNavigate}
-          className="flex items-center gap-2 text-primary"
+          className="flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-lg"
         >
-          <span className="text-xl font-bold caveat-font">Snappy</span>
-          <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
-            Admin
-          </span>
+          <SnappyLogo size="sm" admin />
         </Link>
       </div>
 

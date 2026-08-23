@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import Link from 'next/link';
+import SnappyLogo from '@/components/ui/SnappyLogo';
 import { GlowButton } from '@/components/ui/glow-button';
 import { GlowLink } from '@/components/ui/glow-link';
 
@@ -24,9 +25,9 @@ export default function Error({
           <div className="flex items-center justify-between">
             <Link
               href="/home"
-              className="text-xl sm:text-2xl lg:text-3xl font-bold text-primary hover:opacity-90 transition-opacity focus:outline-none focus:ring-2 focus:ring-ring rounded px-2 py-1"
+              className="hover:opacity-90 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded px-2 py-1"
             >
-              Snappy
+              <SnappyLogo size="sm" textOnly />
             </Link>
             <Link
               href="/home"

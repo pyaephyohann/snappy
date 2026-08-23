@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
+import SnappyLogo from "@/components/ui/SnappyLogo";
 import { GlowButton } from "@/components/ui/glow-button";
 
 interface NavbarProps {
@@ -45,18 +45,9 @@ export default function Navbar({ username }: NavbarProps) {
           {/* Left: Snappy Branding */}
           <Link
             href="/home"
-            className="flex items-center gap-2 hover:opacity-90 transition-opacity focus:outline-none focus:ring-2 focus:ring-ring rounded px-2 py-1"
+            className="flex items-center gap-2 hover:opacity-90 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded px-2 py-1"
           >
-            <Image
-              src="/logo.png"
-              alt="Snappy Logo"
-              width={96}
-              height={96}
-              className="w-24 h-24"
-            />
-            <span className="text-2xl sm:text-4xl lg:text-5xl font-bold text-primary caveat-font">
-              Snappy
-            </span>
+            <SnappyLogo />
           </Link>
 
           {/* Right: Username + Logout */}

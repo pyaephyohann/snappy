@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
+import SnappyLogo from "@/components/ui/SnappyLogo";
 
 const LINKS = {
   product: [
@@ -23,19 +23,10 @@ export default function Footer() {
           <div className="sm:col-span-1">
             <Link
               href="/"
-              className="inline-flex items-center gap-2 group focus:outline-none focus:ring-2 focus:ring-ring rounded-lg px-2 py-1 -ml-2"
+              className="inline-flex items-center gap-2 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-lg px-2 py-1 -ml-2"
               aria-label="Snappy Home"
             >
-              <Image
-                src="/logo.png"
-                alt=""
-                width={32}
-                height={32}
-                className="w-8 h-8 group-hover:scale-110 transition-transform duration-200"
-              />
-              <span className="text-xl font-bold text-primary caveat-font">
-                Snappy
-              </span>
+              <SnappyLogo size="sm" textOnly />
             </Link>
             <p className="mt-4 text-sm text-muted-foreground max-w-xs leading-relaxed">
               Share moments. Stay connected.

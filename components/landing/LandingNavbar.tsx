@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
+import SnappyLogo from "@/components/ui/SnappyLogo";
 
 const NAV_LINKS = [
   { label: "Features", href: "#features" },
@@ -48,19 +48,11 @@ export default function LandingNavbar() {
             {/* Logo */}
             <Link
               href="/"
-              className="flex items-center gap-2 group focus:outline-none focus:ring-2 focus:ring-ring rounded-lg px-2 py-1 -ml-2"
+              className="flex items-center gap-2 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-lg px-2 py-1 -ml-2"
               aria-label="Snappy Home"
             >
-              <Image
-                src="/logo.png"
-                alt="Snappy Logo"
-                width={96}
-                height={96}
-                className="w-24 h-24 group-hover:scale-105 transition-transform duration-200"
-                priority
-              />
-              <span className="text-2xl sm:text-4xl lg:text-5xl font-bold text-primary caveat-font">
-                Snappy
+              <span className="group-hover:scale-105 transition-transform duration-200 inline-flex">
+                <SnappyLogo />
               </span>
             </Link>
 
