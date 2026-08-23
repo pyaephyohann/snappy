@@ -6,20 +6,23 @@ import HowItWorks from "@/components/landing/HowItWorks";
 import ProductShowcase from "@/components/landing/ProductShowcase";
 import FinalCTA from "@/components/landing/FinalCTA";
 import Footer from "@/components/landing/Footer";
+import LandingSplash from "@/components/landing/LandingSplash";
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-background">
-      <LandingNavbar />
-      <main>
-        <Hero />
-        <SocialProof />
-        <Features />
-        <HowItWorks />
-        <ProductShowcase />
-        <FinalCTA />
-      </main>
-      <Footer />
-    </div>
+    <LandingSplash>
+      <div className="min-h-screen bg-background">
+        <LandingNavbar />
+        <main>
+          <Hero />
+          <SocialProof />
+          <Features />
+          <HowItWorks />
+          <ProductShowcase />
+          <FinalCTA />
+        </main>
+        <Footer />
+      </div>
+    </LandingSplash>
   );
 }
