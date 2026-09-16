@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import Image from "next/image";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -33,6 +34,7 @@ interface UserFormModalProps {
   error?: string | null;
   onClose: () => void;
   onSubmit: (data: UserFormData) => Promise<void>;
+  onChooseProfilePhoto?: () => void;
 }
 
 export default function UserFormModal({
@@ -43,6 +45,7 @@ export default function UserFormModal({
   error,
   onClose,
   onSubmit,
+  onChooseProfilePhoto,
 }: UserFormModalProps) {
   const {
     register,
@@ -83,6 +86,29 @@ export default function UserFormModal({
         })}
         className="space-y-4"
       >
+        {mode === "edit" && user && (
+          <div className="rounded-xl border border-border bg-muted/20 p-4">
+            <p className="text-sm font-medium">Profile Photo</p>
+            <div className="mt-4 flex flex-col items-center gap-4 sm:flex-row sm:items-center">
+              <Image
+                src={user.profileImage}
+                alt={`${user.name}'s profile photo`}
+                width={80}
+                height={80}
+                className="h-20 w-20 rounded-full object-cover"
+              />
+              <button
+                type="button"
+                onClick={onChooseProfilePhoto}
+                disabled={loading || !onChooseProfilePhoto}
+                className="rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-medium hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Choose from user&apos;s images
+              </button>
+            </div>
+          </div>
+        )}
+
         <div>
           <label htmlFor="name" className="mb-2 block text-sm font-medium">
             Username

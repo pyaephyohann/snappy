@@ -5,6 +5,7 @@ import Image from "next/image";
 import { motion } from "framer-motion";
 import ConfirmDialog from "@/components/admin/ConfirmDialog";
 import UserFormModal from "@/components/admin/UserFormModal";
+import UserProfilePhotoModal from "@/components/admin/UserProfilePhotoModal";
 import {
   EditIcon,
   PlusIcon,
@@ -31,6 +32,7 @@ export default function UsersPageClient() {
   const [formError, setFormError] = useState<string | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [photoModalOpen, setPhotoModalOpen] = useState(false);
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
@@ -364,6 +366,26 @@ export default function UsersPageClient() {
         error={formError}
         onClose={() => setModalOpen(false)}
         onSubmit={handleSubmit}
+        onChooseProfilePhoto={
+          modalMode === "edit" && selectedUser
+            ? () => setPhotoModalOpen(true)
+            : undefined
+        }
+      />
+
+      <UserProfilePhotoModal
+        open={photoModalOpen}
+        user={selectedUser}
+        onClose={() => setPhotoModalOpen(false)}
+        onSaved={(updatedUser) => {
+          setSelectedUser(updatedUser);
+          setUsers((current) =>
+            current.map((item) =>
+              item.id === updatedUser.id ? updatedUser : item,
+            ),
+          );
+          showToast("Profile photo updated");
+        }}
       />
 
       <ConfirmDialog

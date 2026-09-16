@@ -16,3 +16,11 @@ Camera captures are converted to a JPEG `File` and passed through the same previ
 - Requires HTTPS (or localhost) and user permission.
 - Some browsers or installed PWAs may restrict camera switching or deny permission; gallery upload remains available as fallback.
 - Camera streams are stopped when you leave camera mode or close the uploader.
+
+## Admin user profile photos
+
+From **Admin → Users → Edit user**, admins can choose **Choose from user's images** to set a profile photo from that user's existing Snaps.
+
+- The server verifies the selected Snap belongs to the target user.
+- Snappy reuses the Snap's existing Cloudinary `imageUrl` on `User.profileImage`.
+- No new Cloudinary upload is performed for profile photo changes.
