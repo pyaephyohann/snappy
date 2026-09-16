@@ -7,5 +7,9 @@ export default function HomeLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return <AppShell>{children}</AppShell>;
+  return (
+    <div className="user-app-shell min-h-full">
+      <AppShell>{children}</AppShell>
+    </div>
+  );
 }

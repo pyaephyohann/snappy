@@ -351,6 +351,19 @@ button {
   z-index: 1;
 }
 
+/* Logged-in user app on mobile: glow only on featured surfaces (e.g. HeroCarousel) */
+@media (max-width: 767px) {
+  .user-app-shell .glow-border:not(.glow-border-featured) {
+    padding: 0;
+    overflow: visible;
+  }
+
+  .user-app-shell .glow-border:not(.glow-border-featured)::before,
+  .user-app-shell .glow-border:not(.glow-border-featured)::after {
+    display: none;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .glow-border::before {
     animation: none;

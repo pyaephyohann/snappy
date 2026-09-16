@@ -16,6 +16,8 @@ interface GlowingBorderProps {
   className?: string;
   radius?: GlowRadius;
   intensity?: "default" | "strong";
+  /** Keeps animated glow on mobile inside `.user-app-shell` (e.g. home HeroCarousel). */
+  featured?: boolean;
   as?: ElementType;
 }
 
@@ -24,14 +26,16 @@ export default function GlowingBorder({
   className = "",
   radius = "xl",
   intensity = "default",
+  featured = false,
   as: Component = "div",
 }: GlowingBorderProps) {
   const radiusClass = radiusMap[radius];
   const intensityClass = intensity === "strong" ? "glow-border-strong" : "";
+  const featuredClass = featured ? "glow-border-featured" : "";
 
   return (
     <Component
-      className={`glow-border ${radiusClass} ${intensityClass} ${className}`.trim()}
+      className={`glow-border ${radiusClass} ${intensityClass} ${featuredClass} ${className}`.trim()}
     >
       {children}
     </Component>

@@ -143,7 +143,12 @@ export default function HeroCarousel() {
 
   return (
     <section aria-label="Featured banners" className="mb-8 sm:mb-10">
-      <GlowingBorder radius="xl" intensity="strong" className="w-full">
+      <GlowingBorder
+        radius="xl"
+        intensity="strong"
+        featured
+        className="w-full"
+      >
         <div
           className="relative bg-card rounded-xl border border-border overflow-hidden"
           onMouseEnter={() => setIsPaused(true)}
