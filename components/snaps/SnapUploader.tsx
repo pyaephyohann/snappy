@@ -4,6 +4,8 @@
 import { useState, useEffect } from "react";
 import { useDropzone } from "react-dropzone";
 import { GlowButton } from "@/components/ui/glow-button";
+import SnapCameraCapture from "@/components/snaps/SnapCameraCapture";
+import { isCameraCaptureSupported } from "@/lib/snap-camera";
 
 interface SnapUploaderProps {
   onUpload?: (file: File, caption?: string) => Promise<void>;
@@ -25,6 +27,8 @@ export default function SnapUploader({
   const [uploadPhase, setUploadPhase] = useState<
     "idle" | "selecting" | "uploading" | "saving"
   >("idle");
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const cameraSupported = isCameraCaptureSupported();
 
   useEffect(() => {
     return () => {
@@ -137,7 +141,13 @@ export default function SnapUploader({
     setUploadPhase("idle");
   };
 
+  const handleCameraCapture = (file: File) => {
+    setIsCameraOpen(false);
+    handleFileSelect(file);
+  };
+
   const handleClose = () => {
+    setIsCameraOpen(false);
     setIsOpen(false);
     if (previewUrl) {
       URL.revokeObjectURL(previewUrl);
@@ -255,20 +265,48 @@ export default function SnapUploader({
                   </p>
                 </div>
               ) : (
-                <div className="mb-6">
-                  <div
-                    {...getRootProps()}
-                    className={`aspect-square sm:aspect-video w-full bg-muted rounded-lg border-2 border-dashed border-border flex items-center justify-center transition-colors ${
-                      isDragActive
-                        ? "border-primary bg-primary/5"
-                        : isDragReject
-                          ? "border-destructive bg-destructive/5"
-                          : ""
-                    }`}
-                  >
-                    <div className="text-center p-6">
+                <div className="mb-6 space-y-4">
+                  <div className="flex flex-col gap-3 sm:flex-row">
+                    {cameraSupported && (
+                      <GlowButton
+                        type="button"
+                        onClick={() => setIsCameraOpen(true)}
+                        disabled={isUploading}
+                        glowClassName="flex-1"
+                        className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-3 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity text-sm sm:text-base"
+                      >
+                        <svg
+                          className="w-5 h-5"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                          aria-hidden="true"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
+                          />
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"
+                          />
+                        </svg>
+                        Take Photo
+                      </GlowButton>
+                    )}
+                    <GlowButton
+                      type="button"
+                      onClick={open}
+                      disabled={isUploading}
+                      glowClassName="flex-1"
+                      className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-3 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/80 transition-colors text-sm sm:text-base"
+                    >
                       <svg
-                        className="w-12 h-12 mx-auto text-muted-foreground mb-3"
+                        className="w-5 h-5"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -281,10 +319,25 @@ export default function SnapUploader({
                           d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
                         />
                       </svg>
+                      Choose Photo
+                    </GlowButton>
+                  </div>
+
+                  <div
+                    {...getRootProps()}
+                    className={`aspect-square sm:aspect-video w-full bg-muted rounded-lg border-2 border-dashed border-border flex items-center justify-center transition-colors cursor-pointer ${
+                      isDragActive
+                        ? "border-primary bg-primary/5"
+                        : isDragReject
+                          ? "border-destructive bg-destructive/5"
+                          : ""
+                    }`}
+                  >
+                    <div className="text-center p-6">
                       <p className="text-sm text-muted-foreground">
                         {isDragActive
                           ? "Drop image here"
-                          : "Select or Drop an image to preview"}
+                          : "Or drag and drop an image to preview"}
                       </p>
                     </div>
                   </div>
@@ -362,6 +415,17 @@ export default function SnapUploader({
             </div>
           </div>
         </div>
+      )}
+
+      {isOpen && isCameraOpen && (
+        <SnapCameraCapture
+          onCapture={handleCameraCapture}
+          onClose={() => setIsCameraOpen(false)}
+          onChooseGallery={() => {
+            setIsCameraOpen(false);
+            open();
+          }}
+        />
       )}
     </>
   );
