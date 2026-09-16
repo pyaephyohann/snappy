@@ -40,6 +40,7 @@ export default function UserProfilePhotoModal({
   useEffect(() => {
     if (!open || !user) return;
 
+    const activeUser = user;
     let cancelled = false;
 
     async function loadOptions() {
@@ -48,7 +49,7 @@ export default function UserProfilePhotoModal({
 
       try {
         const response = await adminFetch(
-          `/api/admin/users/${user.id}/profile-photo`,
+          `/api/admin/users/${activeUser.id}/profile-photo`,
         );
 
         if (cancelled) return;
@@ -65,7 +66,7 @@ export default function UserProfilePhotoModal({
 
         const nextSnaps = result.snaps ?? [];
         const currentProfileImage =
-          result.user?.profileImage ?? user.profileImage;
+          result.user?.profileImage ?? activeUser.profileImage;
 
         setSnaps(nextSnaps);
         setProfileImage(currentProfileImage);
