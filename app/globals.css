@@ -1,38 +1,13 @@
 @import "tailwindcss";
 
 :root {
-  /* Brand Colors */
+  /* Brand Colors (shared) */
   --primary: #8b5cf6;
   --primary-foreground: #ffffff;
-  
-  --secondary: #27272a;
-  --secondary-foreground: #fafafa;
-  
-  /* Background & Foreground */
-  --background: #09090b;
-  --foreground: #fafafa;
-  
-  /* Muted */
-  --muted: #27272a;
-  --muted-foreground: #a1a1aa;
-  
-  /* Borders */
-  --border: #3f3f46;
-  
-  /* Card */
-  --card: #18181b;
-  --card-foreground: #fafafa;
-  
-  /* Semantic Colors */
+
   --destructive: #ef4444;
-  --destructive-foreground: #fafafa;
-  
   --success: #22c55e;
-  --success-foreground: #fafafa;
-  
-  /* Selection */
-  --selection: rgba(139, 92, 246, 0.3);
-  
+
   /* Focus Ring */
   --ring: #8b5cf6;
 
@@ -41,6 +16,49 @@
   --safe-area-inset-right: env(safe-area-inset-right, 0px);
   --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
   --safe-area-inset-left: env(safe-area-inset-left, 0px);
+}
+
+:root,
+.dark {
+  --secondary: #27272a;
+  --secondary-foreground: #fafafa;
+
+  --background: #09090b;
+  --foreground: #fafafa;
+
+  --muted: #27272a;
+  --muted-foreground: #a1a1aa;
+
+  --border: #3f3f46;
+
+  --card: #18181b;
+  --card-foreground: #fafafa;
+
+  --destructive-foreground: #fafafa;
+  --success-foreground: #fafafa;
+
+  --selection: rgba(139, 92, 246, 0.3);
+}
+
+.light {
+  --secondary: #f4f4f5;
+  --secondary-foreground: #18181b;
+
+  --background: #fafafa;
+  --foreground: #09090b;
+
+  --muted: #f4f4f5;
+  --muted-foreground: #71717a;
+
+  --border: #e4e4e7;
+
+  --card: #ffffff;
+  --card-foreground: #09090b;
+
+  --destructive-foreground: #fafafa;
+  --success-foreground: #fafafa;
+
+  --selection: rgba(139, 92, 246, 0.25);
 }
 
 @theme inline {
