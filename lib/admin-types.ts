@@ -23,6 +23,31 @@ export interface AdminSnap {
   };
 }
 
+export interface AdminHeroCarouselConfig {
+  id: string;
+  title: string | null;
+  updatedAt: string;
+}
+
+export interface AdminHeroCarouselSlide {
+  id: string;
+  snapId: string;
+  sortOrder: number;
+  altText: string | null;
+  createdAt: string;
+  updatedAt: string;
+  snap: {
+    id: string;
+    imageUrl: string;
+    caption: string | null;
+    user: {
+      id: string;
+      name: string;
+      profileImage: string;
+    };
+  };
+}
+
 export function formatAdminDate(value: string | Date) {
   return new Intl.DateTimeFormat("en-US", {
     month: "short",

@@ -1,28 +1,49 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { AnimatePresence, motion } from "framer-motion";
 import GlowingBorder from "@/components/ui/glowing-border";
+import type { PublicHeroCarouselSlide } from "@/lib/hero-carousel";
 
-// Edit this array to add, remove, or replace carousel images.
-const carouselImages = [
+type CarouselImage = {
+  id: string;
+  image: string;
+  alt: string;
+};
+
+const STATIC_FALLBACK_IMAGES: CarouselImage[] = [
   {
-    id: "1",
+    id: "static-banner-1",
     image: "/images/home/banner-1.jpeg",
     alt: "Snappy hero banner 1",
   },
   {
-    id: "2",
+    id: "static-banner-2",
     image: "/images/home/banner-2.jpeg",
     alt: "Snappy hero banner 2",
   },
   {
-    id: "3",
+    id: "static-banner-3",
     image: "/images/home/banner-3.jpeg",
     alt: "Snappy hero banner 3",
   },
 ];
+
+function mapSlidesToCarouselImages(
+  slides: PublicHeroCarouselSlide[],
+): CarouselImage[] {
+  return slides.map((slide) => ({
+    id: slide.id,
+    image: slide.imageUrl,
+    alt: slide.altText,
+  }));
+}
+
+interface HeroCarouselProps {
+  title?: string | null;
+  slides?: PublicHeroCarouselSlide[];
+}
 
 const AUTO_PLAY_MS = 5000;
 
@@ -79,14 +100,28 @@ function ChevronRightIcon({ className }: { className?: string }) {
   );
 }
 
-export default function HeroCarousel() {
+export default function HeroCarousel({
+  title = null,
+  slides = [],
+}: HeroCarouselProps) {
   const [[currentIndex, direction], setSlide] = useState([0, 0]);
   const [isPaused, setIsPaused] = useState(false);
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  const carouselImages = useMemo(() => {
+    if (slides.length >= 1) {
+      return mapSlidesToCarouselImages(slides);
+    }
+    return STATIC_FALLBACK_IMAGES;
+  }, [slides]);
+
+  const displayTitle = title?.trim() ? title.trim() : null;
+
   const total = carouselImages.length;
-  const current = carouselImages[currentIndex];
+  const activeIndex =
+    total > 0 ? Math.min(currentIndex, total - 1) : 0;
+  const current = carouselImages[activeIndex];
 
   const paginate = useCallback(
     (newDirection: number) => {
@@ -143,6 +178,11 @@ export default function HeroCarousel() {
 
   return (
     <section aria-label="Featured banners" className="mb-8 sm:mb-10">
+      {displayTitle && (
+        <h2 className="mb-4 text-xl font-semibold text-foreground sm:mb-5 sm:text-2xl">
+          {displayTitle}
+        </h2>
+      )}
       <GlowingBorder
         radius="xl"
         intensity="strong"
@@ -172,7 +212,7 @@ export default function HeroCarousel() {
                   fill
                   className="object-cover"
                   sizes="(max-width: 768px) 100vw, (max-width: 1280px) 90vw, 1280px"
-                  priority={currentIndex === 0}
+                  priority={activeIndex === 0}
                 />
               </motion.div>
             </AnimatePresence>
@@ -208,12 +248,12 @@ export default function HeroCarousel() {
                   type="button"
                   onClick={() => goToIndex(index)}
                   className={`rounded-full transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background ${
-                    index === currentIndex
+                    index === activeIndex
                       ? "w-6 sm:w-8 h-2 sm:h-2.5 bg-primary"
                       : "w-2 sm:w-2.5 h-2 sm:h-2.5 bg-muted-foreground/40 hover:bg-muted-foreground/60"
                   }`}
                   aria-label={`Go to slide ${index + 1}`}
-                  aria-current={index === currentIndex ? "true" : undefined}
+                  aria-current={index === activeIndex ? "true" : undefined}
                 />
               ))}
             </div>

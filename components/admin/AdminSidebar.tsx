@@ -7,6 +7,7 @@ import {
   BackIcon,
   DashboardIcon,
   LogoutIcon,
+  HeroCarouselIcon,
   SnapsIcon,
   UsersIcon,
 } from "@/components/admin/icons";
@@ -23,6 +24,12 @@ export default function AdminSidebar({ uuid, onNavigate }: AdminSidebarProps) {
     { href: `/admin/${uuid}`, label: "Dashboard", icon: DashboardIcon, exact: true },
     { href: `/admin/${uuid}/users`, label: "Users", icon: UsersIcon, exact: false },
     { href: `/admin/${uuid}/snaps`, label: "Snaps", icon: SnapsIcon, exact: false },
+    {
+      href: `/admin/${uuid}/hero-carousel`,
+      label: "Hero Carousel",
+      icon: HeroCarouselIcon,
+      exact: false,
+    },
   ];
 
   const isActive = (href: string, exact: boolean) =>

@@ -41,20 +41,42 @@ model User {
 }
 
 model Snap {
-  id        String     @id @default(cuid())
-  imageUrl  String
-  publicId  String
-  caption   String?
-  userId    String
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
-  comments  Comment[]
-  reactions Reaction[]
-  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                String             @id @default(cuid())
+  imageUrl          String
+  publicId          String
+  caption           String?
+  userId            String
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  comments          Comment[]
+  reactions         Reaction[]
+  heroCarouselSlide HeroCarouselSlide?
+  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([createdAt])
   @@map("snaps")
+}
+
+model HeroCarouselConfig {
+  id        String   @id @default("default")
+  title     String?
+  updatedAt DateTime @updatedAt
+
+  @@map("hero_carousel_config")
+}
+
+model HeroCarouselSlide {
+  id        String   @id @default(cuid())
+  snapId    String   @unique
+  sortOrder Int
+  altText   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  snap      Snap     @relation(fields: [snapId], references: [id], onDelete: Cascade)
+
+  @@index([sortOrder])
+  @@map("hero_carousel_slides")
 }
 
 model Reaction {

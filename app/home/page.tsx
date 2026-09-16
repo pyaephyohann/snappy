@@ -5,6 +5,7 @@ import FriendCard from "@/components/home/FriendCard";
 import HeroCarousel from "@/components/home/HeroCarousel";
 import Navbar from "@/components/layout/Navbar";
 import GlowingBorder from "@/components/ui/glowing-border";
+import { getHeroCarouselData } from "@/lib/hero-carousel";
 
 export default async function HomePage() {
   const session = await getSession();
@@ -13,17 +14,19 @@ export default async function HomePage() {
     redirect("/");
   }
 
-  // Fetch friend profiles from PostgreSQL
-  const friends = await prisma.user.findMany({
-    select: {
-      id: true,
-      name: true,
-      profileImage: true,
-    },
-    orderBy: {
-      name: "asc",
-    },
-  });
+  const [heroCarousel, friends] = await Promise.all([
+    getHeroCarouselData(),
+    prisma.user.findMany({
+      select: {
+        id: true,
+        name: true,
+        profileImage: true,
+      },
+      orderBy: {
+        name: "asc",
+      },
+    }),
+  ]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -32,7 +35,10 @@ export default async function HomePage() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
-        <HeroCarousel />
+        <HeroCarousel
+          title={heroCarousel.title}
+          slides={heroCarousel.slides}
+        />
 
         {/* Friends Section */}
         <section>
