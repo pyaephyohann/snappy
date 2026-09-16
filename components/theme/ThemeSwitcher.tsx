@@ -8,6 +8,7 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useTheme } from "next-themes";
 
 type ThemeChoice = "light" | "dark" | "system";
@@ -17,6 +18,17 @@ const OPTIONS: { value: ThemeChoice; label: string; icon: string }[] = [
   { value: "dark", label: "Dark", icon: "🌙" },
   { value: "system", label: "System", icon: "🖥️" },
 ];
+
+const ICON_CLASS = "w-[1.375rem] h-[1.375rem] md:w-5 md:h-5";
+
+const MENU_EASE = [0.22, 1, 0.36, 1] as const;
+
+function getTriggerIconKey(theme?: string, resolvedTheme?: string): string {
+  if (theme === "system") {
+    return "system";
+  }
+  return (resolvedTheme ?? theme ?? "dark") === "light" ? "light" : "dark";
+}
 
 function ThemeTriggerIcon({
   theme,
@@ -28,7 +40,7 @@ function ThemeTriggerIcon({
   if (theme === "system") {
     return (
       <svg
-        className="w-5 h-5"
+        className={ICON_CLASS}
         fill="none"
         stroke="currentColor"
         viewBox="0 0 24 24"
@@ -47,7 +59,7 @@ function ThemeTriggerIcon({
   if ((resolvedTheme ?? theme) === "light") {
     return (
       <svg
-        className="w-5 h-5"
+        className={ICON_CLASS}
         fill="none"
         stroke="currentColor"
         viewBox="0 0 24 24"
@@ -65,7 +77,7 @@ function ThemeTriggerIcon({
 
   return (
     <svg
-      className="w-5 h-5"
+      className={ICON_CLASS}
       fill="none"
       stroke="currentColor"
       viewBox="0 0 24 24"
@@ -85,6 +97,7 @@ export default function ThemeSwitcher() {
   const menuId = useId();
   const rootRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
+  const reduceMotion = useReducedMotion();
   const mounted = useSyncExternalStore(
     () => () => {},
     () => true,
@@ -128,6 +141,15 @@ export default function ThemeSwitcher() {
   };
 
   const activeTheme = (theme ?? "dark") as ThemeChoice;
+  const triggerIconKey = getTriggerIconKey(theme, resolvedTheme);
+
+  const menuTransition = reduceMotion
+    ? { duration: 0 }
+    : { duration: 0.16, ease: MENU_EASE };
+
+  const iconTransition = reduceMotion
+    ? { duration: 0 }
+    : { duration: 0.22, ease: MENU_EASE };
 
   return (
     <div ref={rootRef} className="relative shrink-0">
@@ -141,46 +163,100 @@ export default function ThemeSwitcher() {
         onClick={() => setOpen((prev) => !prev)}
       >
         {mounted ? (
-          <ThemeTriggerIcon theme={theme} resolvedTheme={resolvedTheme} />
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.span
+              key={triggerIconKey}
+              className="flex items-center justify-center"
+              initial={
+                reduceMotion
+                  ? false
+                  : { opacity: 0, rotate: -18, scale: 0.88 }
+              }
+              animate={{ opacity: 1, rotate: 0, scale: 1 }}
+              exit={
+                reduceMotion
+                  ? { opacity: 1 }
+                  : { opacity: 0, rotate: 18, scale: 0.88 }
+              }
+              transition={iconTransition}
+            >
+              <ThemeTriggerIcon theme={theme} resolvedTheme={resolvedTheme} />
+            </motion.span>
+          </AnimatePresence>
         ) : (
-          <span className="w-5 h-5" aria-hidden="true" />
+          <span className={ICON_CLASS} aria-hidden="true" />
         )}
       </button>
 
-      {open && mounted ? (
-        <div
-          id={menuId}
-          role="menu"
-          aria-label="Theme options"
-          className="absolute right-0 top-full z-50 mt-2 min-w-[10.5rem] rounded-xl border border-border bg-card py-1 shadow-lg shadow-black/20"
-        >
-          {OPTIONS.map((option) => {
-            const selected = activeTheme === option.value;
-            return (
-              <button
-                key={option.value}
-                type="button"
-                role="menuitemradio"
-                aria-checked={selected}
-                className={`flex w-full items-center gap-2 px-3 py-2.5 text-sm text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset ${
-                  selected
-                    ? "bg-muted text-foreground font-medium"
-                    : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
-                }`}
-                onClick={() => selectTheme(option.value)}
-              >
-                <span aria-hidden="true">{option.icon}</span>
-                <span>{option.label}</span>
-                {selected ? (
-                  <span className="ml-auto text-primary" aria-hidden="true">
-                    ✓
-                  </span>
-                ) : null}
-              </button>
-            );
-          })}
-        </div>
-      ) : null}
+      <AnimatePresence>
+        {open && mounted ? (
+          <motion.div
+            id={menuId}
+            role="menu"
+            aria-label="Theme options"
+            className="absolute right-0 top-full z-50 mt-2 min-w-[10.5rem] origin-top-right rounded-xl border border-border bg-card py-1 shadow-lg shadow-black/20"
+            initial={
+              reduceMotion ? false : { opacity: 0, scale: 0.96, y: -6 }
+            }
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={
+              reduceMotion
+                ? { opacity: 0 }
+                : { opacity: 0, scale: 0.96, y: -4 }
+            }
+            transition={menuTransition}
+          >
+            {OPTIONS.map((option) => {
+              const selected = activeTheme === option.value;
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  role="menuitemradio"
+                  aria-checked={selected}
+                  className={`relative flex w-full items-center gap-2 px-3 py-2.5 text-sm text-left transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset ${
+                    selected
+                      ? "bg-muted text-foreground font-medium"
+                      : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                  }`}
+                  onClick={() => selectTheme(option.value)}
+                >
+                  <motion.span
+                    aria-hidden="true"
+                    animate={
+                      reduceMotion
+                        ? undefined
+                        : { scale: selected ? 1.05 : 1 }
+                    }
+                    transition={iconTransition}
+                  >
+                    {option.icon}
+                  </motion.span>
+                  <span>{option.label}</span>
+                  <AnimatePresence initial={false}>
+                    {selected ? (
+                      <motion.span
+                        className="ml-auto text-primary"
+                        aria-hidden="true"
+                        initial={
+                          reduceMotion ? false : { opacity: 0, x: -6 }
+                        }
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={
+                          reduceMotion ? { opacity: 0 } : { opacity: 0, x: 4 }
+                        }
+                        transition={menuTransition}
+                      >
+                        ✓
+                      </motion.span>
+                    ) : null}
+                  </AnimatePresence>
+                </button>
+              );
+            })}
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
     </div>
   );
 }
