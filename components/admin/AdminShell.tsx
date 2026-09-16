@@ -48,7 +48,7 @@ export default function AdminShell({ username, uuid, children }: AdminShellProps
           </div>
 
           <div className="flex min-h-screen flex-1 flex-col lg:pl-64">
-            <header className="sticky top-0 z-20 border-b border-border bg-card/80 backdrop-blur-sm lg:hidden">
+            <header className="safe-area-pt sticky top-0 z-20 border-b border-border bg-card/80 backdrop-blur-sm lg:hidden">
               <div className="flex items-center justify-between px-4 py-3">
                 <button
                   type="button"
@@ -84,7 +84,7 @@ export default function AdminShell({ username, uuid, children }: AdminShellProps
                 animate={{ x: 0 }}
                 exit={{ x: "-100%" }}
                 transition={{ type: "spring", stiffness: 320, damping: 32 }}
-                className="fixed inset-y-0 left-0 z-50 flex w-72 flex-col bg-card lg:hidden"
+                className="safe-area-pt safe-area-pb fixed inset-y-0 left-0 z-50 flex w-72 flex-col bg-card lg:hidden"
               >
                 <div className="flex items-center justify-end px-3 py-3">
                   <button

@@ -37,7 +37,7 @@ export default function LandingNavbar() {
         initial={{ y: -100 }}
         animate={{ y: 0 }}
         transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+        className={`safe-area-pt fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
           scrolled
             ? "bg-background/80 backdrop-blur-xl border-b border-border/50 shadow-lg shadow-black/10"
             : "bg-transparent"
@@ -138,7 +138,7 @@ export default function LandingNavbar() {
               animate={{ x: 0 }}
               exit={{ x: "100%" }}
               transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-              className="absolute right-0 top-0 h-full w-72 bg-background/95 backdrop-blur-xl border-l border-border/50 shadow-2xl"
+              className="safe-area-pt safe-area-pb absolute right-0 top-0 h-full w-72 bg-background/95 backdrop-blur-xl border-l border-border/50 shadow-2xl"
             >
               <div className="flex flex-col h-full pt-20 px-6 pb-8">
                 <div className="flex flex-col gap-1 flex-1">

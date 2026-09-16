@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 
 export default function OfflinePage() {
   return (
-    <div className="min-h-full flex flex-col items-center justify-center px-6 py-16 bg-background text-foreground">
+    <div className="safe-area-pt safe-area-pb min-h-full flex flex-col items-center justify-center px-6 py-16 bg-background text-foreground">
       {/* eslint-disable-next-line @next/next/no-img-element -- direct /logo.png for offline SW precache */}
       <img
         src="/logo.png"

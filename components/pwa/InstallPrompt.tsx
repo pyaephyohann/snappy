@@ -105,7 +105,7 @@ export default function InstallPrompt() {
     <div
       role="region"
       aria-label="Install Snappy"
-      className="fixed bottom-4 left-4 right-4 z-[9998] mx-auto max-w-md rounded-2xl border border-border bg-card p-4 shadow-2xl shadow-black/40 sm:left-auto sm:right-6"
+      className="safe-area-bottom-fixed safe-area-fixed-inset-x fixed z-[9998] mx-auto max-w-md rounded-2xl border border-border bg-card p-4 shadow-2xl shadow-black/40 sm:left-auto sm:right-[max(1.5rem,var(--safe-area-inset-right))] sm:max-w-md"
     >
       <div className="flex flex-col gap-3">
         <div>
