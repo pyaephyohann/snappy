@@ -16,6 +16,14 @@
   --safe-area-inset-right: env(safe-area-inset-right, 0px);
   --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
   --safe-area-inset-left: env(safe-area-inset-left, 0px);
+
+  /* Mobile bottom navigation (user app) */
+  --bottom-nav-height: 4.75rem;
+  --bottom-nav-camera-overhang: 1.75rem;
+  --bottom-nav-content-pad: calc(
+    var(--bottom-nav-height) + var(--bottom-nav-camera-overhang) +
+      var(--safe-area-inset-bottom)
+  );
 }
 
 :root,
@@ -361,6 +369,12 @@ button {
   .user-app-shell .glow-border:not(.glow-border-featured)::before,
   .user-app-shell .glow-border:not(.glow-border-featured)::after {
     display: none;
+  }
+}
+
+@media (max-width: 1023px) {
+  .user-app-content-pad {
+    padding-bottom: var(--bottom-nav-content-pad);
   }
 }
 

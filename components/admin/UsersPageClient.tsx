@@ -256,13 +256,15 @@ export default function UsersPageClient() {
                   >
                     <td className="px-4 py-4">
                       <div className="flex items-center gap-3">
-                        <Image
-                          src={user.profileImage}
-                          alt={user.name}
-                          width={40}
-                          height={40}
-                          className="h-10 w-10 rounded-full object-cover"
-                        />
+                        <div className="relative h-10 w-10 shrink-0 aspect-square overflow-hidden rounded-full bg-muted">
+                          <Image
+                            src={user.profileImage}
+                            alt={user.name}
+                            fill
+                            className="object-cover"
+                            sizes="40px"
+                          />
+                        </div>
                         <span className="font-medium">{user.name}</span>
                       </div>
                     </td>
@@ -319,13 +321,15 @@ export default function UsersPageClient() {
                 className="rounded-2xl border border-border bg-card p-4"
               >
                 <div className="flex items-center gap-3">
-                  <Image
-                    src={user.profileImage}
-                    alt={user.name}
-                    width={44}
-                    height={44}
-                    className="h-11 w-11 rounded-full object-cover"
-                  />
+                  <div className="relative h-11 w-11 shrink-0 aspect-square overflow-hidden rounded-full bg-muted">
+                    <Image
+                      src={user.profileImage}
+                      alt={user.name}
+                      fill
+                      className="object-cover"
+                      sizes="44px"
+                    />
+                  </div>
                   <div>
                     <p className="font-medium">{user.name}</p>
                     <p className="text-xs text-muted-foreground">

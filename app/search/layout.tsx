@@ -1,9 +1,8 @@
-import AppShell from "@/components/layout/AppShell";
 import UserAppChrome from "@/components/layout/UserAppChrome";
 import { getSession } from "@/lib/auth";
 import { redirect } from "next/navigation";
 
-export default async function HomeLayout({
+export default async function SearchLayout({
   children,
 }: {
   children: React.ReactNode;
@@ -15,9 +14,7 @@ export default async function HomeLayout({
 
   return (
     <div className="user-app-shell min-h-full">
-      <AppShell>
-        <UserAppChrome username={session.username}>{children}</UserAppChrome>
-      </AppShell>
+      <UserAppChrome username={session.username}>{children}</UserAppChrome>
     </div>
   );
 }

@@ -153,7 +153,12 @@ export default async function middleware(request: NextRequest) {
   }
 
   // ── User-protected routes ───────────────────────────────────────
-  if (path.startsWith("/home") || path.startsWith("/friends")) {
+  if (
+    path.startsWith("/home") ||
+    path.startsWith("/friends") ||
+    path.startsWith("/search") ||
+    path.startsWith("/notifications")
+  ) {
     const session = await hasValidSession(
       request,
       SESSION_COOKIE_NAME,

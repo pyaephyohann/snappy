@@ -159,15 +159,17 @@ export default function UserProfilePhotoModal({
         {user && (
           <div className="flex items-center gap-4 rounded-xl border border-border bg-muted/20 p-4">
             {currentPhotoSrc ? (
-              <Image
-                src={currentPhotoSrc}
-                alt={`${user.name}'s current profile photo`}
-                width={72}
-                height={72}
-                className="h-[72px] w-[72px] rounded-full object-cover"
-              />
+              <div className="relative h-[72px] w-[72px] shrink-0 aspect-square overflow-hidden rounded-full bg-muted">
+                <Image
+                  src={currentPhotoSrc}
+                  alt={`${user.name}'s current profile photo`}
+                  fill
+                  className="object-cover"
+                  sizes="72px"
+                />
+              </div>
             ) : (
-              <div className="h-[72px] w-[72px] rounded-full bg-muted" />
+              <div className="h-[72px] w-[72px] shrink-0 aspect-square rounded-full bg-muted" />
             )}
             <div>
               <p className="text-sm font-medium">{user.name}</p>

@@ -6,6 +6,7 @@ import FriendHeader from './FriendHeader';
 import SnapGallery from './SnapGallery';
 import SnapUploader from '../snaps/SnapUploader';
 import { GlowButton } from '@/components/ui/glow-button';
+import { uploadSnapForUser } from '@/lib/snap-upload-client';
 
 interface FriendWithSnaps {
   id: string;
@@ -29,66 +30,11 @@ export default function FriendProfileClient({ friend }: FriendProfileClientProps
   const [error, setError] = useState<string | null>(null);
 
   const handleUpload = async (file: File, caption?: string) => {
+    setError(null);
     try {
-      setError(null);
-
-      // Step 1: Request Cloudinary signature
-      const timestamp = Math.floor(Date.now() / 1000);
-      const signatureResponse = await fetch('/api/cloudinary/sign', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ timestamp }),
-      });
-
-      if (!signatureResponse.ok) {
-        throw new Error('Unable to start upload. Please try again.');
-      }
-
-      const signatureData = await signatureResponse.json();
-
-      // Step 2: Upload directly to Cloudinary
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('api_key', signatureData.api_key);
-      formData.append('timestamp', signatureData.timestamp.toString());
-      formData.append('signature', signatureData.signature);
-      formData.append('folder', signatureData.folder);
-
-      const cloudName = signatureData.cloud_name;
-      const uploadUrl = `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`;
-
-      const uploadResponse = await fetch(uploadUrl, {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!uploadResponse.ok) {
-        throw new Error('Image upload failed. Please try again.');
-      }
-
-      const uploadData = await uploadResponse.json();
-
-      // Step 3: Create Snap via API
-      const snapResponse = await fetch('/api/snaps', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          targetUserId: friend.id,
-          imageUrl: uploadData.secure_url,
-          publicId: uploadData.public_id,
-          caption: caption || undefined,
-        }),
-      });
-
-      if (!snapResponse.ok) {
-        throw new Error('Image uploaded, but we couldn\'t save the Snap. Please try again.');
-      }
-
-      // Step 4: Refresh gallery to show new Snap
+      await uploadSnapForUser(friend.id, file, caption);
       router.refresh();
-
     } catch (error) {
-      // Rethrow error to be handled by SnapUploader
       throw error;
     }
   };

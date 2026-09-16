@@ -90,13 +90,15 @@ export default function UserFormModal({
           <div className="rounded-xl border border-border bg-muted/20 p-4">
             <p className="text-sm font-medium">Profile Photo</p>
             <div className="mt-4 flex flex-col items-center gap-4 sm:flex-row sm:items-center">
-              <Image
-                src={user.profileImage}
-                alt={`${user.name}'s profile photo`}
-                width={80}
-                height={80}
-                className="h-20 w-20 rounded-full object-cover"
-              />
+              <div className="relative h-20 w-20 shrink-0 aspect-square overflow-hidden rounded-full bg-muted">
+                <Image
+                  src={user.profileImage}
+                  alt={`${user.name}'s profile photo`}
+                  fill
+                  className="object-cover"
+                  sizes="80px"
+                />
+              </div>
               <button
                 type="button"
                 onClick={onChooseProfilePhoto}
