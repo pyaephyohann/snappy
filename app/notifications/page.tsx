@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import Navbar from "@/components/layout/Navbar";
+import NotificationSettings from "@/components/notifications/NotificationSettings";
+import NotificationsPageClient from "@/components/notifications/NotificationsPageClient";
 
 export default async function NotificationsPage() {
   const session = await getSession();
@@ -15,11 +17,8 @@ export default async function NotificationsPage() {
         <h1 className="mb-4 text-xl font-semibold text-foreground sm:text-2xl">
           Notifications
         </h1>
-        <div className="rounded-xl border border-border bg-card px-6 py-12 text-center">
-          <p className="text-sm text-muted-foreground sm:text-base">
-            You&apos;re all caught up. New activity will show up here.
-          </p>
-        </div>
+        <NotificationSettings />
+        <NotificationsPageClient />
       </main>
     </div>
   );

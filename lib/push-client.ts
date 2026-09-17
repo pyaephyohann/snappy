@@ -1,0 +1,112 @@
+"use client";
+
+function urlBase64ToUint8Array(base64String: string): Uint8Array {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+}
+
+export type PushSupportStatus =
+  | "supported"
+  | "unsupported"
+  | "missing-vapid";
+
+export function getPushSupportStatus(): PushSupportStatus {
+  if (typeof window === "undefined") {
+    return "unsupported";
+  }
+  if (
+    !("serviceWorker" in navigator) ||
+    !("PushManager" in window) ||
+    !("Notification" in window)
+  ) {
+    return "unsupported";
+  }
+  return "supported";
+}
+
+export async function getExistingSubscription(): Promise<PushSubscription | null> {
+  const registration = await navigator.serviceWorker.ready;
+  return registration.pushManager.getSubscription();
+}
+
+export async function subscribeToWebPush(): Promise<
+  "granted" | "denied" | "default" | "error" | "missing-vapid"
+> {
+  if (getPushSupportStatus() === "unsupported") {
+    return "error";
+  }
+
+  const permission = await Notification.requestPermission();
+  if (permission !== "granted") {
+    return permission;
+  }
+
+  const vapidResponse = await fetch("/api/notifications/vapid-public-key");
+  if (!vapidResponse.ok) {
+    return "missing-vapid";
+  }
+  const { publicKey } = (await vapidResponse.json()) as { publicKey: string };
+
+  const registration = await navigator.serviceWorker.register("/sw.js", {
+    scope: "/",
+  });
+  await navigator.serviceWorker.ready;
+
+  const subscription = await registration.pushManager.subscribe({
+    userVisibleOnly: true,
+    applicationServerKey: urlBase64ToUint8Array(
+      publicKey,
+    ) as unknown as BufferSource,
+  });
+
+  const json = subscription.toJSON();
+  if (!json.endpoint || !json.keys?.p256dh || !json.keys?.auth) {
+    return "error";
+  }
+
+  const saveResponse = await fetch("/api/notifications/subscribe", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      endpoint: json.endpoint,
+      keys: {
+        p256dh: json.keys.p256dh,
+        auth: json.keys.auth,
+      },
+    }),
+  });
+
+  if (!saveResponse.ok) {
+    return "error";
+  }
+
+  return "granted";
+}
+
+export async function unsubscribeFromWebPush(): Promise<boolean> {
+  const subscription = await getExistingSubscription();
+  if (!subscription) {
+    return true;
+  }
+
+  const endpoint = subscription.endpoint;
+
+  await fetch("/api/notifications/subscribe", {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ endpoint }),
+  });
+
+  await subscription.unsubscribe();
+  return true;
+}
+
+export function notifyNotificationsUpdated(): void {
+  window.dispatchEvent(new Event("snappy:notifications-updated"));
+}

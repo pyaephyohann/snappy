@@ -1,6 +1,6 @@
 /// <reference lib="webworker" />
 
-const CACHE_VERSION = "snappy-pwa-v1";
+const CACHE_VERSION = "snappy-pwa-v2";
 const OFFLINE_URL = "/offline";
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 
@@ -148,6 +148,96 @@ async function networkFirstNavigation(request) {
     });
   }
 }
+
+function isValidInternalPath(pathname) {
+  if (!pathname || !pathname.startsWith("/") || pathname.startsWith("//")) {
+    return false;
+  }
+  if (pathname.includes("://")) {
+    return false;
+  }
+  if (
+    pathname === "/home" ||
+    pathname.startsWith("/home/") ||
+    pathname === "/search" ||
+    pathname.startsWith("/search/") ||
+    pathname === "/notifications" ||
+    pathname.startsWith("/notifications/")
+  ) {
+    return true;
+  }
+  if (pathname.startsWith("/friends/")) {
+    const slug = pathname.slice("/friends/".length).split("/")[0];
+    return slug.length > 0 && !slug.includes("..");
+  }
+  return false;
+}
+
+self.addEventListener("push", (event) => {
+  if (!event.data) {
+    return;
+  }
+
+  let payload = {};
+  try {
+    payload = event.data.json();
+  } catch {
+    payload = { body: event.data.text() };
+  }
+
+  const title = typeof payload.title === "string" ? payload.title : "Snappy";
+  const body =
+    typeof payload.body === "string" ? payload.body : "You have a new update.";
+  const icon =
+    typeof payload.icon === "string" ? payload.icon : "/icons/icon-192x192.png";
+  const badge =
+    typeof payload.badge === "string" ? payload.badge : "/icons/icon-192x192.png";
+  const url = typeof payload.url === "string" ? payload.url : "/notifications";
+  const notificationId =
+    typeof payload.notificationId === "string" ? payload.notificationId : "";
+
+  const safeUrl = isValidInternalPath(url) ? url : "/notifications";
+
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body,
+      icon,
+      badge,
+      tag: notificationId || "snappy-notification",
+      data: { url: safeUrl, notificationId },
+    }),
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+
+  const rawUrl = event.notification.data?.url;
+  const targetPath =
+    typeof rawUrl === "string" && isValidInternalPath(rawUrl)
+      ? rawUrl
+      : "/notifications";
+  const targetUrl = new URL(targetPath, self.location.origin).href;
+
+  event.waitUntil(
+    self.clients
+      .matchAll({ type: "window", includeUncontrolled: true })
+      .then((clientList) => {
+        for (const client of clientList) {
+          if (client.url.startsWith(self.location.origin) && "focus" in client) {
+            if (typeof client.navigate === "function") {
+              return client.navigate(targetUrl).then(() => client.focus());
+            }
+            return client.focus();
+          }
+        }
+        if (self.clients.openWindow) {
+          return self.clients.openWindow(targetUrl);
+        }
+        return undefined;
+      }),
+  );
+});
 
 async function cacheFirstStatic(request) {
   const cached = await caches.match(request);

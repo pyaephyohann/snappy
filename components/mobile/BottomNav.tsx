@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import BottomNavCameraFlow from "@/components/mobile/BottomNavCameraFlow";
+import { useUnreadNotificationCount } from "@/hooks/useUnreadNotificationCount";
 
 interface BottomNavProps {
   username: string;
@@ -137,9 +138,11 @@ function CameraIcon() {
 function NavLinkItem({
   item,
   active,
+  badgeCount = 0,
 }: {
   item: NavItem;
   active: boolean;
+  badgeCount?: number;
 }) {
   return (
     <Link
@@ -151,7 +154,17 @@ function NavLinkItem({
       }`}
       aria-current={active ? "page" : undefined}
     >
-      {item.icon(active)}
+      <span className="relative inline-flex">
+        {item.icon(active)}
+        {badgeCount > 0 ? (
+          <span
+            className="absolute -right-2 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold leading-none text-primary-foreground"
+            aria-label={`${badgeCount} unread notifications`}
+          >
+            {badgeCount > 9 ? "9+" : badgeCount}
+          </span>
+        ) : null}
+      </span>
       <span className="leading-none">{item.label}</span>
     </Link>
   );
@@ -160,6 +173,7 @@ function NavLinkItem({
 export default function BottomNav({ username }: BottomNavProps) {
   const pathname = usePathname();
   const [cameraFlowOpen, setCameraFlowOpen] = useState(false);
+  const { count: unreadCount } = useUnreadNotificationCount();
 
   const profileHref = useMemo(
     () => `/friends/${encodeURIComponent(username)}`,
@@ -253,7 +267,7 @@ export default function BottomNav({ username }: BottomNavProps) {
             </div>
 
             <div className="safe-area-pb relative flex items-end justify-between px-1 pb-1.5 pt-5">
-              <div className="flex flex-1 justify-around pt-2">
+              <div className="flex flex-1 justify-around">
                 {leftItems.map((item) => (
                   <NavLinkItem
                     key={item.key}
@@ -277,14 +291,17 @@ export default function BottomNav({ username }: BottomNavProps) {
                 </motion.button>
               </div>
 
-              <div className="flex flex-1 justify-around pt-2">
+              <div className="flex flex-1 justify-around">
                 {rightItems.map((item) => (
-                  <NavLinkItem
-                    key={item.key}
-                    item={item}
-                    active={item.match(pathname)}
-                  />
-                ))}
+                <NavLinkItem
+                  key={item.key}
+                  item={item}
+                  active={item.match(pathname)}
+                  badgeCount={
+                    item.key === "notifications" ? unreadCount : undefined
+                  }
+                />
+              ))}
               </div>
             </div>
           </div>

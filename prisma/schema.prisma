@@ -26,16 +26,18 @@ model AdminCredential {
 }
 
 model User {
-  id           String        @id @default(cuid())
-  name         String        @unique
-  profileImage String
-  role         UserRole      @default(USER)
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  commentLikes CommentLike[]
-  comments     Comment[]
-  reactions    Reaction[]
-  snaps        Snap[]
+  id                String             @id @default(cuid())
+  name              String             @unique
+  profileImage      String
+  role              UserRole           @default(USER)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  commentLikes      CommentLike[]
+  comments          Comment[]
+  reactions         Reaction[]
+  snaps             Snap[]
+  notifications     Notification[]
+  pushSubscriptions PushSubscription[]
 
   @@map("users")
 }
@@ -125,4 +127,41 @@ model CommentLike {
 enum UserRole {
   USER
   ADMIN
+}
+
+enum NotificationType {
+  NEW_SNAP
+}
+
+model Notification {
+  id              String           @id @default(cuid())
+  recipientUserId String
+  type            NotificationType
+  title           String
+  body            String
+  readAt          DateTime?
+  relatedUserId   String?
+  relatedSnapId   String?
+  targetUrl       String
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  recipient       User             @relation(fields: [recipientUserId], references: [id], onDelete: Cascade)
+
+  @@index([recipientUserId, createdAt(sort: Desc)])
+  @@index([recipientUserId, readAt])
+  @@map("notifications")
+}
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("push_subscriptions")
 }
