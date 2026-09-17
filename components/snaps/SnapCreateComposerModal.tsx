@@ -6,6 +6,7 @@ import { useDropzone } from "react-dropzone";
 import { GlowButton } from "@/components/ui/glow-button";
 import SnapCameraCapture from "@/components/snaps/SnapCameraCapture";
 import { isCameraCaptureSupported } from "@/lib/snap-camera";
+import { formatFileSize } from "@/lib/format-file-size";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const MAX_CAPTION_LENGTH = 500;
@@ -212,7 +213,7 @@ export default function SnapCreateComposerModal({
                   />
                 </div>
                 <p className="mt-2 text-center text-sm text-muted-foreground">
-                  {selectedFile?.name}
+                  {selectedFile ? formatFileSize(selectedFile.size) : null}
                 </p>
               </div>
             ) : (

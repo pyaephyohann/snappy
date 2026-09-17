@@ -19,6 +19,7 @@ import {
   type CreatedSnapPayload,
 } from "@/lib/snap-upload-client";
 import { TELEGRAM_MINI_APP_ROUTES } from "@/lib/telegram/mini-app-routes";
+import { formatFileSize } from "@/lib/format-file-size";
 
 type UploadPhase =
   | { kind: "pick" }
@@ -29,12 +30,6 @@ type UploadPhase =
   | { kind: "upload_error"; message: string; canRetry: boolean }
   | { kind: "session_expired" };
 
-function formatFileSize(bytes: number): string {
-  if (bytes < 1024 * 1024) {
-    return `${(bytes / 1024).toFixed(1)} KB`;
-  }
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
 
 export default function TelegramMiniAppUpload() {
   const router = useRouter();
@@ -216,10 +211,7 @@ export default function TelegramMiniAppUpload() {
               className="h-full w-full object-cover"
             />
           </div>
-          <p className="mt-4 truncate text-sm font-medium text-foreground">
-            {phase.file.name}
-          </p>
-          <p className="text-xs text-muted-foreground">
+          <p className="mt-4 text-sm font-medium text-foreground">
             {formatFileSize(phase.file.size)}
           </p>
           <div className="mt-6 space-y-3">
