@@ -14,7 +14,8 @@
     "test:telegram-find": "node --import tsx --test scripts/telegram-find-snap.test.ts",
     "test:telegram-upload": "node --import tsx --test scripts/telegram-account-upload.test.ts",
     "test:telegram-mini-app": "node --import tsx --test scripts/telegram-mini-app.test.ts",
-    "test:telegram-mini-app-home": "node --import tsx --test scripts/telegram-mini-app-home.test.ts"
+    "test:telegram-mini-app-home": "node --import tsx --test scripts/telegram-mini-app-home.test.ts",
+    "test:telegram-mini-app-find": "node --import tsx --test scripts/telegram-mini-app-find.test.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.7.1",

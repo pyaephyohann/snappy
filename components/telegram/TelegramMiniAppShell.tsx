@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, type ReactNode } from "react";
+import { useCallback, useEffect, type ReactNode } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import TelegramBottomNav from "@/components/telegram/TelegramBottomNav";
 import { useTelegramBackButton } from "@/hooks/useTelegramBackButton";
 import {
   isTelegramMiniAppRootPath,
   resolveTelegramMiniAppScreenPath,
+  TELEGRAM_MINI_APP_ROUTES,
 } from "@/lib/telegram/mini-app-routes";
 
 const NAV_CLEARANCE =
@@ -21,8 +22,16 @@ export default function TelegramMiniAppShell({
   const searchParams = useSearchParams();
   const router = useRouter();
   const isRoot = isTelegramMiniAppRootPath(pathname);
+  const isFindRoute = pathname.startsWith(TELEGRAM_MINI_APP_ROUTES.find);
 
-  useTelegramBackButton(isRoot);
+  const handleShellBack = useCallback(() => {
+    router.push(TELEGRAM_MINI_APP_ROUTES.home);
+  }, [router]);
+
+  useTelegramBackButton({
+    enabled: !isRoot && !isFindRoute,
+    onBack: handleShellBack,
+  });
 
   useEffect(() => {
     const target = resolveTelegramMiniAppScreenPath(

@@ -1,11 +1,16 @@
-import TelegramMiniAppPlaceholder from "@/components/telegram/TelegramMiniAppPlaceholder";
+import { Suspense } from "react";
+import TelegramMiniAppFind from "@/components/telegram/TelegramMiniAppFind";
 
 export default function TelegramMiniAppFindPage() {
   return (
-    <TelegramMiniAppPlaceholder
-      emoji="🔎"
-      title="Find Snaps"
-      description="Search for a Snap from Snappy."
-    />
+    <Suspense
+      fallback={
+        <p className="px-4 py-8 text-center text-sm text-muted-foreground">
+          Loading…
+        </p>
+      }
+    >
+      <TelegramMiniAppFind />
+    </Suspense>
   );
 }

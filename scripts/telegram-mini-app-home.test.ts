@@ -74,12 +74,12 @@ test("bottom nav uses safe-area inset on shell", () => {
   assert.match(shell, /safe-area-inset/);
 });
 
-test("back button hook returns to mini app home", () => {
+test("back button hook supports enabled callback navigation", () => {
   const hook = readFileSync(
     resolve(import.meta.dirname, "../hooks/useTelegramBackButton.ts"),
     "utf8",
   );
-  assert.match(hook, /TELEGRAM_MINI_APP_ROUTES\.home/);
+  assert.match(hook, /onBack/);
   assert.match(hook, /BackButton\.show/);
   assert.match(hook, /BackButton\.hide/);
 });

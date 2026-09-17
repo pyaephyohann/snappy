@@ -28,7 +28,7 @@ Route: **`/telegram/app`** (full URL: `{SNAPPY_PUBLIC_URL}/telegram/app`).
 | Route | Purpose |
 | --- | --- |
 | `/telegram/app` | Home — recent Snaps (same data as web home via `loadRecentSnapsForHome`) |
-| `/telegram/app/find` | Find placeholder |
+| `/telegram/app/find` | Native Find Snap (T2 lookup + in-app `SnapViewer`) |
 | `/telegram/app/upload` | Upload placeholder |
 | `/telegram/app/profile` | Basic profile + **Open Profile** (full web) |
 
