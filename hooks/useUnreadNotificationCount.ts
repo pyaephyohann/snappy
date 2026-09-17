@@ -1,51 +1,35 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import {
+  getUnreadLocalNotificationCount,
+  NOTIFICATIONS_UPDATED_EVENT,
+} from "@/lib/local-notifications";
 
 export function useUnreadNotificationCount() {
-  const [count, setCount] = useState(0);
+  const [count, setCount] = useState(() => getUnreadLocalNotificationCount());
 
-  const refresh = useCallback(async () => {
-    try {
-      const response = await fetch("/api/notifications/unread-count");
-      if (!response.ok) {
-        return;
-      }
-      const data = (await response.json()) as { count: number };
-      setCount(typeof data.count === "number" ? data.count : 0);
-    } catch {
-      /* ignore */
-    }
+  const refresh = useCallback(() => {
+    setCount(getUnreadLocalNotificationCount());
   }, []);
 
   useEffect(() => {
-    let cancelled = false;
-
-    void (async () => {
-      try {
-        const response = await fetch("/api/notifications/unread-count");
-        if (!response.ok || cancelled) {
-          return;
-        }
-        const data = (await response.json()) as { count: number };
-        if (!cancelled) {
-          setCount(typeof data.count === "number" ? data.count : 0);
-        }
-      } catch {
-        /* ignore */
+    const onFocus = () => refresh();
+    const onUpdated = () => refresh();
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === "snappy:notifications" || event.key === null) {
+        refresh();
       }
-    })();
-
-    const onFocus = () => void refresh();
-    const onUpdated = () => void refresh();
+    };
 
     window.addEventListener("focus", onFocus);
-    window.addEventListener("snappy:notifications-updated", onUpdated);
+    window.addEventListener(NOTIFICATIONS_UPDATED_EVENT, onUpdated);
+    window.addEventListener("storage", onStorage);
 
     return () => {
-      cancelled = true;
       window.removeEventListener("focus", onFocus);
-      window.removeEventListener("snappy:notifications-updated", onUpdated);
+      window.removeEventListener(NOTIFICATIONS_UPDATED_EVENT, onUpdated);
+      window.removeEventListener("storage", onStorage);
     };
   }, [refresh]);
 

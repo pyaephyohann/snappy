@@ -1,6 +1,6 @@
 import UserAppChrome from "@/components/layout/UserAppChrome";
+import NotificationSync from "@/components/notifications/NotificationSync";
 import { getSession } from "@/lib/auth";
-import { redirect } from "next/navigation";
 
 export default async function NotificationsLayout({
   children,
@@ -8,13 +8,19 @@ export default async function NotificationsLayout({
   children: React.ReactNode;
 }) {
   const session = await getSession();
-  if (!session) {
-    redirect("/");
-  }
 
   return (
-    <div className="user-app-shell min-h-full">
-      <UserAppChrome username={session.username}>{children}</UserAppChrome>
-    </div>
+    <>
+      {session ? (
+        <div className="user-app-shell min-h-full">
+          <UserAppChrome username={session.username}>{children}</UserAppChrome>
+        </div>
+      ) : (
+        <div className="user-app-shell min-h-full">
+          <NotificationSync />
+          <div className="user-app-content-pad min-h-full">{children}</div>
+        </div>
+      )}
+    </>
   );
 }

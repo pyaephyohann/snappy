@@ -1,18 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { notifyNotificationsUpdated } from "@/lib/push-client";
-
-interface NotificationItem {
-  id: string;
-  type: string;
-  title: string;
-  body: string;
-  readAt: string | null;
-  targetUrl: string;
-  createdAt: string;
-}
+import {
+  listLocalNotifications,
+  markLocalNotificationRead,
+  NOTIFICATIONS_UPDATED_EVENT,
+  type LocalNotification,
+} from "@/lib/local-notifications";
 
 function formatRelativeTime(iso: string): string {
   const date = new Date(iso);
@@ -29,80 +24,46 @@ function formatRelativeTime(iso: string): string {
 
 export default function NotificationsPageClient() {
   const router = useRouter();
-  const [loading, setLoading] = useState(true);
-  const [items, setItems] = useState<NotificationItem[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  const [items, setItems] = useState<LocalNotification[]>(() =>
+    listLocalNotifications(),
+  );
 
-  useEffect(() => {
-    let cancelled = false;
-
-    void (async () => {
-      try {
-        const response = await fetch("/api/notifications");
-        if (!response.ok) {
-          throw new Error("Failed to load notifications");
-        }
-        const data = (await response.json()) as {
-          notifications: NotificationItem[];
-        };
-        if (!cancelled) {
-          setItems(data.notifications ?? []);
-          setError(null);
-        }
-      } catch {
-        if (!cancelled) {
-          setError("Could not load notifications. Please try again.");
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
+  const reload = useCallback(() => {
+    setItems(listLocalNotifications());
   }, []);
 
-  const markRead = async (id: string) => {
-    await fetch(`/api/notifications/${id}/read`, { method: "PATCH" });
-    setItems((prev) =>
-      prev.map((item) =>
-        item.id === id ? { ...item, readAt: new Date().toISOString() } : item,
-      ),
-    );
-    notifyNotificationsUpdated();
-  };
+  useEffect(() => {
+    const onUpdated = () => reload();
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === "snappy:notifications" || event.key === null) {
+        reload();
+      }
+    };
 
-  const handleOpen = async (item: NotificationItem) => {
+    window.addEventListener(NOTIFICATIONS_UPDATED_EVENT, onUpdated);
+    window.addEventListener("storage", onStorage);
+    window.addEventListener("focus", onUpdated);
+
+    return () => {
+      window.removeEventListener(NOTIFICATIONS_UPDATED_EVENT, onUpdated);
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("focus", onUpdated);
+    };
+  }, [reload]);
+
+  const handleOpen = (item: LocalNotification) => {
     if (!item.readAt) {
-      await markRead(item.id);
+      markLocalNotificationRead(item.id);
+      setItems(listLocalNotifications());
     }
     router.push(item.targetUrl);
   };
-
-  if (loading) {
-    return (
-      <div className="rounded-xl border border-border bg-card px-6 py-12 text-center">
-        <p className="text-sm text-muted-foreground">Loading notifications…</p>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="rounded-xl border border-border bg-card px-6 py-12 text-center">
-        <p className="text-sm text-destructive">{error}</p>
-      </div>
-    );
-  }
 
   if (items.length === 0) {
     return (
       <div className="rounded-xl border border-border bg-card px-6 py-12 text-center">
         <p className="text-sm text-muted-foreground sm:text-base">
-          You&apos;re all caught up. New activity will show up here.
+          You&apos;re all caught up. New Snaps will show up here on this device.
         </p>
       </div>
     );
@@ -116,7 +77,7 @@ export default function NotificationsPageClient() {
           <li key={item.id}>
             <button
               type="button"
-              onClick={() => void handleOpen(item)}
+              onClick={() => handleOpen(item)}
               className={`flex w-full cursor-pointer gap-3 px-4 py-4 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset ${
                 unread ? "bg-primary/5" : ""
               }`}

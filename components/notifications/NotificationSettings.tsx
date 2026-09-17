@@ -130,30 +130,32 @@ export default function NotificationSettings() {
           </p>
         ) : null}
 
-        {uiState === "disabled" ? (
-          <GlowButton
-            type="button"
-            disabled={busy}
-            onClick={() => void handleEnable()}
-            className="inline-flex cursor-pointer items-center justify-center rounded-lg bg-primary px-4 py-2.5 text-sm text-primary-foreground hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            Enable Notifications
-          </GlowButton>
-        ) : null}
-
-        {uiState === "enabled" ? (
-          <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center">
-            <span className="text-sm font-medium text-primary">
-              Notifications enabled on this device
-            </span>
-            <GlowButton
-              type="button"
-              disabled={busy}
-              onClick={() => void handleDisable()}
-              className="inline-flex cursor-pointer items-center justify-center rounded-lg border border-border bg-card px-4 py-2.5 text-sm text-foreground hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Disable Notifications
-            </GlowButton>
+        {uiState === "disabled" || uiState === "enabled" ? (
+          <div className="flex w-full flex-col items-center">
+            {uiState === "disabled" ? (
+              <GlowButton
+                type="button"
+                disabled={busy}
+                onClick={() => void handleEnable()}
+                className="inline-flex cursor-pointer items-center justify-center rounded-lg bg-primary px-4 py-2.5 text-sm text-primary-foreground hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Enable Notifications
+              </GlowButton>
+            ) : (
+              <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-center sm:justify-center">
+                <span className="text-center text-sm font-medium text-primary">
+                  Notifications enabled on this device
+                </span>
+                <GlowButton
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void handleDisable()}
+                  className="inline-flex cursor-pointer items-center justify-center rounded-lg border border-border bg-card px-4 py-2.5 text-sm text-foreground hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Disable Notifications
+                </GlowButton>
+              </div>
+            )}
           </div>
         ) : null}
       </div>

@@ -1,5 +1,8 @@
 "use client";
 
+import { getOrCreateDeviceId } from "@/lib/device-id";
+export { notifyNotificationsUpdated } from "@/lib/local-notifications";
+
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
@@ -70,10 +73,13 @@ export async function subscribeToWebPush(): Promise<
     return "error";
   }
 
+  const deviceId = getOrCreateDeviceId();
+
   const saveResponse = await fetch("/api/notifications/subscribe", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
+      deviceId,
       endpoint: json.endpoint,
       keys: {
         p256dh: json.keys.p256dh,
@@ -105,8 +111,4 @@ export async function unsubscribeFromWebPush(): Promise<boolean> {
 
   await subscription.unsubscribe();
   return true;
-}
-
-export function notifyNotificationsUpdated(): void {
-  window.dispatchEvent(new Event("snappy:notifications-updated"));
 }

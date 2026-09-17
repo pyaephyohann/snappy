@@ -1,6 +1,8 @@
 /// <reference lib="webworker" />
 
-const CACHE_VERSION = "snappy-pwa-v2";
+const CACHE_VERSION = "snappy-pwa-v3";
+const NOTIFICATION_DB = "snappy-notifications";
+const NOTIFICATION_STORE = "pending";
 const OFFLINE_URL = "/offline";
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 
@@ -173,6 +175,128 @@ function isValidInternalPath(pathname) {
   return false;
 }
 
+function openNotificationDb() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(NOTIFICATION_DB, 1);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains(NOTIFICATION_STORE)) {
+        db.createObjectStore(NOTIFICATION_STORE, { keyPath: "notificationId" });
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+async function queueNotificationRecord(record) {
+  const db = await openNotificationDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(NOTIFICATION_STORE, "readwrite");
+    tx.objectStore(NOTIFICATION_STORE).put(record);
+    tx.oncomplete = () => {
+      db.close();
+      resolve(undefined);
+    };
+    tx.onerror = () => {
+      db.close();
+      reject(tx.error);
+    };
+  });
+}
+
+async function drainNotificationQueue() {
+  const db = await openNotificationDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(NOTIFICATION_STORE, "readwrite");
+    const store = tx.objectStore(NOTIFICATION_STORE);
+    const getAll = store.getAll();
+    let items = [];
+    getAll.onsuccess = () => {
+      items = getAll.result ?? [];
+      store.clear();
+    };
+    tx.oncomplete = () => {
+      db.close();
+      resolve(items);
+    };
+    tx.onerror = () => {
+      db.close();
+      reject(tx.error);
+    };
+  });
+}
+
+function buildNotificationRecord(payload) {
+  const title = typeof payload.title === "string" ? payload.title : "Snappy";
+  const body =
+    typeof payload.body === "string" ? payload.body : "You have a new update.";
+  const url = typeof payload.url === "string" ? payload.url : "/notifications";
+  let notificationId =
+    typeof payload.notificationId === "string"
+      ? payload.notificationId
+      : typeof payload.id === "string"
+        ? payload.id
+        : "";
+  if (!notificationId) {
+    notificationId = `snappy-${Date.now()}`;
+  }
+  const createdAt =
+    typeof payload.createdAt === "string"
+      ? payload.createdAt
+      : new Date().toISOString();
+  const safeUrl = isValidInternalPath(url) ? url : "/notifications";
+
+  return {
+    notificationId,
+    id: notificationId,
+    type: typeof payload.type === "string" ? payload.type : "NEW_SNAP",
+    title,
+    body,
+    url: safeUrl,
+    targetUrl: safeUrl,
+    createdAt,
+  };
+}
+
+async function notifyClients(type, extra) {
+  const clientList = await self.clients.matchAll({
+    type: "window",
+    includeUncontrolled: true,
+  });
+  for (const client of clientList) {
+    client.postMessage({ type, ...extra });
+  }
+  return clientList.length;
+}
+
+async function deliverNotificationToClients(record) {
+  const delivered = await notifyClients("SNAPPY_PUSH_RECEIVED", {
+    notification: record,
+  });
+  if (delivered === 0) {
+    await queueNotificationRecord(record);
+  }
+}
+
+self.addEventListener("message", (event) => {
+  const data = event.data;
+  if (!data || typeof data !== "object" || !data.type) {
+    return;
+  }
+
+  if (data.type === "SNAPPY_SYNC_NOTIFICATIONS") {
+    event.waitUntil(
+      drainNotificationQueue().then((notifications) => {
+        if (notifications.length === 0) {
+          return undefined;
+        }
+        return notifyClients("SNAPPY_NOTIFICATION_QUEUE", { notifications });
+      }),
+    );
+  }
+});
+
 self.addEventListener("push", (event) => {
   if (!event.data) {
     return;
@@ -185,57 +309,70 @@ self.addEventListener("push", (event) => {
     payload = { body: event.data.text() };
   }
 
-  const title = typeof payload.title === "string" ? payload.title : "Snappy";
-  const body =
-    typeof payload.body === "string" ? payload.body : "You have a new update.";
+  const record = buildNotificationRecord(payload);
   const icon =
     typeof payload.icon === "string" ? payload.icon : "/icons/icon-192x192.png";
   const badge =
     typeof payload.badge === "string" ? payload.badge : "/icons/icon-192x192.png";
-  const url = typeof payload.url === "string" ? payload.url : "/notifications";
-  const notificationId =
-    typeof payload.notificationId === "string" ? payload.notificationId : "";
-
-  const safeUrl = isValidInternalPath(url) ? url : "/notifications";
 
   event.waitUntil(
-    self.registration.showNotification(title, {
-      body,
-      icon,
-      badge,
-      tag: notificationId || "snappy-notification",
-      data: { url: safeUrl, notificationId },
-    }),
+    (async () => {
+      await deliverNotificationToClients(record);
+      await self.registration.showNotification(record.title, {
+        body: record.body,
+        icon,
+        badge,
+        tag: record.notificationId || "snappy-notification",
+        data: record,
+      });
+    })(),
   );
 });
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
 
-  const rawUrl = event.notification.data?.url;
+  const record = event.notification.data ?? {};
+  const rawUrl = record.url ?? record.targetUrl;
   const targetPath =
     typeof rawUrl === "string" && isValidInternalPath(rawUrl)
       ? rawUrl
       : "/notifications";
   const targetUrl = new URL(targetPath, self.location.origin).href;
+  const notificationId =
+    typeof record.notificationId === "string"
+      ? record.notificationId
+      : typeof record.id === "string"
+        ? record.id
+        : "";
 
   event.waitUntil(
-    self.clients
-      .matchAll({ type: "window", includeUncontrolled: true })
-      .then((clientList) => {
-        for (const client of clientList) {
-          if (client.url.startsWith(self.location.origin) && "focus" in client) {
-            if (typeof client.navigate === "function") {
-              return client.navigate(targetUrl).then(() => client.focus());
-            }
+    (async () => {
+      await notifyClients("SNAPPY_NOTIFICATION_CLICK", {
+        notificationId,
+        notification: record,
+      });
+
+      const clientList = await self.clients.matchAll({
+        type: "window",
+        includeUncontrolled: true,
+      });
+
+      for (const client of clientList) {
+        if (client.url.startsWith(self.location.origin) && "focus" in client) {
+          if (typeof client.navigate === "function") {
+            await client.navigate(targetUrl);
             return client.focus();
           }
+          return client.focus();
         }
-        if (self.clients.openWindow) {
-          return self.clients.openWindow(targetUrl);
-        }
-        return undefined;
-      }),
+      }
+
+      if (self.clients.openWindow) {
+        return self.clients.openWindow(targetUrl);
+      }
+      return undefined;
+    })(),
   );
 });
 

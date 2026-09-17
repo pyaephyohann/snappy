@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { requireSession } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import { getUserIdForSession } from '@/lib/notifications/session-user';
-import { notifyNewSnap } from '@/lib/notifications/notification-service';
+import { broadcastNewSnap } from '@/lib/notifications/notification-service';
 
 const createSnapSchema = z.object({
   targetUserId: z.string().min(1, 'Target user ID is required'),
@@ -117,16 +116,10 @@ export async function POST(request: NextRequest) {
 
     void (async () => {
       try {
-        const actor = await getUserIdForSession(session);
-        if (actor) {
-          await notifyNewSnap({
-            recipientUserId: targetUser.id,
-            actorUserId: actor.id,
-            actorName: actor.name,
-            profileOwnerName: targetUser.name,
-            snapId: snap.id,
-          });
-        }
+        await broadcastNewSnap({
+          snapId: snap.id,
+          profileOwnerName: targetUser.name,
+        });
       } catch (notifyError) {
         console.error('Snap notification error:', notifyError);
       }

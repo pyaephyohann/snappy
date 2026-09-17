@@ -1,6 +1,7 @@
 "use client";
 
 import BottomNav from "@/components/mobile/BottomNav";
+import NotificationSync from "@/components/notifications/NotificationSync";
 
 interface UserAppChromeProps {
   username: string;
@@ -17,6 +18,7 @@ export default function UserAppChrome({
 }: UserAppChromeProps) {
   return (
     <>
+      <NotificationSync />
       <div className="user-app-content-pad min-h-full">{children}</div>
       <BottomNav username={username} />
     </>
