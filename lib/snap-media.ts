@@ -2,16 +2,35 @@
 export const SNAP_MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 export const SNAP_MAX_CAPTION_LENGTH = 500;
 
-const ALLOWED_IMAGE_MIME_TYPES = new Set([
+export const SNAP_ALLOWED_IMAGE_MIME_TYPES = [
   "image/jpeg",
   "image/png",
   "image/webp",
   "image/gif",
-]);
+] as const;
+
+const ALLOWED_IMAGE_MIME_TYPES = new Set<string>(SNAP_ALLOWED_IMAGE_MIME_TYPES);
 
 export type SnapImageValidationResult =
   | { ok: true; mimeType: string }
   | { ok: false; reason: "empty" | "too_large" | "unsupported_type" | "invalid_image" };
+
+/** Client-side preflight (size + declared MIME). Server still validates media on create. */
+export function validateSnapImageFileMeta(
+  file: Pick<File, "size" | "type">,
+): SnapImageValidationResult {
+  if (!file.size) {
+    return { ok: false, reason: "empty" };
+  }
+  if (file.size > SNAP_MAX_IMAGE_BYTES) {
+    return { ok: false, reason: "too_large" };
+  }
+  const mime = file.type.toLowerCase().split(";")[0]?.trim() ?? "";
+  if (!mime || !ALLOWED_IMAGE_MIME_TYPES.has(mime)) {
+    return { ok: false, reason: "unsupported_type" };
+  }
+  return { ok: true, mimeType: mime };
+}
 
 export function validateSnapImageBuffer(
   buffer: Buffer,

@@ -29,7 +29,7 @@ Route: **`/telegram/app`** (full URL: `{SNAPPY_PUBLIC_URL}/telegram/app`).
 | --- | --- |
 | `/telegram/app` | Home — recent Snaps (same data as web home via `loadRecentSnapsForHome`) |
 | `/telegram/app/find` | Native Find Snap (T2 lookup + in-app `SnapViewer`) |
-| `/telegram/app/upload` | Upload placeholder |
+| `/telegram/app/upload` | Native image upload (Cloudinary sign + session-owned Snap create) |
 | `/telegram/app/profile` | Basic profile + **Open Profile** (full web) |
 
 Bottom navigation is fixed with `env(safe-area-inset-bottom)`. Nested routes show Telegram **BackButton** (returns to home). Optional deep-link hint: `/telegram/app?screen=find` redirects to the Find tab.

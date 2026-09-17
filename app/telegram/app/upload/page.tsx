@@ -1,11 +1,5 @@
-import TelegramMiniAppPlaceholder from "@/components/telegram/TelegramMiniAppPlaceholder";
+import TelegramMiniAppUpload from "@/components/telegram/TelegramMiniAppUpload";
 
 export default function TelegramMiniAppUploadPage() {
-  return (
-    <TelegramMiniAppPlaceholder
-      emoji="📤"
-      title="Upload Snap"
-      description="Upload from inside Telegram."
-    />
-  );
+  return <TelegramMiniAppUpload />;
 }
