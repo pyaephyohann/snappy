@@ -8,6 +8,7 @@ import {
   validateTelegramInitData,
   type VerifiedTelegramWebAppUser,
 } from "./init-data";
+import { TELEGRAM_MINI_APP_INIT_DATA_MAX_BYTES } from "./mini-app-request-limits";
 
 export type MiniAppSessionResult =
   | {
@@ -30,6 +31,10 @@ export type MiniAppSessionResult =
 export async function establishMiniAppSessionFromInitData(
   initData: string,
 ): Promise<MiniAppSessionResult> {
+  if (Buffer.byteLength(initData, "utf8") > TELEGRAM_MINI_APP_INIT_DATA_MAX_BYTES) {
+    return { status: "invalid", reason: "Invalid Telegram initialization data." };
+  }
+
   let botToken: string;
   try {
     botToken = requireTelegramBotToken();

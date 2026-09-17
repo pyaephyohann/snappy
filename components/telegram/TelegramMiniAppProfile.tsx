@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useTelegramMiniAppAuth } from "@/components/telegram/TelegramMiniAppAuthProvider";
+import TelegramMiniAppReconnect from "@/components/telegram/TelegramMiniAppReconnect";
 import { GlowButton } from "@/components/ui/glow-button";
 import { useTelegramBackButton } from "@/hooks/useTelegramBackButton";
 import { useTelegramWebApp } from "@/hooks/useTelegramWebApp";
@@ -153,11 +154,9 @@ export default function TelegramMiniAppProfile() {
 
   if (loadState.status === "session_expired") {
     return (
-      <CenteredMessage
-        title="Your Snappy session has expired."
-        actionLabel="Reconnect"
-        onAction={() => retryAuth()}
-      />
+      <div className="px-4 pt-10">
+        <TelegramMiniAppReconnect onReconnect={() => retryAuth()} />
+      </div>
     );
   }
 

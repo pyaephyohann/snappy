@@ -19,6 +19,7 @@ import {
   START_MESSAGE,
   UNKNOWN_COMMAND_MESSAGE,
 } from "./messages";
+import { registerTelegramBotErrorHandler } from "./bot-error-handler";
 
 export const TELEGRAM_BOT_COMMANDS = [
   { command: "start", description: "Introduce Snappy" },
@@ -104,6 +105,8 @@ export function registerTelegramHandlers(bot: Bot): void {
     await clearTelegramChatStateForContext(ctx);
     await ctx.reply(UNKNOWN_COMMAND_MESSAGE);
   });
+
+  registerTelegramBotErrorHandler(bot);
 }
 
 function replyWithMainKeyboard(ctx: Context, text: string) {

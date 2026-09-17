@@ -15,6 +15,8 @@ import { useTelegramBackButton } from "@/hooks/useTelegramBackButton";
 import { normalizeSnapLookupCode } from "@/lib/snap-code";
 import type { MiniAppFindSnapPayload } from "@/lib/telegram/mini-app-find";
 import TelegramOpenBotLink from "@/components/telegram/TelegramOpenBotLink";
+import TelegramMiniAppReconnect from "@/components/telegram/TelegramMiniAppReconnect";
+import { useTelegramMiniAppAuth } from "@/components/telegram/TelegramMiniAppAuthProvider";
 import { TELEGRAM_MINI_APP_ROUTES } from "@/lib/telegram/mini-app-routes";
 
 type FindPhase =
@@ -23,9 +25,11 @@ type FindPhase =
   | { kind: "result"; snap: MiniAppFindSnapPayload }
   | { kind: "invalid_code" }
   | { kind: "not_found" }
-  | { kind: "error" };
+  | { kind: "error" }
+  | { kind: "session_expired" };
 
 export default function TelegramMiniAppFind() {
+  const { retryAuth } = useTelegramMiniAppAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -78,7 +82,7 @@ export default function TelegramMiniAppFind() {
         }
 
         if (response.status === 401) {
-          setPhase({ kind: "error" });
+          setPhase({ kind: "session_expired" });
           return;
         }
 
@@ -129,6 +133,8 @@ export default function TelegramMiniAppFind() {
     }
     const normalized = normalizeSnapLookupCode(paramCode);
     if (!normalized.ok) {
+      urlCodeHandled.current = true;
+      queueMicrotask(() => setPhase({ kind: "invalid_code" }));
       return;
     }
     urlCodeHandled.current = true;
@@ -162,6 +168,14 @@ export default function TelegramMiniAppFind() {
     phase.kind === "invalid_code" ||
     phase.kind === "not_found" ||
     phase.kind === "error";
+
+  if (phase.kind === "session_expired") {
+    return (
+      <div className="px-4 pb-6 pt-10">
+        <TelegramMiniAppReconnect onReconnect={() => retryAuth()} />
+      </div>
+    );
+  }
 
   return (
     <div className="px-4 pb-6">

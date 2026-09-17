@@ -197,7 +197,9 @@ function AuthGate({
             className="mt-6 rounded-xl bg-primary px-4 py-2 text-sm text-primary-foreground"
             onClick={retryAuth}
           >
-            Try Again
+            {state.message.toLowerCase().includes("expired")
+              ? "Reconnect"
+              : "Try Again"}
           </GlowButton>
         </>
       ) : null}

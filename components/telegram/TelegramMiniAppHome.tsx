@@ -5,6 +5,8 @@ import Link from "next/link";
 import RecentSnaps from "@/components/home/RecentSnaps";
 import RecentSnapsSkeleton from "@/components/home/RecentSnapsSkeleton";
 import TelegramOpenBotLink from "@/components/telegram/TelegramOpenBotLink";
+import TelegramMiniAppReconnect from "@/components/telegram/TelegramMiniAppReconnect";
+import { useTelegramMiniAppAuth } from "@/components/telegram/TelegramMiniAppAuthProvider";
 import { GlowButton } from "@/components/ui/glow-button";
 import type { PublicRecentSnap } from "@/lib/recent-snaps";
 import { TELEGRAM_MINI_APP_ROUTES } from "@/lib/telegram/mini-app-routes";
@@ -17,9 +19,11 @@ type HomeResponse = {
 type LoadState =
   | { status: "loading" }
   | { status: "error" }
+  | { status: "session_expired" }
   | { status: "ready"; snaps: PublicRecentSnap[] | null; userName: string };
 
 export default function TelegramMiniAppHome() {
+  const { retryAuth } = useTelegramMiniAppAuth();
   const [state, setState] = useState<LoadState>({ status: "loading" });
 
   const loadHome = useCallback(async (options?: { showLoading?: boolean }) => {
@@ -30,6 +34,10 @@ export default function TelegramMiniAppHome() {
       const response = await fetch("/api/telegram/mini-app/home", {
         credentials: "include",
       });
+      if (response.status === 401) {
+        setState({ status: "session_expired" });
+        return;
+      }
       if (!response.ok) {
         setState({ status: "error" });
         return;
@@ -54,6 +62,10 @@ export default function TelegramMiniAppHome() {
           credentials: "include",
         });
         if (cancelled) {
+          return;
+        }
+        if (response.status === 401) {
+          setState({ status: "session_expired" });
           return;
         }
         if (!response.ok) {
@@ -106,6 +118,10 @@ export default function TelegramMiniAppHome() {
       </div>
 
       {state.status === "loading" ? <RecentSnapsSkeleton /> : null}
+
+      {state.status === "session_expired" ? (
+        <TelegramMiniAppReconnect onReconnect={() => retryAuth()} />
+      ) : null}
 
       {state.status === "error" ? (
         <div className="rounded-xl border border-border bg-card p-6 text-center">

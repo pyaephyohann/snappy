@@ -6,6 +6,7 @@ import {
   getTelegramWebhookSecret,
 } from "../lib/telegram/env";
 import { sanitizeTelegramError } from "../lib/telegram/errors";
+import { getTelegramBotPublicUrl } from "../lib/telegram/bot-public-link";
 import { buildTelegramMiniAppUrl } from "../lib/telegram/mini-app-url";
 import { getTelegramWebhookUrl } from "../lib/telegram/public-url";
 
@@ -30,6 +31,12 @@ async function main() {
       "[TELEGRAM] Set SNAPPY_PUBLIC_URL or TELEGRAM_WEBHOOK_URL to the https webhook endpoint",
     );
     process.exit(1);
+  }
+
+  if (!getTelegramBotPublicUrl()) {
+    console.warn(
+      "[TELEGRAM] TELEGRAM_BOT_USERNAME is not set or invalid; Mini App → bot links will not work until configured.",
+    );
   }
 
   const bot = new Bot(token);

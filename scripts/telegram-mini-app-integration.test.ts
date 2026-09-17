@@ -82,6 +82,15 @@ test("malformed start_param falls back safely", () => {
   assert.equal(target, null);
 });
 
+test("oversized start_param is ignored", () => {
+  const target = resolveTelegramMiniAppDeepLinkTarget(
+    "/telegram/app",
+    new URLSearchParams(),
+    `find_${"x".repeat(600)}`,
+  );
+  assert.equal(target, null);
+});
+
 test("buildTelegramMiniAppStartParam mirrors parse format", () => {
   assert.equal(
     buildTelegramMiniAppStartParam({ screen: "find", code: SAMPLE_CODE }),

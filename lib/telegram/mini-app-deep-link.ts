@@ -1,4 +1,5 @@
 import { normalizeSnapLookupCode } from "@/lib/snap-code";
+import { TELEGRAM_MINI_APP_START_PARAM_MAX_LENGTH } from "./mini-app-request-limits";
 import { buildTelegramMiniAppUrl } from "./mini-app-url";
 import {
   TELEGRAM_MINI_APP_ROUTES,
@@ -37,10 +38,23 @@ export function buildTelegramMiniAppDeepLink(options?: {
  * Telegram `startapp` / WebApp `start_param` compact form.
  * Examples: `find`, `find_<cuid>`, `upload`, `profile`, `home`
  */
+export function normalizeTelegramMiniAppStartParam(
+  startParam: string | null | undefined,
+): string | null {
+  if (startParam == null) {
+    return null;
+  }
+  const trimmed = startParam.trim();
+  if (!trimmed || trimmed.length > TELEGRAM_MINI_APP_START_PARAM_MAX_LENGTH) {
+    return null;
+  }
+  return trimmed;
+}
+
 export function parseTelegramMiniAppStartParam(
   startParam: string,
 ): { screen: TelegramMiniAppScreen | null; code: string | null } {
-  const trimmed = startParam.trim();
+  const trimmed = normalizeTelegramMiniAppStartParam(startParam);
   if (!trimmed) {
     return { screen: null, code: null };
   }
@@ -107,8 +121,9 @@ export function resolveTelegramMiniAppDeepLinkTarget(
   let screen = searchParams.get(TELEGRAM_MINI_APP_QUERY.screen)?.trim().toLowerCase();
   let code = searchParams.get(TELEGRAM_MINI_APP_QUERY.code);
 
-  if (!screen && startParam?.trim()) {
-    const parsed = parseTelegramMiniAppStartParam(startParam);
+  const normalizedStartParam = normalizeTelegramMiniAppStartParam(startParam);
+  if (!screen && normalizedStartParam) {
+    const parsed = parseTelegramMiniAppStartParam(normalizedStartParam);
     screen = parsed.screen ?? undefined;
     if (!code && parsed.code) {
       code = parsed.code;

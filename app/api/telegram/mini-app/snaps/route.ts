@@ -4,6 +4,7 @@ import { z } from "zod";
 import { getAuthenticatedAppUser } from "@/lib/auth";
 import { broadcastNewSnap } from "@/lib/notifications/notification-service";
 import { createSnapForUser } from "@/lib/snap-create-service";
+import { telegramMiniAppUnauthorizedResponse } from "@/lib/telegram/mini-app-api";
 
 const createSnapSchema = z.object({
   imageUrl: z.string().url("Invalid image URL"),
@@ -17,7 +18,7 @@ const createSnapSchema = z.object({
 export async function POST(request: NextRequest) {
   const user = await getAuthenticatedAppUser();
   if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return telegramMiniAppUnauthorizedResponse();
   }
 
   let body: unknown;

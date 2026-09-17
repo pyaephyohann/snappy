@@ -63,6 +63,20 @@ PWA install prompt and service worker registration are skipped under `/telegram/
 
 **Home quick actions:** Find / Upload / Profile tiles link to existing Mini App routes (bottom nav unchanged).
 
+### Production hardening (T6)
+
+**Webhook:** `POST /api/telegram/webhook` requires matching `TELEGRAM_WEBHOOK_SECRET` (`x-telegram-bot-api-secret-token`). Malformed JSON, invalid updates, and bodies over 256 KB are rejected (4xx). Handler failures are logged without secrets; Telegram still receives `{ ok: true }` so transient app errors do not cause endless retries. Missing bot token or webhook secret → **503** (webhook disabled).
+
+**Mini App auth:** `initData` is capped at 8 KB, HMAC-validated server-side, with `auth_date` TTL. Linked users receive an HttpOnly Snappy session; APIs return `{ code: "session_expired" }` on **401**. Screens show **Reconnect** (same `POST /api/telegram/mini-app/session` flow). `initDataUnsafe` is never used for identity.
+
+**Deep links:** Query params take precedence over `start_param`. Invalid Snap codes open the Find form. Unknown `screen` → home. Oversized `start_param` (>512 chars) is ignored.
+
+**Bot errors:** Uncaught handler errors reply with a generic user message (no stack traces or Telegram JSON).
+
+**Setup:** `npm run telegram:setup` needs `TELEGRAM_BOT_TOKEN`, valid `TELEGRAM_WEBHOOK_SECRET`, and `SNAPPY_PUBLIC_URL` or `TELEGRAM_WEBHOOK_URL`. Warns if `TELEGRAM_BOT_USERNAME` is missing (Mini App → bot links).
+
+**Manual verification:** Manual Telegram E2E not performed in CI — verify bot, Mini App, reconnect, and deep links in Telegram after deploy.
+
 ### Session (T4.1 foundation)
 
 The Mini App loads Telegram’s official [WebApp JS SDK](https://telegram.org/js/telegram-web-app.js) in the browser, calls `Telegram.WebApp.ready()` and `expand()`, and hides the BackButton on the root screen.
@@ -140,14 +154,24 @@ Modes: `find_snap`, `upload_snap` in PostgreSQL (`telegram_chat_states`). `/star
 
 Server-only (never `NEXT_PUBLIC_` for secrets):
 
-| Variable | Purpose |
-| --- | --- |
-| `TELEGRAM_BOT_TOKEN` | Bot API + Mini App initData HMAC |
-| `TELEGRAM_WEBHOOK_SECRET` | Webhook validation |
-| `SNAPPY_PUBLIC_URL` | Connect, View Snap, Mini App, menu button |
-| `TELEGRAM_INIT_DATA_MAX_AGE_SECONDS` | Optional initData freshness (default 3600) |
-| `DATABASE_URL` | Includes telegram_* tables |
-| Cloudinary vars | Same as web uploads |
+| Variable | Required (prod) | Purpose |
+| --- | --- | --- |
+| `TELEGRAM_BOT_TOKEN` | Yes | Bot API + Mini App initData HMAC |
+| `TELEGRAM_WEBHOOK_SECRET` | Yes | Webhook header validation (1–256 chars, `[A-Za-z0-9_-]`) |
+| `SNAPPY_PUBLIC_URL` | Yes | HTTPS origin for Mini App, connect links, menu button |
+| `TELEGRAM_WEBHOOK_URL` | Optional | Full webhook URL; defaults to `${SNAPPY_PUBLIC_URL}/api/telegram/webhook` |
+| `TELEGRAM_BOT_USERNAME` | Recommended | Public `@username` for Mini App → bot links (no secret) |
+| `TELEGRAM_INIT_DATA_MAX_AGE_SECONDS` | Optional | initData freshness (default 3600) |
+| `DATABASE_URL` | Yes | Includes telegram_* tables |
+| Cloudinary vars | Yes (upload) | Same as web uploads |
+
+### Production deployment checklist
+
+1. Set env vars above on Vercel (never `NEXT_PUBLIC_` for bot token or webhook secret).
+2. `npx prisma migrate deploy`
+3. `npm run telegram:setup` from a machine with env loaded (registers webhook, commands, menu button).
+4. Run Telegram test scripts (below).
+5. Smoke-test bot + Mini App in Telegram (connect, reconnect, find deep link).
 
 ## Migrations
 
@@ -170,9 +194,10 @@ npm run test:telegram-mini-app-find
 npm run test:telegram-mini-app-upload
 npm run test:telegram-mini-app-profile
 npm run test:telegram-mini-app-integration
+npm run test:telegram-hardening
 ```
 
-## Deferred (post T5)
+## Deferred (post T6)
 
 - Telegram MainButton flows
 - Video uploads (until web Snap pipeline supports them)

@@ -3,11 +3,12 @@ import { getSession } from "@/lib/auth";
 import { lookupSnapByCode } from "@/lib/snap-lookup";
 import { mapSnapLookupToMiniAppFindResponse } from "@/lib/telegram/mini-app-find";
 import { sanitizeTelegramError } from "@/lib/telegram/errors";
+import { telegramMiniAppUnauthorizedResponse } from "@/lib/telegram/mini-app-api";
 
 export async function GET(request: NextRequest) {
   const session = await getSession();
   if (!session?.authenticated) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return telegramMiniAppUnauthorizedResponse();
   }
 
   const code = request.nextUrl.searchParams.get("code")?.trim() ?? "";

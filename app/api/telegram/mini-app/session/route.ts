@@ -2,10 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { establishMiniAppSessionFromInitData } from "@/lib/telegram/mini-app-auth";
 import { buildTelegramMiniAppUrl } from "@/lib/telegram/mini-app-url";
+import { TELEGRAM_MINI_APP_INIT_DATA_MAX_BYTES } from "@/lib/telegram/mini-app-request-limits";
 import { getSnappyPublicUrl } from "@/lib/telegram/public-url";
 
 const bodySchema = z.object({
-  initData: z.string().min(1),
+  initData: z.string().min(1).max(TELEGRAM_MINI_APP_INIT_DATA_MAX_BYTES),
 });
 
 export async function POST(request: NextRequest) {

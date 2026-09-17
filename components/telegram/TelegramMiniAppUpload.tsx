@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import SnapViewer from "@/components/snaps/SnapViewer";
 import { useTelegramMiniAppAuth } from "@/components/telegram/TelegramMiniAppAuthProvider";
+import TelegramMiniAppReconnect from "@/components/telegram/TelegramMiniAppReconnect";
 import { GlowButton } from "@/components/ui/glow-button";
 import { useTelegramBackButton } from "@/hooks/useTelegramBackButton";
 import {
@@ -276,17 +277,8 @@ export default function TelegramMiniAppUpload() {
       ) : null}
 
       {phase.kind === "session_expired" ? (
-        <div className="mx-auto max-w-md pt-10 text-center">
-          <p className="text-sm text-foreground">
-            Your Snappy session has expired.
-          </p>
-          <GlowButton
-            type="button"
-            className="mt-6 rounded-xl bg-primary px-4 py-2 text-sm text-primary-foreground"
-            onClick={() => retryAuth()}
-          >
-            Reconnect
-          </GlowButton>
+        <div className="mx-auto max-w-md pt-10">
+          <TelegramMiniAppReconnect onReconnect={() => retryAuth()} />
         </div>
       ) : null}
 

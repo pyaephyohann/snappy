@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import { TELEGRAM_MINI_APP_INIT_DATA_MAX_BYTES } from "./mini-app-request-limits";
 
 export const DEFAULT_TELEGRAM_INIT_DATA_MAX_AGE_SECONDS = 3600;
 
@@ -46,6 +47,9 @@ export function validateTelegramInitData(
 ): InitDataValidationResult {
   if (!initData.trim()) {
     return { ok: false, reason: "missing" };
+  }
+  if (Buffer.byteLength(initData, "utf8") > TELEGRAM_MINI_APP_INIT_DATA_MAX_BYTES) {
+    return { ok: false, reason: "malformed" };
   }
   if (!botToken.trim()) {
     return { ok: false, reason: "malformed" };
