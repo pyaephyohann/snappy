@@ -24,3 +24,7 @@ From **Admin → Users → Edit user**, admins can choose **Choose from user's i
 - The server verifies the selected Snap belongs to the target user.
 - Snappy reuses the Snap's existing Cloudinary `imageUrl` on `User.profileImage`.
 - No new Cloudinary upload is performed for profile photo changes.
+
+## Telegram bot
+
+Optional Telegram integration lives in `lib/telegram` and receives updates at `/api/telegram/webhook`. Setup, environment variables, and current command coverage are in [docs/telegram.md](docs/telegram.md).
