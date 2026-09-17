@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getAuthenticatedAppUser } from "@/lib/auth";
 import { isLinkTokenFormatValid } from "@/lib/telegram/link-token";
-import TelegramConnectClient from "@/components/telegram/TelegramConnectClient";
+import TelegramConnectButton from "@/components/telegram/TelegramConnectButton";
 
 type PageProps = {
   searchParams: Promise<{ token?: string; returnTo?: string }>;
@@ -39,7 +39,7 @@ export default async function TelegramConnectPage({ searchParams }: PageProps) {
         Signed in as <span className="font-medium text-foreground">{user.name}</span>
       </p>
       <div className="mt-8 rounded-2xl border border-border bg-card p-6">
-        <TelegramConnectClient token={token} />
+        <TelegramConnectButton linkToken={token} />
       </div>
     </div>
   );

@@ -50,12 +50,17 @@ test("upload from gallery lives in snap picker and links to payment", () => {
   assert.match(picker, /\/profile\/payment\?feature=profile-photo/);
 });
 
-test("telegram connect reuses GlowButton and bot meta without hard-coded token", () => {
+test("telegram connect button is shared on profile and connect page", () => {
   const connect = read("components/telegram/TelegramConnectButton.tsx");
   assert.match(connect, /Connect Telegram/);
-  assert.match(connect, /GlowButton/);
+  assert.match(connect, /TELEGRAM_CONNECT_BUTTON_CLASSNAME/);
+  assert.match(connect, /\/api\/telegram\/link/);
   assert.match(connect, /\/api\/telegram\/mini-app\/meta/);
-  assert.doesNotMatch(connect, /token=/);
+  assert.doesNotMatch(connect, /token=[a-f0-9]{20,}/i);
+  const page = read("app/telegram/connect/page.tsx");
+  assert.match(page, /TelegramConnectButton linkToken=\{token\}/);
+  const profile = read("components/profile/ProfilePageClient.tsx");
+  assert.match(profile, /TelegramConnectButton/);
 });
 
 test("payment page lists KPay AYA Pay UAB Pay", () => {
