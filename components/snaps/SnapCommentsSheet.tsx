@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import Image from 'next/image';
 import { AnimatePresence, motion } from 'framer-motion';
 import { MAX_COMMENT_LENGTH } from '@/lib/snap-reactions';
@@ -45,6 +46,8 @@ export default function SnapCommentsSheet({
   const [sending, setSending] = useState(false);
   const [draft, setDraft] = useState('');
   const [error, setError] = useState<string | null>(null);
+  // Portals require a DOM document — only true after client mount.
+  const [mounted] = useState(() => typeof document !== 'undefined');
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -91,7 +94,11 @@ export default function SnapCommentsSheet({
       if (e.key === 'Escape') onClose();
     };
     document.addEventListener('keydown', handleEscape);
-    return () => document.removeEventListener('keydown', handleEscape);
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', handleEscape);
+      document.body.style.overflow = '';
+    };
   }, [open, onClose]);
 
   const handleSubmit = useCallback(async () => {
@@ -129,16 +136,20 @@ export default function SnapCommentsSheet({
     }
   }, [draft, sending, snapId, onCommentAdded]);
 
-  return (
+  if (!mounted) return null;
+
+  // Rendered at document.body so no ancestor transform/overflow/stacking
+  // context (Snap card, viewer, bottom nav) can paint above the composer.
+  return createPortal(
     <AnimatePresence>
       {open ? (
-        <>
+        <div className="fixed inset-0 z-[9999]" role="dialog" aria-modal="true" aria-label="Comments">
           <motion.button
             type="button"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[80] bg-black/60"
+            className="absolute inset-0 bg-black/60"
             aria-label="Close comments"
             onClick={onClose}
           />
@@ -147,17 +158,15 @@ export default function SnapCommentsSheet({
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', stiffness: 420, damping: 36 }}
-            className="fixed inset-x-0 bottom-0 z-[81] flex max-h-[80vh] flex-col overflow-hidden rounded-t-2xl border border-border bg-card shadow-xl sm:inset-x-auto sm:left-1/2 sm:w-full sm:max-w-lg sm:-translate-x-1/2"
-            role="dialog"
-            aria-modal="true"
-            aria-label="Comments"
+            className="absolute inset-x-0 bottom-0 flex max-h-[85dvh] flex-col overflow-hidden rounded-t-2xl border border-border bg-card shadow-xl sm:inset-x-auto sm:left-1/2 sm:w-full sm:max-w-lg sm:-translate-x-1/2"
           >
+            <div className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-muted" />
             <div className="flex items-center justify-between border-b border-border px-4 py-3">
               <h2 className="text-sm font-semibold text-foreground">Comments</h2>
               <button
                 type="button"
                 onClick={onClose}
-                className="rounded-full p-1.5 hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring"
+                className="cursor-pointer rounded-full p-1.5 hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring"
                 aria-label="Close comments"
               >
                 <svg
@@ -223,13 +232,21 @@ export default function SnapCommentsSheet({
             ) : null}
 
             <form
-              className="flex items-center gap-2 border-t border-border p-3 pb-[calc(var(--bottom-nav-height,0px)+0.75rem)]"
+              className="flex items-center gap-2 border-t border-border bg-card p-3"
+              style={{
+                paddingBottom:
+                  'calc(0.75rem + env(safe-area-inset-bottom, 0px))',
+              }}
               onSubmit={(event) => {
                 event.preventDefault();
                 void handleSubmit();
               }}
             >
+              <label htmlFor={`comment-input-${snapId}`} className="sr-only">
+                Write a comment
+              </label>
               <input
+                id={`comment-input-${snapId}`}
                 ref={inputRef}
                 type="text"
                 value={draft}
@@ -237,6 +254,7 @@ export default function SnapCommentsSheet({
                 maxLength={MAX_COMMENT_LENGTH}
                 placeholder="Write a comment..."
                 disabled={sending}
+                autoComplete="off"
                 className="min-h-[44px] min-w-0 flex-1 rounded-full border border-border bg-background px-4 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
               />
               <button
@@ -248,8 +266,9 @@ export default function SnapCommentsSheet({
               </button>
             </form>
           </motion.div>
-        </>
+        </div>
       ) : null}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body,
   );
 }

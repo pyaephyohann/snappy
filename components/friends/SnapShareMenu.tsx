@@ -20,14 +20,32 @@ interface SnapShareMenuProps {
   title: string;
   /** Additional message for platforms like Messenger */
   message?: string;
+  /** Controlled open state — hides the built-in trigger button. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 export default function SnapShareMenu({
   url,
   title,
   message,
+  open,
+  onOpenChange,
 }: SnapShareMenuProps) {
-  const [isOpen, setIsOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const controlled = open !== undefined;
+  const isOpen = controlled ? open : internalOpen;
+  const setIsOpen = useCallback(
+    (next: boolean | ((prev: boolean) => boolean)) => {
+      const value = typeof next === 'function' ? next(isOpen) : next;
+      if (controlled) {
+        onOpenChange?.(value);
+      } else {
+        setInternalOpen(value);
+      }
+    },
+    [controlled, isOpen, onOpenChange],
+  );
   const menuRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
 
@@ -39,8 +57,9 @@ export default function SnapShareMenu({
       if (
         menuRef.current &&
         !menuRef.current.contains(e.target as Node) &&
-        buttonRef.current &&
-        !buttonRef.current.contains(e.target as Node)
+        (controlled ||
+          (buttonRef.current &&
+            !buttonRef.current.contains(e.target as Node)))
       ) {
         setIsOpen(false);
       }
@@ -48,7 +67,7 @@ export default function SnapShareMenu({
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [isOpen]);
+  }, [isOpen, controlled, setIsOpen]);
 
   // Close on Escape
   useEffect(() => {
@@ -60,19 +79,19 @@ export default function SnapShareMenu({
 
     document.addEventListener('keydown', handleEscape);
     return () => document.removeEventListener('keydown', handleEscape);
-  }, [isOpen]);
+  }, [isOpen, setIsOpen]);
 
   const handleToggle = useCallback(
     (e: React.MouseEvent) => {
       e.stopPropagation();
       setIsOpen((prev) => !prev);
     },
-    [],
+    [setIsOpen],
   );
 
   const handleClose = useCallback(() => {
     setIsOpen(false);
-  }, []);
+  }, [setIsOpen]);
 
 const shareMessage = message || title;
 
@@ -81,30 +100,32 @@ const shareMessage = message || title;
 
   return (
     <div className="relative flex-shrink-0">
-      {/* Share button */}
-      <motion.button
-        ref={buttonRef}
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
-        onClick={handleToggle}
-        className="flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-secondary/50 hover:bg-secondary/80 transition-colors focus:outline-none focus:ring-2 focus:ring-ring"
-        aria-label="Share this Snap"
-        aria-expanded={isOpen}
-      >
-        <svg
-          className="w-4 h-4 sm:w-5 sm:h-5"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
+      {/* Share button (hidden when externally controlled) */}
+      {!controlled ? (
+        <motion.button
+          ref={buttonRef}
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={handleToggle}
+          className="flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-secondary/50 hover:bg-secondary/80 transition-colors focus:outline-none focus:ring-2 focus:ring-ring"
+          aria-label="Share this Snap"
+          aria-expanded={isOpen}
         >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
-          />
-        </svg>
-      </motion.button>
+          <svg
+            className="w-4 h-4 sm:w-5 sm:h-5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
+            />
+          </svg>
+        </motion.button>
+      ) : null}
 
       {/* Share menu popover */}
       <AnimatePresence>

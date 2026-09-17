@@ -38,6 +38,7 @@ export default function SnapCard({
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);
   const [showAdModal, setShowAdModal] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const pendingDownloadRef = useRef<{ imageUrl: string; filename: string } | null>(null);
 
   
@@ -211,18 +212,21 @@ export default function SnapCard({
             )}
           </div>
 
-          {/* Social actions + Share */}
-          <div className="px-2 sm:px-4 pb-3 sm:pb-4">
-            <div
-              className="flex items-center justify-between gap-2 border-t border-border pt-3"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <SnapSocialBar snapId={id} />
-              <SnapShareMenu
-                url={getSnapUrl()}
-                title={getShareTitle()}
-              />
-            </div>
+          {/* Social actions (Like / Comment / Share) */}
+          <div
+            className="px-2 sm:px-4 pb-3 sm:pb-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <SnapSocialBar
+              snapId={id}
+              onShare={() => setShareOpen(true)}
+            />
+            <SnapShareMenu
+              url={getSnapUrl()}
+              title={getShareTitle()}
+              open={shareOpen}
+              onOpenChange={setShareOpen}
+            />
           </div>
         </div>
       </GlowingBorder>

@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import SnapCommentsSheet from '@/components/snaps/SnapCommentsSheet';
 import {
@@ -18,15 +19,95 @@ interface SocialSummary {
 
 interface SnapSocialBarProps {
   snapId: string;
+  /** Share handler — when provided, a Share action is rendered. */
+  onShare?: () => void;
+  /** Extra classes for the root container. */
+  className?: string;
 }
 
-export default function SnapSocialBar({ snapId }: SnapSocialBarProps) {
+const REACTION_LABELS: Record<SnapReactionType, string> = {
+  LIKE: 'Like',
+  LOVE: 'Love',
+  HAHA: 'Haha',
+  WOW: 'Wow',
+  SAD: 'Sad',
+  ANGRY: 'Angry',
+};
+
+function LikeIcon({ filled }: { filled: boolean }) {
+  return (
+    <svg
+      className="h-4 w-4"
+      fill={filled ? 'currentColor' : 'none'}
+      stroke="currentColor"
+      strokeWidth={2}
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M14 9V5a3 3 0 00-3-3l-4 9v11h11.28a2 2 0 002-1.7l1.38-9a2 2 0 00-2-2.3H14zM7 22H4a2 2 0 01-2-2v-7a2 2 0 012-2h3"
+      />
+    </svg>
+  );
+}
+
+function CommentIcon() {
+  return (
+    <svg
+      className="h-4 w-4"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4-.849L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+      />
+    </svg>
+  );
+}
+
+function ShareIcon() {
+  return (
+    <svg
+      className="h-4 w-4"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
+      />
+    </svg>
+  );
+}
+
+export default function SnapSocialBar({
+  snapId,
+  onShare,
+  className = '',
+}: SnapSocialBarProps) {
   const [summary, setSummary] = useState<SocialSummary | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerPos, setPickerPos] = useState<{ left: number; top: number }>({
+    left: 0,
+    top: 0,
+  });
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
-  const pickerRef = useRef<HTMLDivElement>(null);
+  // Portals require a DOM document — only true after client mount.
+  const [mounted] = useState(() => typeof document !== 'undefined');
+  const likeButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -50,12 +131,26 @@ export default function SnapSocialBar({ snapId }: SnapSocialBarProps) {
     };
   }, [snapId]);
 
+  const openPicker = useCallback(() => {
+    const anchor = likeButtonRef.current;
+    if (anchor) {
+      const rect = anchor.getBoundingClientRect();
+      const pickerWidth = 6 * 44; // six ~44px emoji targets
+      const left = Math.min(
+        Math.max(8, rect.left),
+        Math.max(8, window.innerWidth - pickerWidth - 8),
+      );
+      setPickerPos({ left, top: rect.top - 8 });
+    }
+    setPickerOpen(true);
+  }, []);
+
   useEffect(() => {
     if (!pickerOpen) return;
     const handleClickOutside = (e: MouseEvent) => {
       if (
-        pickerRef.current &&
-        !pickerRef.current.contains(e.target as Node)
+        likeButtonRef.current &&
+        !likeButtonRef.current.contains(e.target as Node)
       ) {
         setPickerOpen(false);
       }
@@ -146,73 +241,87 @@ export default function SnapSocialBar({ snapId }: SnapSocialBarProps) {
     (type) => (summary?.counts[type] ?? 0) > 0,
   ).slice(0, 3);
 
-  return (
-    <div className="relative">
-      <div className="flex items-center gap-2">
-        <div className="relative" ref={pickerRef}>
-          <button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation();
-              if (myReaction) {
-                void handleSelectReaction(myReaction);
-              } else {
-                setPickerOpen((open) => !open);
-              }
-            }}
-            onContextMenu={(event) => {
-              event.preventDefault();
-              event.stopPropagation();
-              setPickerOpen(true);
-            }}
-            className={`inline-flex min-h-[36px] cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-ring ${
-              myReaction
-                ? 'border-primary/50 bg-primary/10 text-foreground'
-                : 'border-border bg-card text-muted-foreground hover:bg-muted'
-            }`}
-            aria-label={
-              myReaction
-                ? `Remove your ${myReaction.toLowerCase()} reaction`
-                : 'React to this snap'
-            }
-            aria-pressed={Boolean(myReaction)}
-          >
-            <span aria-hidden>
-              {myReaction ? REACTION_EMOJIS[myReaction] : '👍'}
-            </span>
-            {total > 0 ? <span>{total}</span> : null}
-          </button>
+  const actionCount = onShare ? 3 : 2;
 
-          <AnimatePresence>
-            {pickerOpen ? (
-              <motion.div
-                initial={{ opacity: 0, y: 6, scale: 0.9 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: 6, scale: 0.9 }}
-                transition={{ duration: 0.15 }}
-                className="absolute bottom-full left-0 z-20 mb-2 flex items-center gap-1 rounded-full border border-border bg-card p-1.5 shadow-lg"
-                onClick={(event) => event.stopPropagation()}
-              >
-                {REACTION_TYPES.map((type) => (
-                  <motion.button
-                    key={type}
-                    type="button"
-                    whileHover={{ scale: 1.25, y: -2 }}
-                    whileTap={{ scale: 0.9 }}
-                    onClick={() => void handleSelectReaction(type)}
-                    className={`cursor-pointer rounded-full p-1.5 text-xl leading-none transition-colors focus:outline-none focus:ring-2 focus:ring-ring ${
-                      myReaction === type ? 'bg-primary/15' : 'hover:bg-muted'
-                    }`}
-                    aria-label={`React with ${type.toLowerCase()}`}
-                    aria-pressed={myReaction === type}
-                  >
-                    <span aria-hidden>{REACTION_EMOJIS[type]}</span>
-                  </motion.button>
+  return (
+    <div className={className}>
+      {/* Summary row */}
+      {total > 0 || commentCount > 0 ? (
+        <div className="flex items-center justify-between px-1 pb-2 text-xs text-muted-foreground">
+          <span className="flex items-center gap-1.5">
+            {topReactions.length > 0 ? (
+              <span aria-hidden className="flex items-center gap-0.5">
+                {topReactions.map((type) => (
+                  <span key={type}>{REACTION_EMOJIS[type]}</span>
                 ))}
-              </motion.div>
+              </span>
             ) : null}
-          </AnimatePresence>
+            {total > 0 ? (
+              <span aria-label={`${total} reactions`}>
+                {total} {total === 1 ? 'reaction' : 'reactions'}
+              </span>
+            ) : null}
+          </span>
+          {commentCount > 0 ? (
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                setCommentsOpen(true);
+              }}
+              className="cursor-pointer hover:text-foreground hover:underline focus:outline-none focus:ring-2 focus:ring-ring rounded"
+              aria-label={`View ${commentCount} comments`}
+            >
+              {commentCount} {commentCount === 1 ? 'comment' : 'comments'}
+            </button>
+          ) : null}
         </div>
+      ) : null}
+
+      {/* Action row */}
+      <div
+        className="grid gap-1 border-t border-border pt-1"
+        style={{
+          gridTemplateColumns: `repeat(${actionCount}, minmax(0, 1fr))`,
+        }}
+      >
+        <button
+          ref={likeButtonRef}
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            if (myReaction) {
+              void handleSelectReaction(myReaction);
+            } else {
+              openPicker();
+            }
+          }}
+          onContextMenu={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            openPicker();
+          }}
+          className={`inline-flex min-h-[40px] cursor-pointer items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-xs font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-ring ${
+            myReaction
+              ? 'bg-primary/10 text-primary'
+              : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+          }`}
+          aria-label={
+            myReaction
+              ? `Remove your ${REACTION_LABELS[myReaction].toLowerCase()} reaction`
+              : 'React to this snap'
+          }
+          aria-pressed={Boolean(myReaction)}
+        >
+          {myReaction ? (
+            <span aria-hidden className="text-base leading-none">
+              {REACTION_EMOJIS[myReaction]}
+            </span>
+          ) : (
+            <LikeIcon filled={false} />
+          )}
+          <span>{myReaction ? REACTION_LABELS[myReaction] : 'Like'}</span>
+        </button>
 
         <button
           type="button"
@@ -220,20 +329,26 @@ export default function SnapSocialBar({ snapId }: SnapSocialBarProps) {
             event.stopPropagation();
             setCommentsOpen(true);
           }}
-          className="inline-flex min-h-[36px] cursor-pointer items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring"
-          aria-label="View comments"
+          className="inline-flex min-h-[40px] cursor-pointer items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+          aria-label="Open comments"
         >
-          <span aria-hidden>💬</span>
-          {commentCount > 0 ? <span>{commentCount}</span> : null}
+          <CommentIcon />
+          <span>Comment</span>
         </button>
 
-        {topReactions.length > 0 ? (
-          <span
-            className="ml-1 text-xs text-muted-foreground"
-            aria-label="Reaction summary"
+        {onShare ? (
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              onShare();
+            }}
+            className="inline-flex min-h-[40px] cursor-pointer items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            aria-label="Share this snap"
           >
-            {topReactions.map((type) => REACTION_EMOJIS[type]).join(' ')}
-          </span>
+            <ShareIcon />
+            <span>Share</span>
+          </button>
         ) : null}
       </div>
 
@@ -242,6 +357,49 @@ export default function SnapSocialBar({ snapId }: SnapSocialBarProps) {
           {error}
         </p>
       ) : null}
+
+      {/* Reaction picker — portaled so card overflow/transform can't clip it */}
+      {mounted
+        ? createPortal(
+            <AnimatePresence>
+              {pickerOpen ? (
+                <motion.div
+                  initial={{ opacity: 0, y: 8, scale: 0.9 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 8, scale: 0.9 }}
+                  transition={{ duration: 0.15 }}
+                  className="fixed z-[9999] flex items-center gap-1 rounded-full border border-border bg-card p-1.5 shadow-lg"
+                  style={{
+                    left: pickerPos.left,
+                    top: pickerPos.top,
+                    transform: 'translateY(-100%)',
+                  }}
+                  onClick={(event) => event.stopPropagation()}
+                  role="menu"
+                  aria-label="Choose a reaction"
+                >
+                  {REACTION_TYPES.map((type) => (
+                    <motion.button
+                      key={type}
+                      type="button"
+                      whileHover={{ scale: 1.25, y: -2 }}
+                      whileTap={{ scale: 0.9 }}
+                      onClick={() => void handleSelectReaction(type)}
+                      className={`cursor-pointer rounded-full p-1.5 text-xl leading-none transition-colors focus:outline-none focus:ring-2 focus:ring-ring ${
+                        myReaction === type ? 'bg-primary/15' : 'hover:bg-muted'
+                      }`}
+                      aria-label={`React with ${REACTION_LABELS[type].toLowerCase()}${myReaction === type ? ' (selected)' : ''}`}
+                      role="menuitem"
+                    >
+                      <span aria-hidden>{REACTION_EMOJIS[type]}</span>
+                    </motion.button>
+                  ))}
+                </motion.div>
+              ) : null}
+            </AnimatePresence>,
+            document.body,
+          )
+        : null}
 
       <SnapCommentsSheet
         snapId={snapId}

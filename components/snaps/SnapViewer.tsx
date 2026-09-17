@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
 import SnapShareMenu from '@/components/friends/SnapShareMenu';
+import SnapSocialBar from '@/components/snaps/SnapSocialBar';
 import GlowingBorder from '@/components/ui/glowing-border';
 import { GlowButton } from '@/components/ui/glow-button';
 import { buildSnapFilename, downloadImage } from '@/lib/download-image';
@@ -59,11 +60,13 @@ export default function SnapViewer({
   caption,
   friendName,
   snapIndex = 0,
+  snapId,
 }: SnapViewerProps) {
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);
   const [showAdModal, setShowAdModal] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const pendingDownloadRef = useRef<{ imageUrl: string; filename: string } | null>(null);
 
   
@@ -289,13 +292,28 @@ export default function SnapViewer({
                 </motion.div>
               )}
 
-              {/* Share */}
-              <div className="mt-3 sm:mt-4 flex items-center justify-end border-t border-border pt-3">
-                <SnapShareMenu
-                  url={getSnapUrl()}
-                  title={getShareTitle()}
-                />
-              </div>
+              {/* Social actions (Like / Comment / Share) */}
+              {snapId ? (
+                <div className="mt-3 sm:mt-4 rounded-xl border border-border bg-card p-2 sm:p-3">
+                  <SnapSocialBar
+                    snapId={snapId}
+                    onShare={() => setShareOpen(true)}
+                  />
+                  <SnapShareMenu
+                    url={getSnapUrl()}
+                    title={getShareTitle()}
+                    open={shareOpen}
+                    onOpenChange={setShareOpen}
+                  />
+                </div>
+              ) : (
+                <div className="mt-3 sm:mt-4 flex items-center justify-end border-t border-border pt-3">
+                  <SnapShareMenu
+                    url={getSnapUrl()}
+                    title={getShareTitle()}
+                  />
+                </div>
+              )}
 
             </div>
           </motion.div>
