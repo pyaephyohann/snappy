@@ -14,14 +14,14 @@ Mini App  → /telegram/app → POST /api/telegram/mini-app/session (initData �
 | --- | --- |
 | `/start` | Welcome message plus Find Friends / Upload / Mini App / web buttons |
 | `/help` | Lists commands; clears conversation state |
-| `/find-friends` | View your friends' Snaps (friend list → name search → 3 Snaps per page) |
+| `/find_friends` | View your friends' Snaps (friend list → name search → 3 Snaps per page) |
 | `/upload` | Connect Snappy (if needed), then upload a photo Snap |
 
-Registered bot commands (via `telegram:setup`): `start`, `help`, `find-friends`, `upload`. The legacy bot command **`/find` (Snap code lookup) has been removed** — it is no longer registered and is not listed in help.
+Registered bot commands (via `telegram:setup`): `start`, `help`, **`find_friends`**, `upload`. Telegram Bot API command names cannot contain hyphens; users may also type **`/find-friends`** — the bot handles both. The legacy bot command **`/find` (Snap code lookup) has been removed** — it is no longer registered and is not listed in help.
 
-The main inline keyboard **👥 Find Friends** starts the same flow as `/find-friends`.
+The main inline keyboard **👥 Find Friends** starts the same flow as `/find_friends`.
 
-Deep links: `/start find-friends` or `/start findfriends` opens the find-friends flow; `/start upload` opens upload.
+Deep links: `/start find-friends`, `/start findfriends`, or `/start find_friends` opens the find-friends flow; `/start upload` opens upload.
 
 The bot menu button **📱 Open Snappy** (configured by `npm run telegram:setup`) opens the Mini App at `/telegram/app` when `SNAPPY_PUBLIC_URL` is set.
 
@@ -29,7 +29,7 @@ The bot menu button **📱 Open Snappy** (configured by `npm run telegram:setup`
 
 | Feature | Where | Snap code? |
 | --- | --- | --- |
-| **Find friends' Snaps** | Bot `/find-friends` | No — type a friend's name |
+| **Find friends' Snaps** | Bot `/find_friends` (or `/find-friends`) | No — type a friend's name |
 | **Find Snap by code** | Mini App `/telegram/app/find` | Yes — same CUID rules as web |
 
 Snap-code lookup is **not** available through the Telegram bot anymore. The Mini App find screen, `/api/telegram/mini-app/find`, and deep links (`screen=find`, `start_param=find_<cuid>`) are **unchanged**.
@@ -68,7 +68,7 @@ PWA install prompt and service worker registration are skipped under `/telegram/
 
 - Menu / **📱 Open Snappy** → `/telegram/app` (unchanged).
 - Mini App keyboards may still include **📱 Open Find in Snappy** (`web_app` URL with `screen=find`, optional `code`) for snap-code find inside the Mini App — not via bot `/find`.
-- `/start find-friends`, `/start findfriends`, and `/start upload` deep-link into the corresponding bot flows.
+- `/start find-friends`, `/start findfriends`, `/start find_friends`, and `/start upload` deep-link into the corresponding bot flows.
 
 **Mini App → Bot**
 
@@ -193,14 +193,14 @@ Snappy:    same image, caption "Beautiful sunset 🌅"
 
 ## Find friends flow (bot)
 
-Command: **`/find-friends`** — *View your friends' Snaps*.
+Command: **`/find_friends`** (Telegram menu; **`/find-friends`** also works) — *View your friends' Snaps*.
 
 Requires a linked Snappy account (same linking flow as upload). The bot resolves the Snappy user from **`telegram_accounts`**; it never asks for or trusts a client-supplied Snappy user ID.
 
 ### User flow
 
 ```text
-/find-friends
+/find_friends
       ↓
 Friends list (actual friends for the linked user)
       ↓
@@ -244,7 +244,7 @@ Continue 3 at a time until exhausted
 - **No Snap codes** in this flow.
 - Friend identity comes from server-side friend list + name match; Snap queries use the resolved friend user ID only.
 - Snaps require an **active** owner; image URLs must pass existing **Telegram-safe** HTTPS checks (e.g. Cloudinary).
-- Users cannot use `/find-friends` to search non-friends or arbitrary Snaps.
+- Users cannot use `/find_friends` to search non-friends or arbitrary Snaps.
 
 ## Find Snap by code (Mini App only)
 
@@ -259,7 +259,7 @@ PostgreSQL table **`telegram_chat_states`**, keyed by Telegram **chat ID**.
 | `find_friends` | Awaiting friend name; stores selected friend + pagination offset for find-friends |
 | `upload_snap` | Awaiting photo for upload |
 
-`/start`, `/help`, and unknown `/` commands **clear** state. `/find-friends` and `/upload` set their modes. While in find-friends mode, plain text (non-commands) is treated as a friend name search.
+`/start`, `/help`, and unknown `/` commands **clear** state. `/find_friends` (or `/find-friends`) and `/upload` set their modes. While in find-friends mode, plain text (non-commands) is treated as a friend name search.
 
 States expire after **`TELEGRAM_CHAT_STATE_TTL_MS`** (15 minutes) based on `updatedAt`, same as before.
 

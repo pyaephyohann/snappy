@@ -21,11 +21,15 @@ import {
 } from "./messages";
 import { registerTelegramBotErrorHandler } from "./bot-error-handler";
 
+/**
+ * Telegram Bot API command names: lowercase letters, digits, underscores only (no hyphens).
+ * Users type /find_friends; the bot handler accepts /find-friends too.
+ */
 export const TELEGRAM_BOT_COMMANDS = [
   { command: "start", description: "Introduce Snappy" },
   { command: "help", description: "Show available commands" },
   {
-    command: "find-friends",
+    command: "find_friends",
     description: "View your friends' Snaps",
   },
   { command: "upload", description: "Upload a photo Snap" },
@@ -37,7 +41,11 @@ export function registerTelegramHandlers(bot: Bot): void {
     const payload =
       ctx.message?.text?.split(/\s+/).slice(1).join(" ").trim().toLowerCase() ??
       "";
-    if (payload === "find-friends" || payload === "findfriends") {
+    if (
+      payload === "find-friends" ||
+      payload === "findfriends" ||
+      payload === "find_friends"
+    ) {
       await beginFindFriendsFlow(ctx);
       return;
     }
@@ -53,7 +61,7 @@ export function registerTelegramHandlers(bot: Bot): void {
     await replyWithMainKeyboard(ctx, HELP_MESSAGE);
   });
 
-  bot.command("find-friends", async (ctx) => {
+  bot.command(["find_friends", "find-friends"], async (ctx) => {
     await beginFindFriendsFlow(ctx);
   });
 

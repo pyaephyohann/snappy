@@ -6,7 +6,7 @@ export const START_MESSAGE = [
   "Share and discover moments with your friends.",
   "",
   "Commands:",
-  "/find-friends — View your friends' Snaps",
+  "/find_friends — View your friends' Snaps",
   "/upload — Upload a Snap",
   "/help — Show available commands",
 ].join("\n");
@@ -15,7 +15,7 @@ export const HELP_MESSAGE = [
   "Snappy Telegram commands:",
   "",
   "/start — Introduction and shortcuts",
-  "/find-friends — View your friends' Snaps",
+  "/find_friends — View your friends' Snaps",
   "/upload — Upload a photo Snap",
   "/help — Show this message",
   "",

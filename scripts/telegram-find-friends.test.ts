@@ -54,10 +54,11 @@ test("find-friends command registered and find snap removed", () => {
     resolve(import.meta.dirname, "../lib/telegram/commands.ts"),
     "utf8",
   );
-  assert.match(commands, /command: "find-friends"/);
+  assert.match(commands, /command: "find_friends"/);
   assert.doesNotMatch(commands, /command: "find"/);
   assert.doesNotMatch(commands, /find-snap/);
   assert.match(commands, /handleFindFriendsNameMessage/);
+  assert.match(commands, /bot\.command\(\["find_friends", "find-friends"\]/);
 });
 
 test("find friends handler uses pagination state and page size 3", () => {
