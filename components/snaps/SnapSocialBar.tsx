@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import SnapCommentsSheet from '@/components/snaps/SnapCommentsSheet';
+import SnapReactionsSheet from '@/components/snaps/SnapReactionsSheet';
 import {
   REACTION_EMOJIS,
   REACTION_TYPES,
@@ -103,6 +104,7 @@ export default function SnapSocialBar({
     top: 0,
   });
   const [commentsOpen, setCommentsOpen] = useState(false);
+  const [reactionsOpen, setReactionsOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   // Portals require a DOM document — only true after client mount.
@@ -248,20 +250,30 @@ export default function SnapSocialBar({
       {/* Summary row */}
       {total > 0 || commentCount > 0 ? (
         <div className="flex items-center justify-between px-1 pb-2 text-xs text-muted-foreground">
-          <span className="flex items-center gap-1.5">
-            {topReactions.length > 0 ? (
-              <span aria-hidden className="flex items-center gap-0.5">
-                {topReactions.map((type) => (
-                  <span key={type}>{REACTION_EMOJIS[type]}</span>
-                ))}
-              </span>
-            ) : null}
-            {total > 0 ? (
-              <span aria-label={`${total} reactions`}>
+          {total > 0 ? (
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                setReactionsOpen(true);
+              }}
+              className="flex cursor-pointer items-center gap-1.5 rounded hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              aria-label={`Show ${total} ${total === 1 ? 'reaction' : 'reactions'}`}
+            >
+              {topReactions.length > 0 ? (
+                <span aria-hidden className="flex items-center gap-0.5">
+                  {topReactions.map((type) => (
+                    <span key={type}>{REACTION_EMOJIS[type]}</span>
+                  ))}
+                </span>
+              ) : null}
+              <span className="hover:underline">
                 {total} {total === 1 ? 'reaction' : 'reactions'}
               </span>
-            ) : null}
-          </span>
+            </button>
+          ) : (
+            <span />
+          )}
           {commentCount > 0 ? (
             <button
               type="button"
@@ -406,6 +418,12 @@ export default function SnapSocialBar({
         open={commentsOpen}
         onClose={() => setCommentsOpen(false)}
         onCommentAdded={handleCommentAdded}
+      />
+
+      <SnapReactionsSheet
+        snapId={snapId}
+        open={reactionsOpen}
+        onClose={() => setReactionsOpen(false)}
       />
     </div>
   );
