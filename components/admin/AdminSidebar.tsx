@@ -15,9 +15,20 @@ import {
 interface AdminSidebarProps {
   uuid: string;
   onNavigate?: () => void;
+  showUserActions?: boolean;
+  username?: string;
+  onLogout?: () => void;
+  isLoggingOut?: boolean;
 }
 
-export default function AdminSidebar({ uuid, onNavigate }: AdminSidebarProps) {
+export default function AdminSidebar({
+  uuid,
+  onNavigate,
+  showUserActions = false,
+  username,
+  onLogout,
+  isLoggingOut = false,
+}: AdminSidebarProps) {
   const pathname = usePathname();
 
   const navItems = [
@@ -37,15 +48,24 @@ export default function AdminSidebar({ uuid, onNavigate }: AdminSidebarProps) {
 
   return (
     <aside className="flex h-full flex-col border-r border-border bg-card/60">
-      <div className="border-b border-border px-5 py-5">
+      <header className="border-b border-border px-5 py-5">
         <Link
           href={`/admin/${uuid}`}
           onClick={onNavigate}
-          className="flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-lg"
+          className="flex items-center gap-2 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <SnappyLogo size="sm" admin />
         </Link>
-      </div>
+        {showUserActions ? (
+          <div className="mt-4 border-t border-border pt-4">
+            <AdminNavbarUserActions
+              username={username!}
+              onLogout={onLogout!}
+              isLoggingOut={isLoggingOut ?? false}
+            />
+          </div>
+        ) : null}
+      </header>
 
       <nav className="flex-1 space-y-1 px-3 py-4">
         {navItems.map(({ href, label, icon: Icon, exact }) => {
@@ -82,26 +102,48 @@ export default function AdminSidebar({ uuid, onNavigate }: AdminSidebarProps) {
   );
 }
 
-export function AdminSidebarFooter({
+export function AdminNavbarUserActions({
   username,
   onLogout,
   isLoggingOut,
+  compact = false,
 }: {
   username: string;
   onLogout: () => void;
   isLoggingOut: boolean;
+  compact?: boolean;
 }) {
   return (
-    <div className="border-t border-border px-5 py-4">
-      <div className="mb-3 text-sm text-muted-foreground">{username}</div>
+    <div
+      className={`flex min-w-0 items-center ${
+        compact ? "shrink-0 gap-2" : "justify-between gap-3"
+      }`}
+    >
+      <span
+        className={`truncate text-muted-foreground ${
+          compact
+            ? "max-w-[5.5rem] text-xs sm:max-w-[8rem] sm:text-sm"
+            : "min-w-0 flex-1 text-sm"
+        }`}
+        title={username}
+      >
+        {username}
+      </span>
       <button
         type="button"
         onClick={onLogout}
         disabled={isLoggingOut}
-        className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+        aria-label={isLoggingOut ? "Logging out" : "Logout"}
+        className={`flex shrink-0 cursor-pointer items-center rounded-xl border border-border font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 ${
+          compact
+            ? "gap-1.5 px-2 py-1.5 text-xs"
+            : "gap-2 px-3 py-2 text-sm"
+        }`}
       >
-        <LogoutIcon />
-        {isLoggingOut ? "Logging out..." : "Logout"}
+        <LogoutIcon className={compact ? "h-4 w-4" : "h-5 w-5"} />
+        <span className={compact ? "max-[359px]:sr-only" : undefined}>
+          {isLoggingOut ? "Logging out..." : "Logout"}
+        </span>
       </button>
     </div>
   );

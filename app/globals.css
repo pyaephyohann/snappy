@@ -18,8 +18,8 @@
   --safe-area-inset-left: env(safe-area-inset-left, 0px);
 
   /* Mobile bottom navigation (user app) */
-  --bottom-nav-height: 4.75rem;
-  --bottom-nav-camera-overhang: 1.75rem;
+  --bottom-nav-height: 5rem;
+  --bottom-nav-camera-overhang: 1.15rem;
   --bottom-nav-content-pad: calc(
     var(--bottom-nav-height) + var(--bottom-nav-camera-overhang) +
       var(--safe-area-inset-bottom)

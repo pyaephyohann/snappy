@@ -2,12 +2,10 @@
 
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { useCallback, useMemo, useState } from "react";
+import { usePathname } from "next/navigation";
+import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import SnapCameraCapture from "@/components/snaps/SnapCameraCapture";
-import { isCameraCaptureSupported } from "@/lib/snap-camera";
-import { uploadSnapForUser } from "@/lib/snap-upload-client";
+import BottomNavCameraFlow from "@/components/mobile/BottomNavCameraFlow";
 
 interface BottomNavProps {
   username: string;
@@ -114,7 +112,7 @@ function ProfileIcon({ active }: { active: boolean }) {
 function CameraIcon() {
   return (
     <svg
-      className="h-7 w-7 text-primary-foreground"
+      className="h-[1.65rem] w-[1.65rem] text-primary-foreground"
       fill="none"
       stroke="currentColor"
       viewBox="0 0 24 24"
@@ -146,7 +144,7 @@ function NavLinkItem({
   return (
     <Link
       href={item.href}
-      className={`group flex min-h-[44px] min-w-[56px] flex-1 flex-col items-center justify-end gap-0.5 pb-1.5 pt-2 text-[10px] font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-lg ${
+      className={`group flex min-h-[44px] min-w-[52px] flex-1 flex-col items-center justify-end gap-0.5 pb-1.5 pt-1 text-[10px] font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-lg ${
         active
           ? "text-primary"
           : "text-muted-foreground hover:text-foreground"
@@ -159,32 +157,9 @@ function NavLinkItem({
   );
 }
 
-async function resolveTargetUserId(
-  pathname: string,
-  sessionUsername: string,
-): Promise<string> {
-  const segments = pathname.split("/").filter(Boolean);
-  const onFriendProfile =
-    segments[0] === "friends" && segments.length >= 2;
-  const targetName = onFriendProfile
-    ? decodeURIComponent(segments[1])
-    : sessionUsername;
-
-  const response = await fetch(
-    `/api/users/resolve?name=${encodeURIComponent(targetName)}`,
-  );
-  if (!response.ok) {
-    throw new Error("Could not find a profile to attach this Snap to.");
-  }
-  const data = (await response.json()) as { id: string };
-  return data.id;
-}
-
 export default function BottomNav({ username }: BottomNavProps) {
   const pathname = usePathname();
-  const router = useRouter();
-  const [isCameraOpen, setIsCameraOpen] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
+  const [cameraFlowOpen, setCameraFlowOpen] = useState(false);
 
   const profileHref = useMemo(
     () => `/friends/${encodeURIComponent(username)}`,
@@ -233,128 +208,91 @@ export default function BottomNav({ username }: BottomNavProps) {
   const leftItems = navItems.slice(0, 2);
   const rightItems = navItems.slice(2);
 
-  const openCamera = useCallback(() => {
-    if (!isCameraCaptureSupported()) {
-      router.push(profileHref);
-      return;
-    }
-    if (isUploading) return;
-    setIsCameraOpen(true);
-  }, [isUploading, profileHref, router]);
-
-  const handleCapture = useCallback(
-    async (file: File) => {
-      setIsUploading(true);
-      try {
-        const targetUserId = await resolveTargetUserId(pathname, username);
-        await uploadSnapForUser(targetUserId, file);
-        setIsCameraOpen(false);
-        router.refresh();
-      } catch (error) {
-        console.error("Bottom nav camera upload failed:", error);
-        setIsCameraOpen(false);
-      } finally {
-        setIsUploading(false);
-      }
-    },
-    [pathname, router, username],
-  );
-
   return (
     <>
-      <nav
-        className="bottom-nav-root fixed inset-x-0 bottom-0 z-40 lg:hidden"
-        aria-label="Main navigation"
-      >
-        <div className="relative mx-auto max-w-lg">
-          {/* Wavy bar surface */}
-          <div
-            className="pointer-events-none absolute inset-x-0 bottom-0 h-[calc(var(--bottom-nav-height)+var(--safe-area-inset-bottom))]"
-            aria-hidden="true"
-          >
-            <svg
-              className="h-full w-full drop-shadow-[0_-4px_24px_rgba(0,0,0,0.18)]"
-              viewBox="0 0 400 88"
-              preserveAspectRatio="none"
-              role="presentation"
+      {!cameraFlowOpen ? (
+        <nav
+          className="bottom-nav-root fixed inset-x-0 bottom-0 z-40 lg:hidden"
+          aria-label="Main navigation"
+        >
+          <div className="relative mx-auto max-w-lg overflow-hidden">
+            <div
+              className="pointer-events-none absolute inset-x-0 bottom-0 h-[calc(var(--bottom-nav-height)+var(--safe-area-inset-bottom))]"
+              aria-hidden="true"
             >
-              <defs>
-                <linearGradient
-                  id="bottomNavFill"
-                  x1="0%"
-                  y1="0%"
-                  x2="0%"
-                  y2="100%"
-                >
-                  <stop offset="0%" stopColor="var(--card)" stopOpacity="1" />
-                  <stop
-                    offset="100%"
-                    stopColor="var(--card)"
-                    stopOpacity="0.98"
-                  />
-                </linearGradient>
-              </defs>
-              <path
-                d="M0 26 H118 C132 26 142 24 158 18 C172 12 184 8 200 8 C216 8 228 12 242 18 C258 24 268 26 282 26 H400 V88 H0 Z"
-                fill="url(#bottomNavFill)"
-              />
-              <path
-                d="M0 26 H118 C132 26 142 24 158 18 C172 12 184 8 200 8 C216 8 228 12 242 18 C258 24 268 26 282 26"
-                fill="none"
-                stroke="var(--border)"
-                strokeWidth="1"
-                vectorEffect="non-scaling-stroke"
-              />
-            </svg>
-          </div>
-
-          <div className="safe-area-pb relative flex items-end justify-between px-1 pb-1 pt-3">
-            <div className="flex flex-1 justify-around">
-              {leftItems.map((item) => (
-                <NavLinkItem
-                  key={item.key}
-                  item={item}
-                  active={item.match(pathname)}
-                />
-              ))}
-            </div>
-
-            <div className="relative flex w-[4.75rem] shrink-0 justify-center">
-              <motion.button
-                type="button"
-                className="absolute -top-7 flex h-[3.75rem] w-[3.75rem] cursor-pointer items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/35 ring-4 ring-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card disabled:cursor-not-allowed disabled:opacity-60"
-                aria-label="Open camera to take a snap"
-                disabled={isUploading}
-                whileTap={{ scale: 0.92 }}
-                transition={{ type: "spring", stiffness: 520, damping: 28 }}
-                onClick={openCamera}
+              <svg
+                className="h-full w-full drop-shadow-[0_-4px_24px_rgba(0,0,0,0.16)]"
+                viewBox="0 0 400 92"
+                preserveAspectRatio="none"
+                role="presentation"
               >
-                <CameraIcon />
-              </motion.button>
+                <defs>
+                  <linearGradient
+                    id="snappyBottomNavFill"
+                    x1="0%"
+                    y1="0%"
+                    x2="0%"
+                    y2="100%"
+                  >
+                    <stop offset="0%" stopColor="var(--card)" />
+                    <stop offset="100%" stopColor="var(--card)" stopOpacity="0.98" />
+                  </linearGradient>
+                </defs>
+                <path
+                  d="M0 34 H108 C124 34 136 30 152 22 C166 15 182 12 200 12 C218 12 234 15 248 22 C264 30 276 34 292 34 H400 V92 H0 Z"
+                  fill="url(#snappyBottomNavFill)"
+                />
+                <path
+                  d="M0 34 H108 C124 34 136 30 152 22 C166 15 182 12 200 12 C218 12 234 15 248 22 C264 30 276 34 292 34"
+                  fill="none"
+                  stroke="var(--border)"
+                  strokeWidth="1"
+                  vectorEffect="non-scaling-stroke"
+                />
+              </svg>
             </div>
 
-            <div className="flex flex-1 justify-around">
-              {rightItems.map((item) => (
-                <NavLinkItem
-                  key={item.key}
-                  item={item}
-                  active={item.match(pathname)}
-                />
-              ))}
+            <div className="safe-area-pb relative flex items-end justify-between px-1 pb-1.5 pt-5">
+              <div className="flex flex-1 justify-around">
+                {leftItems.map((item) => (
+                  <NavLinkItem
+                    key={item.key}
+                    item={item}
+                    active={item.match(pathname)}
+                  />
+                ))}
+              </div>
+
+              <div className="relative flex w-[4.85rem] shrink-0 flex-col items-center justify-end pb-0.5">
+                <motion.button
+                  type="button"
+                  className="relative z-10 flex h-[3.35rem] w-[3.35rem] cursor-pointer items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md shadow-primary/30 ring-[3px] ring-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card"
+                  style={{ marginTop: "-0.35rem" }}
+                  aria-label="Create a snap with camera"
+                  whileTap={{ scale: 0.93 }}
+                  transition={{ type: "spring", stiffness: 520, damping: 28 }}
+                  onClick={() => setCameraFlowOpen(true)}
+                >
+                  <CameraIcon />
+                </motion.button>
+              </div>
+
+              <div className="flex flex-1 justify-around">
+                {rightItems.map((item) => (
+                  <NavLinkItem
+                    key={item.key}
+                    item={item}
+                    active={item.match(pathname)}
+                  />
+                ))}
+              </div>
             </div>
           </div>
-        </div>
-      </nav>
+        </nav>
+      ) : null}
 
-      {isCameraOpen ? (
-        <SnapCameraCapture
-          onCapture={(file) => void handleCapture(file)}
-          onClose={() => setIsCameraOpen(false)}
-          onChooseGallery={() => {
-            setIsCameraOpen(false);
-            router.push(profileHref);
-          }}
-        />
+      {cameraFlowOpen ? (
+        <BottomNavCameraFlow onClose={() => setCameraFlowOpen(false)} />
       ) : null}
     </>
   );

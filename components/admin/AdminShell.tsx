@@ -3,7 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
-import AdminSidebar, { AdminSidebarFooter } from "@/components/admin/AdminSidebar";
+import AdminSidebar, {
+  AdminNavbarUserActions,
+} from "@/components/admin/AdminSidebar";
 import { CloseIcon, MenuIcon } from "@/components/admin/icons";
 import { adminFetch } from "@/lib/admin-client";
 
@@ -38,8 +40,9 @@ export default function AdminShell({ username, uuid, children }: AdminShellProps
         <div className="flex min-h-screen">
           <div className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-64 lg:flex-col">
             <div className="flex h-full flex-col">
-              <AdminSidebar uuid={uuid} />
-              <AdminSidebarFooter
+              <AdminSidebar
+                uuid={uuid}
+                showUserActions
                 username={username}
                 onLogout={handleLogout}
                 isLoggingOut={isLoggingOut}
@@ -49,17 +52,24 @@ export default function AdminShell({ username, uuid, children }: AdminShellProps
 
           <div className="flex min-h-screen flex-1 flex-col lg:pl-64">
             <header className="safe-area-pt sticky top-0 z-20 border-b border-border bg-card/80 backdrop-blur-sm lg:hidden">
-              <div className="flex items-center justify-between px-4 py-3">
+              <div className="flex items-center gap-2 px-4 py-3">
                 <button
                   type="button"
                   onClick={() => setMobileOpen(true)}
-                  className="rounded-lg border border-border p-2 text-muted-foreground hover:text-foreground"
+                  className="shrink-0 cursor-pointer rounded-lg border border-border p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   aria-label="Open menu"
                 >
                   <MenuIcon />
                 </button>
-                <span className="text-sm font-medium text-primary">Snappy Admin</span>
-                <span className="text-xs text-muted-foreground">{username}</span>
+                <span className="min-w-0 flex-1 truncate text-center text-sm font-medium text-primary">
+                  Snappy Admin
+                </span>
+                <AdminNavbarUserActions
+                  username={username}
+                  onLogout={handleLogout}
+                  isLoggingOut={isLoggingOut}
+                  compact
+                />
               </div>
             </header>
 
@@ -97,13 +107,11 @@ export default function AdminShell({ username, uuid, children }: AdminShellProps
                   </button>
                 </div>
                 <div className="flex-1 overflow-y-auto">
-                  <AdminSidebar uuid={uuid} onNavigate={() => setMobileOpen(false)} />
+                  <AdminSidebar
+                    uuid={uuid}
+                    onNavigate={() => setMobileOpen(false)}
+                  />
                 </div>
-                <AdminSidebarFooter
-                  username={username}
-                  onLogout={handleLogout}
-                  isLoggingOut={isLoggingOut}
-                />
               </motion.div>
             </>
           )}
