@@ -75,7 +75,32 @@ PWA install prompt and service worker registration are skipped under `/telegram/
 
 **Setup:** `npm run telegram:setup` needs `TELEGRAM_BOT_TOKEN`, valid `TELEGRAM_WEBHOOK_SECRET`, and `SNAPPY_PUBLIC_URL` or `TELEGRAM_WEBHOOK_URL`. Warns if `TELEGRAM_BOT_USERNAME` is missing (Mini App → bot links).
 
-**Manual verification:** Manual Telegram E2E not performed in CI — verify bot, Mini App, reconnect, and deep links in Telegram after deploy.
+**Manual verification:** Use `npm run telegram:verify-production` plus the [release checklist](./telegram-release-checklist.md) after deploy.
+
+### T7 Live Verification
+
+| Field | Value |
+| --- | --- |
+| **Date** | 2026-09-18 |
+| **Environment** | Production `https://snapppy.info/` |
+| **Telegram client** | NOT TESTED — no real Telegram client session in the T7 agent run |
+| **Vercel env audit** | NOT TESTED — Vercel MCP not connected in this environment |
+| **Local `.env.local`** | Missing in agent workspace (secrets not available for `getWebhookInfo`) |
+
+**Remote probes (non-secret, agent run):**
+
+| Check | Result |
+| --- | --- |
+| `GET /telegram/app` | PASS — page loads (browser shows “Connecting…” outside Telegram, expected) |
+| `GET /api/telegram/webhook` | PASS — **405 Method Not Allowed** (route deployed) |
+
+**Live Telegram flows (bot, Mini App UI, auth, linking, find, upload, profile, deep links, BackButton, reconnect):** **NOT TESTED** — unavailable in current environment. Complete these in Telegram and record results in [telegram-release-checklist.md](./telegram-release-checklist.md).
+
+**Automated regression (agent run):** all `npm run test:telegram-*` scripts — see T7 final report / CI.
+
+**Production logs:** NOT TESTED — no log access without Vercel credentials in this environment.
+
+**Operator next steps:** load production env locally → `npm run telegram:verify-production` → walk the release checklist in Telegram → update checklist statuses → commit doc updates if needed.
 
 ### Session (T4.1 foundation)
 
@@ -171,7 +196,8 @@ Server-only (never `NEXT_PUBLIC_` for secrets):
 2. `npx prisma migrate deploy`
 3. `npm run telegram:setup` from a machine with env loaded (registers webhook, commands, menu button).
 4. Run Telegram test scripts (below).
-5. Smoke-test bot + Mini App in Telegram (connect, reconnect, find deep link).
+5. `npm run telegram:verify-production` (webhook + HTTPS probes; no secrets printed).
+6. Complete [telegram-release-checklist.md](./telegram-release-checklist.md) in a real Telegram client.
 
 ## Migrations
 

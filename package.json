@@ -10,6 +10,7 @@
     "test:auth": "node --import tsx --test scripts/auth-logic.test.ts",
     "seed": "tsx prisma/seed.ts",
     "telegram:setup": "tsx scripts/setup-telegram-webhook.ts",
+    "telegram:verify-production": "tsx scripts/verify-telegram-production.ts",
     "telegram:dev": "tsx scripts/telegram-dev.ts",
     "test:telegram-find": "node --import tsx --test scripts/telegram-find-snap.test.ts",
     "test:telegram-upload": "node --import tsx --test scripts/telegram-account-upload.test.ts",

@@ -232,6 +232,16 @@ test("mini app unauthorized responses use session_expired code", () => {
   assert.match(miniAppApi, /session_expired/);
 });
 
+test("production verification script avoids printing secrets", () => {
+  const script = readFileSync(
+    resolve(import.meta.dirname, "../scripts/verify-telegram-production.ts"),
+    "utf8",
+  );
+  assert.match(script, /never prints secrets/i);
+  assert.match(script, /getWebhookInfo/);
+  assert.doesNotMatch(script, /console\.log\(.*token/i);
+});
+
 test("mini app screens expose Reconnect for expired sessions", () => {
   const home = readFileSync(
     resolve(
