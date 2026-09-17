@@ -172,6 +172,7 @@ export async function handleTelegramPhotoMessage(ctx: Context): Promise<boolean>
   try {
     created = await createSnapForUser({
       targetUserId: linked.userId,
+      uploadedById: linked.userId,
       imageUrl: cloudinaryResult.secureUrl,
       publicId: cloudinaryResult.publicId,
       caption: telegramCaption,
@@ -208,6 +209,7 @@ export async function handleTelegramPhotoMessage(ctx: Context): Promise<boolean>
   void broadcastNewSnap({
     snapId: created.snap.id,
     profileOwnerName: created.ownerName,
+    uploaderName: created.uploaderName,
   }).catch((notifyError) => {
     console.error(
       "[TELEGRAM] Snap notification error:",

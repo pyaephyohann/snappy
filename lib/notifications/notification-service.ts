@@ -88,9 +88,12 @@ async function sendPushToSubscription(
 export async function broadcastNewSnap({
   snapId,
   profileOwnerName,
+  uploaderName,
 }: {
   snapId: string;
   profileOwnerName: string;
+  /** Uploader username from server-side attribution (Snap.uploadedById). */
+  uploaderName?: string | null;
 }): Promise<void> {
   if (!isWebPushConfigured()) {
     console.warn("[Web Push] Broadcast skipped: VAPID not configured");
@@ -107,7 +110,9 @@ export async function broadcastNewSnap({
   }
 
   const title = "New Snap on Snappy";
-  const body = `A new Snap has been uploaded.`;
+  const body = uploaderName?.trim()
+    ? `@${uploaderName.trim()} uploaded a new Snap.`
+    : "A new Snap has been uploaded.";
 
   const notificationId = crypto.randomUUID();
   const createdAt = new Date().toISOString();

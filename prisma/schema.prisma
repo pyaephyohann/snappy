@@ -44,6 +44,7 @@ model User {
   profileImageSnap   Snap?              @relation("UserProfileImage", fields: [profileImageSnapId], references: [id], onDelete: SetNull)
   telegramAccount              TelegramAccount?
   profilePhotoGalleryPayments  ProfilePhotoGalleryPayment[]
+  uploadedSnaps                Snap[]              @relation("SnapUploadedBy")
 
   @@map("users")
 }
@@ -65,15 +66,18 @@ model Snap {
   publicId          String
   caption           String?
   userId            String
+  uploadedById      String?
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
   comments          Comment[]
   reactions         Reaction[]
   heroCarouselSlide HeroCarouselSlide?
   user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  uploadedBy        User?              @relation("SnapUploadedBy", fields: [uploadedById], references: [id], onDelete: SetNull)
   profileImageUser  User?              @relation("UserProfileImage")
 
   @@index([userId])
+  @@index([uploadedById])
   @@index([createdAt])
   @@map("snaps")
 }

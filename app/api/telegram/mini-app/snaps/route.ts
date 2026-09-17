@@ -37,6 +37,7 @@ export async function POST(request: NextRequest) {
 
   const result = await createSnapForUser({
     targetUserId: user.id,
+    uploadedById: user.id,
     imageUrl,
     publicId,
     caption,
@@ -54,6 +55,7 @@ export async function POST(request: NextRequest) {
       await broadcastNewSnap({
         snapId: result.snap.id,
         profileOwnerName: result.ownerName,
+        uploaderName: result.uploaderName,
       });
     } catch (notifyError) {
       console.error("Snap notification error:", notifyError);

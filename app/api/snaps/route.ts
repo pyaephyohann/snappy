@@ -23,6 +23,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (!session.userId) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
     const body = await request.json();
     const validationResult = createSnapSchema.safeParse(body);
     
@@ -37,6 +44,7 @@ export async function POST(request: NextRequest) {
 
     const result = await createSnapForUser({
       targetUserId,
+      uploadedById: session.userId,
       imageUrl,
       publicId,
       caption,
@@ -60,6 +68,7 @@ export async function POST(request: NextRequest) {
         await broadcastNewSnap({
           snapId: result.snap.id,
           profileOwnerName: result.ownerName,
+          uploaderName: result.uploaderName,
         });
       } catch (notifyError) {
         console.error('Snap notification error:', notifyError);

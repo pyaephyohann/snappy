@@ -7,6 +7,8 @@ import { SNAP_MAX_CAPTION_LENGTH } from "@/lib/snap-media";
 
 export type CreateSnapInput = {
   targetUserId: string;
+  /** Authenticated uploader from server session (never from client body). */
+  uploadedById: string;
   imageUrl: string;
   publicId: string;
   caption?: string | null;
@@ -25,8 +27,9 @@ export type CreateSnapResult =
         updatedAt: Date;
       };
       ownerName: string;
+      uploaderName: string;
     }
-  | { ok: false; error: "invalid_media" | "target_not_found" | "invalid_caption" };
+  | { ok: false; error: "invalid_media" | "target_not_found" | "invalid_caption" | "uploader_not_found" };
 
 export async function createSnapForUser(
   input: CreateSnapInput,
@@ -47,18 +50,29 @@ export async function createSnapForUser(
     return { ok: false, error: "invalid_media" };
   }
 
-  const targetUser = await prisma.user.findUnique({
-    where: { id: input.targetUserId },
-    select: { id: true, name: true, isActive: true },
-  });
+  const [targetUser, uploader] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: input.targetUserId },
+      select: { id: true, name: true, isActive: true },
+    }),
+    prisma.user.findUnique({
+      where: { id: input.uploadedById },
+      select: { id: true, name: true, isActive: true },
+    }),
+  ]);
 
   if (!targetUser || !targetUser.isActive) {
     return { ok: false, error: "target_not_found" };
   }
 
+  if (!uploader || !uploader.isActive) {
+    return { ok: false, error: "uploader_not_found" };
+  }
+
   const snap = await prisma.snap.create({
     data: {
       userId: targetUser.id,
+      uploadedById: input.uploadedById,
       imageUrl: input.imageUrl,
       publicId: input.publicId,
       caption: normalizedCaption,
@@ -77,5 +91,6 @@ export async function createSnapForUser(
       updatedAt: snap.updatedAt,
     },
     ownerName: targetUser.name,
+    uploaderName: uploader.name,
   };
 }

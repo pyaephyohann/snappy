@@ -42,6 +42,7 @@ export async function POST(request: NextRequest) {
 
   const created = await createSnapForUser({
     targetUserId: user.id,
+    uploadedById: user.id,
     imageUrl,
     publicId,
   });
