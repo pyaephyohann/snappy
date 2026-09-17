@@ -1,26 +1,25 @@
 import type { PublicHeroCarouselSlide } from "@/lib/hero-carousel";
 
 /**
- * Marketing slides for premium profile-photo upload (payment UI only — no checkout backend).
- * Images are optional; HeroCarousel falls back to home banners when URLs are missing.
+ * Payment provider slides for the premium profile-photo payment page.
+ * Images are local files served from public/images/payments.
  */
-/** Reuses home carousel assets until dedicated payment creatives are added. */
 export const PREMIUM_PROFILE_PHOTO_PAYMENT_SLIDES: PublicHeroCarouselSlide[] = [
   {
     id: "payment-kpay",
-    imageUrl: "/images/home/banner-1.jpeg",
+    imageUrl: "/images/payments/k-pay.JPG",
     altText: "KPay",
     sortOrder: 0,
   },
   {
     id: "payment-aya",
-    imageUrl: "/images/home/banner-2.jpeg",
+    imageUrl: "/images/payments/aya-pay.JPG",
     altText: "AYA Pay",
     sortOrder: 1,
   },
   {
     id: "payment-uab",
-    imageUrl: "/images/home/banner-3.jpeg",
+    imageUrl: "/images/payments/uab-pay.JPG",
     altText: "UAB Pay",
     sortOrder: 2,
   },

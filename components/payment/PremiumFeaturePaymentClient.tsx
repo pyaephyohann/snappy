@@ -31,7 +31,7 @@ export default function PremiumFeaturePaymentClient() {
           Change your profile picture
         </h1>
         <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted-foreground">
-          Payment is required to unlock profile picture changes.
+          You need to pay to unlock the ability to change your profile picture.
         </p>
       </div>
 
