@@ -12,12 +12,14 @@ import {
 } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import { AnimatePresence, motion } from "framer-motion";
 import type { FriendPickerUser } from "@/components/friends/FriendsPickerPanel";
 import {
   detectMacPlatform,
   filterFriendsByQuery,
 } from "@/lib/friends-search";
 
+/** Lucide-style rounded search glyph (inline — no extra deps). */
 function SearchIcon({ className }: { className?: string }) {
   return (
     <svg
@@ -27,11 +29,12 @@ function SearchIcon({ className }: { className?: string }) {
       viewBox="0 0 24 24"
       aria-hidden="true"
     >
+      <circle cx="11" cy="11" r="7" strokeWidth={1.75} />
       <path
         strokeLinecap="round"
         strokeLinejoin="round"
-        strokeWidth={2}
-        d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"
+        strokeWidth={1.75}
+        d="m20 20-3.5-3.5"
       />
     </svg>
   );
@@ -178,8 +181,8 @@ export default function NavbarDesktopFriendSearch() {
       <label htmlFor={listboxId} className="sr-only">
         Search friends
       </label>
-      <div className="relative flex items-center">
-        <SearchIcon className="pointer-events-none absolute left-3 h-4 w-4 text-muted-foreground" />
+      <div className="group/search relative flex items-center transition-transform duration-200 ease-out focus-within:scale-[1.01]">
+        <SearchIcon className="pointer-events-none absolute left-3.5 top-1/2 h-[15px] w-[15px] -translate-y-1/2 text-muted-foreground/75 transition-colors duration-200 group-focus-within/search:text-primary/80" />
         <input
           ref={inputRef}
           id={listboxId}
@@ -207,79 +210,87 @@ export default function NavbarDesktopFriendSearch() {
             void loadFriends();
           }}
           onKeyDown={onInputKeyDown}
-          className="h-9 w-full rounded-xl border border-border bg-background py-2 pl-9 pr-[4.5rem] text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="h-9 w-full rounded-full border border-border/80 bg-background/95 py-2 pl-11 pr-[5.5rem] text-sm text-foreground shadow-sm transition-[border-color,box-shadow,background-color] duration-200 placeholder:text-muted-foreground/80 hover:border-border hover:bg-background hover:shadow-md focus-visible:border-primary/35 focus-visible:bg-background focus-visible:outline-none focus-visible:shadow-md focus-visible:ring-2 focus-visible:ring-primary/15"
         />
         {shortcutLabel ? (
           <kbd
-            className="pointer-events-none absolute right-2 hidden select-none rounded-md border border-border bg-muted/60 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground sm:inline"
+            className="pointer-events-none absolute right-2.5 top-1/2 hidden -translate-y-1/2 select-none rounded-full border border-border/70 bg-muted/50 px-2 py-0.5 text-[10px] font-medium leading-none text-muted-foreground shadow-sm sm:inline"
             aria-hidden="true"
           >
             {shortcutLabel}
           </kbd>
         ) : (
           <span
-            className="pointer-events-none absolute right-2 h-5 w-10 rounded-md bg-muted/40 sm:inline"
+            className="pointer-events-none absolute right-2.5 top-1/2 hidden h-5 w-12 -translate-y-1/2 rounded-full bg-muted/30 sm:inline"
             aria-hidden="true"
           />
         )}
       </div>
 
-      {showPanel ? (
-        <div
-          className="absolute left-0 right-0 top-[calc(100%+0.35rem)] z-50 overflow-hidden rounded-xl border border-border bg-card shadow-lg"
-          role="presentation"
-        >
-          {loadState === "loading" || loadState === "idle" ? (
-            <p className="px-4 py-3 text-sm text-muted-foreground">Loading…</p>
-          ) : loadState === "error" ? (
-            <p className="px-4 py-3 text-sm text-destructive" role="alert">
-              Could not load friends. Try again.
-            </p>
-          ) : results.length === 0 ? (
-            <p className="px-4 py-3 text-sm text-muted-foreground">
-              No friends found
-            </p>
-          ) : (
-            <ul
-              id={`${listboxId}-listbox`}
-              role="listbox"
-              className="max-h-72 divide-y divide-border overflow-y-auto"
-            >
-              {results.map((friend, index) => {
-                const isActive = index === activeIndex;
-                return (
-                  <li key={friend.id} role="presentation">
-                    <button
-                      type="button"
-                      id={`${listboxId}-option-${friend.id}`}
-                      role="option"
-                      aria-selected={isActive}
-                      onMouseEnter={() => setActiveIndex(index)}
-                      onClick={() => openFriend(friend)}
-                      className={`flex min-h-[52px] w-full items-center gap-3 px-3 py-2.5 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset ${
-                        isActive ? "bg-muted/70" : "hover:bg-muted/50"
-                      }`}
-                    >
-                      <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full border border-border">
-                        <Image
-                          src={friend.profileImage}
-                          alt=""
-                          fill
-                          className="object-cover"
-                          sizes="36px"
-                        />
-                      </div>
-                      <span className="font-medium text-foreground">
-                        {friend.name}
-                      </span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </div>
-      ) : null}
+      <AnimatePresence>
+        {showPanel ? (
+          <motion.div
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+            className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-50 overflow-hidden rounded-2xl border border-border/80 bg-card/98 shadow-lg shadow-black/10 backdrop-blur-sm"
+            role="presentation"
+          >
+            {loadState === "loading" || loadState === "idle" ? (
+              <p className="px-4 py-3.5 text-sm text-muted-foreground">
+                Loading…
+              </p>
+            ) : loadState === "error" ? (
+              <p className="px-4 py-3.5 text-sm text-destructive" role="alert">
+                Could not load friends. Try again.
+              </p>
+            ) : results.length === 0 ? (
+              <p className="px-4 py-3.5 text-sm text-muted-foreground">
+                No friends found
+              </p>
+            ) : (
+              <ul
+                id={`${listboxId}-listbox`}
+                role="listbox"
+                className="max-h-72 overflow-y-auto p-1.5"
+              >
+                {results.map((friend, index) => {
+                  const isActive = index === activeIndex;
+                  return (
+                    <li key={friend.id} role="presentation">
+                      <button
+                        type="button"
+                        id={`${listboxId}-option-${friend.id}`}
+                        role="option"
+                        aria-selected={isActive}
+                        onMouseEnter={() => setActiveIndex(index)}
+                        onClick={() => openFriend(friend)}
+                        className={`flex min-h-[48px] w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                          isActive
+                            ? "bg-primary/10 text-foreground"
+                            : "text-foreground hover:bg-muted/60"
+                        }`}
+                      >
+                        <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full border border-border/80 shadow-sm">
+                          <Image
+                            src={friend.profileImage}
+                            alt=""
+                            fill
+                            className="object-cover"
+                            sizes="36px"
+                          />
+                        </div>
+                        <span className="font-medium">{friend.name}</span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
     </div>
   );
 }
