@@ -130,12 +130,12 @@ export default function SnapCard({
             />
 
             <div
-              className="absolute bottom-2 right-2 sm:bottom-3 sm:right-3 z-10 flex flex-col items-end gap-1"
+              className="absolute bottom-2 left-1/2 z-10 flex -translate-x-1/2 flex-col items-center gap-1 sm:bottom-3 sm:left-auto sm:right-3 sm:translate-x-0 sm:items-end"
               onClick={(e) => e.stopPropagation()}
             >
               {downloadError && (
                 <p
-                  className="text-[10px] sm:text-xs text-destructive bg-background/90 backdrop-blur-sm px-1.5 py-0.5 rounded max-w-[120px] text-right"
+                  className="max-w-[140px] rounded bg-background/90 px-1.5 py-0.5 text-center text-[10px] text-destructive backdrop-blur-sm sm:max-w-[120px] sm:text-right sm:text-xs"
                   role="alert"
                 >
                   {downloadError}

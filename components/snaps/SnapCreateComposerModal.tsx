@@ -217,14 +217,14 @@ export default function SnapCreateComposerModal({
               </div>
             ) : (
               <div className="mb-6 space-y-4">
-                <div className="flex flex-col gap-3 sm:flex-row">
+                <div className="flex w-full flex-col items-center gap-3 sm:flex-row sm:items-stretch">
                   {cameraSupported ? (
                     <GlowButton
                       type="button"
                       onClick={() => setIsCameraOpen(true)}
                       disabled={isUploading}
-                      glowClassName="flex-1"
-                      className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-primary px-4 py-3 text-sm text-primary-foreground transition-opacity hover:opacity-90 sm:text-base"
+                      glowClassName="w-full max-w-xs sm:max-w-none sm:flex-1"
+                      className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-3 text-sm text-primary-foreground transition-opacity hover:opacity-90 sm:flex-1 sm:text-base"
                     >
                       Take Photo
                     </GlowButton>
@@ -233,8 +233,8 @@ export default function SnapCreateComposerModal({
                     type="button"
                     onClick={openFileDialog}
                     disabled={isUploading}
-                    glowClassName="flex-1"
-                    className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-secondary px-4 py-3 text-sm text-secondary-foreground transition-colors hover:bg-secondary/80 sm:text-base"
+                    glowClassName="w-full max-w-xs sm:max-w-none sm:flex-1"
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-secondary px-4 py-3 text-sm text-secondary-foreground transition-colors hover:bg-secondary/80 sm:flex-1 sm:text-base"
                   >
                     Choose Photo
                   </GlowButton>

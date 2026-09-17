@@ -253,7 +253,7 @@ export default function BottomNav({ username }: BottomNavProps) {
             </div>
 
             <div className="safe-area-pb relative flex items-end justify-between px-1 pb-1.5 pt-5">
-              <div className="flex flex-1 justify-around">
+              <div className="flex flex-1 justify-around pt-2">
                 {leftItems.map((item) => (
                   <NavLinkItem
                     key={item.key}
@@ -277,7 +277,7 @@ export default function BottomNav({ username }: BottomNavProps) {
                 </motion.button>
               </div>
 
-              <div className="flex flex-1 justify-around">
+              <div className="flex flex-1 justify-around pt-2">
                 {rightItems.map((item) => (
                   <NavLinkItem
                     key={item.key}
