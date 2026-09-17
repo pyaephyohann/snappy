@@ -24,13 +24,14 @@ export default function TelegramMiniAppShell({
   const isRoot = isTelegramMiniAppRootPath(pathname);
   const isFindRoute = pathname.startsWith(TELEGRAM_MINI_APP_ROUTES.find);
   const isUploadRoute = pathname.startsWith(TELEGRAM_MINI_APP_ROUTES.upload);
+  const isProfileRoute = pathname.startsWith(TELEGRAM_MINI_APP_ROUTES.profile);
 
   const handleShellBack = useCallback(() => {
     router.push(TELEGRAM_MINI_APP_ROUTES.home);
   }, [router]);
 
   useTelegramBackButton({
-    enabled: !isRoot && !isFindRoute && !isUploadRoute,
+    enabled: !isRoot && !isFindRoute && !isUploadRoute && !isProfileRoute,
     onBack: handleShellBack,
   });
 
