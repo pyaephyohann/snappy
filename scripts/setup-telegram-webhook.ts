@@ -6,6 +6,7 @@ import {
   getTelegramWebhookSecret,
 } from "../lib/telegram/env";
 import { sanitizeTelegramError } from "../lib/telegram/errors";
+import { buildTelegramMiniAppUrl } from "../lib/telegram/mini-app-url";
 import { getTelegramWebhookUrl } from "../lib/telegram/public-url";
 
 config({ path: ".env.local" });
@@ -41,6 +42,22 @@ async function main() {
   });
 
   await bot.api.setMyCommands([...TELEGRAM_BOT_COMMANDS]);
+
+  const miniAppUrl = buildTelegramMiniAppUrl();
+  if (miniAppUrl) {
+    await bot.api.setChatMenuButton({
+      menu_button: {
+        type: "web_app",
+        text: "📱 Open Snappy",
+        web_app: { url: miniAppUrl },
+      },
+    });
+    console.log("[TELEGRAM] Menu button Mini App:", miniAppUrl);
+  } else {
+    console.warn(
+      "[TELEGRAM] SNAPPY_PUBLIC_URL not set; skipping Mini App menu button",
+    );
+  }
 
   const info = await bot.api.getWebhookInfo();
   console.log("[TELEGRAM] Webhook configured");

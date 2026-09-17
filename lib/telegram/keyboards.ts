@@ -1,4 +1,5 @@
 import { InlineKeyboard } from "grammy";
+import { buildTelegramMiniAppUrl } from "./mini-app-url";
 import { getSnappyPublicUrl } from "./public-url";
 
 export const TELEGRAM_CALLBACK = {
@@ -21,6 +22,11 @@ export function buildMainKeyboard(
   const keyboard = new InlineKeyboard()
     .text("🔎 Find Snap", TELEGRAM_CALLBACK.find)
     .text("📤 Upload Snap", TELEGRAM_CALLBACK.upload);
+
+  const miniAppUrl = buildTelegramMiniAppUrl();
+  if (miniAppUrl) {
+    keyboard.row().webApp("📱 Open Snappy", miniAppUrl);
+  }
 
   if (publicUrl) {
     keyboard.row().url("🌐 Open Snappy", publicUrl);

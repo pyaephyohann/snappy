@@ -17,7 +17,7 @@ export const HELP_MESSAGE = [
   "/upload — Upload a photo Snap",
   "/help — Show this message",
   "",
-  "Use the buttons below, or open Snappy on the web.",
+  "Use the buttons below — 📱 Open Snappy launches the Mini App — or open Snappy on the web.",
 ].join("\n");
 
 export const FIND_PROMPT_MESSAGE = [
