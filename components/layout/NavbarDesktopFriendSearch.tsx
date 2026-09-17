@@ -54,10 +54,19 @@ export default function NavbarDesktopFriendSearch() {
   >("idle");
   const [activeIndex, setActiveIndex] = useState(-1);
 
-  const shortcutLabel = useSyncExternalStore(
+  /** Equal horizontal inset so centered text clears icon + shortcut badge. */
+  const SEARCH_INPUT_SIDE_INSET = "4.75rem";
+
+  const isMacShortcut = useSyncExternalStore(
     () => () => {},
-    () => (detectMacPlatform() ? "⌘ K" : "Ctrl K"),
-    () => null,
+    () => detectMacPlatform(),
+    () => false,
+  );
+
+  const showShortcutBadge = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
   );
 
   const loadFriends = useCallback(async () => {
@@ -210,18 +219,33 @@ export default function NavbarDesktopFriendSearch() {
             void loadFriends();
           }}
           onKeyDown={onInputKeyDown}
-          className="h-9 w-full rounded-full border border-border/80 bg-background/95 py-2 pl-11 pr-[5.5rem] text-sm text-foreground shadow-sm transition-[border-color,box-shadow,background-color] duration-200 placeholder:text-muted-foreground/80 hover:border-border hover:bg-background hover:shadow-md focus-visible:border-primary/35 focus-visible:bg-background focus-visible:outline-none focus-visible:shadow-md focus-visible:ring-2 focus-visible:ring-primary/15"
+          className="h-10 w-full rounded-full border border-border/80 bg-background/95 py-2 text-center text-sm text-foreground shadow-sm transition-[border-color,box-shadow,background-color] duration-200 placeholder:text-center placeholder:text-muted-foreground/80 hover:border-border hover:bg-background hover:shadow-md focus-visible:border-primary/35 focus-visible:bg-background focus-visible:outline-none focus-visible:shadow-md focus-visible:ring-2 focus-visible:ring-primary/15"
+          style={{
+            paddingLeft: SEARCH_INPUT_SIDE_INSET,
+            paddingRight: SEARCH_INPUT_SIDE_INSET,
+          }}
         />
-        {shortcutLabel ? (
+        {showShortcutBadge ? (
           <kbd
-            className="pointer-events-none absolute right-2.5 top-1/2 hidden -translate-y-1/2 select-none rounded-full border border-border/70 bg-muted/50 px-2 py-0.5 text-[10px] font-medium leading-none text-muted-foreground shadow-sm sm:inline"
+            className="pointer-events-none absolute right-2 top-1/2 hidden -translate-y-1/2 select-none items-center gap-1 rounded-full border border-border/70 bg-muted/50 px-2.5 py-1 text-muted-foreground shadow-sm sm:inline-flex"
             aria-hidden="true"
           >
-            {shortcutLabel}
+            {isMacShortcut ? (
+              <>
+                <span className="text-[13px] font-semibold leading-none tracking-tight">
+                  ⌘
+                </span>
+                <span className="text-[10px] font-medium leading-none">K</span>
+              </>
+            ) : (
+              <span className="text-[10px] font-medium leading-none">
+                Ctrl K
+              </span>
+            )}
           </kbd>
         ) : (
           <span
-            className="pointer-events-none absolute right-2.5 top-1/2 hidden h-5 w-12 -translate-y-1/2 rounded-full bg-muted/30 sm:inline"
+            className="pointer-events-none absolute right-2.5 top-1/2 hidden h-6 w-14 -translate-y-1/2 rounded-full bg-muted/30 sm:inline"
             aria-hidden="true"
           />
         )}
