@@ -35,6 +35,11 @@ export interface AdminSnap {
     name: string;
     profileImage: string;
   };
+  /** Uploader when attribution exists (null on legacy snaps). */
+  uploadedBy: {
+    id: string;
+    name: string;
+  } | null;
 }
 
 export interface AdminHeroCarouselConfig {

@@ -17,11 +17,11 @@ interface SnapCardProps {
   createdAt: Date | string;
   friendName: string;
   snapIndex: number;
+  /** Uploader display name when attribution exists (legacy snaps may omit). */
+  uploaderName?: string | null;
   interactive?: boolean;
   onClick?: () => void;
 }
-
-
 
 export default function SnapCard({
   imageUrl,
@@ -29,6 +29,7 @@ export default function SnapCard({
   createdAt,
   friendName,
   snapIndex,
+  uploaderName,
   interactive = false,
   onClick,
 }: SnapCardProps) {
@@ -198,6 +199,11 @@ export default function SnapCard({
             {caption && (
               <p className="text-foreground text-xs sm:text-sm mb-1 sm:mb-2">{caption}</p>
             )}
+            {uploaderName ? (
+              <p className="text-muted-foreground text-[11px] sm:text-xs">
+                Uploaded by @{uploaderName}
+              </p>
+            ) : null}
             {createdAt && (
               <p className="text-muted-foreground text-xs">{formatDate(createdAt)}</p>
             )}

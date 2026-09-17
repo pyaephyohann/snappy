@@ -18,6 +18,7 @@ interface FriendWithSnaps {
     imageUrl: string;
     caption: string | null;
     createdAt: Date | string;
+    uploadedBy?: { name: string } | null;
   }>;
 }
 
@@ -105,7 +106,13 @@ export default function FriendProfileClient({ friend }: FriendProfileClientProps
           <SnapUploader onUpload={handleUpload} />
         </div>
       ) : (
-        <SnapGallery snaps={friend.snaps} friendName={friend.name} />
+        <SnapGallery
+          snaps={friend.snaps.map((snap) => ({
+            ...snap,
+            uploaderName: snap.uploadedBy?.name ?? null,
+          }))}
+          friendName={friend.name}
+        />
       )}
     </>
   );

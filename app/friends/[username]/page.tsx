@@ -16,6 +16,7 @@ interface FriendWithSnaps {
     imageUrl: string;
     caption: string | null;
     createdAt: Date | string;
+    uploadedBy: { name: string } | null;
   }>;
 }
 
@@ -59,6 +60,11 @@ export default async function FriendProfilePage({
           imageUrl: true,
           caption: true,
           createdAt: true,
+          uploadedBy: {
+            select: {
+              name: true,
+            },
+          },
         },
         orderBy: {
           createdAt: 'desc',

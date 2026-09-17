@@ -190,6 +190,11 @@ export default function SnapsPageClient() {
                   />
                   <div>
                     <p className="text-sm font-medium">{snap.user.name}</p>
+                    {snap.uploadedBy ? (
+                      <p className="text-xs text-muted-foreground">
+                        Uploaded by @{snap.uploadedBy.name}
+                      </p>
+                    ) : null}
                     <p className="text-xs text-muted-foreground">
                       {formatAdminDate(snap.createdAt)}
                     </p>

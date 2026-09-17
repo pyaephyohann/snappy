@@ -6,6 +6,12 @@ export const ADMIN_RECENT_SNAPS_LIMIT = 6;
 /** Home page horizontal strip limit. */
 export const HOME_RECENT_SNAPS_LIMIT = 10;
 
+const uploaderNameSelect = {
+  select: {
+    name: true,
+  },
+} as const;
+
 const snapWithOwnerSelect = {
   id: true,
   imageUrl: true,
@@ -18,6 +24,7 @@ const snapWithOwnerSelect = {
       profileImage: true,
     },
   },
+  uploadedBy: uploaderNameSelect,
 } as const;
 
 const snapCardSelect = {
@@ -25,13 +32,19 @@ const snapCardSelect = {
   imageUrl: true,
   caption: true,
   createdAt: true,
+  uploadedBy: uploaderNameSelect,
 } as const;
+
+export type SnapUploaderSummary = {
+  name: string;
+} | null;
 
 export type SnapCardFields = {
   id: string;
   imageUrl: string;
   caption: string | null;
   createdAt: Date;
+  uploadedBy: SnapUploaderSummary;
 };
 
 export type RecentSnapWithUser = SnapCardFields & {
@@ -79,6 +92,7 @@ export type PublicRecentSnap = {
     name: string;
     profileImage: string;
   };
+  uploadedBy: { name: string } | null;
 };
 
 export function serializeRecentSnaps(

@@ -23,6 +23,7 @@ export default async function SnapsPage() {
     caption: snap.caption,
     createdAt: snap.createdAt.toISOString(),
     friendName: snap.user.name,
+    uploaderName: snap.uploadedBy?.name ?? null,
   }));
 
   return (

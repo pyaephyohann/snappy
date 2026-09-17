@@ -42,6 +42,12 @@ export async function GET(request: NextRequest) {
             profileImage: true,
           },
         },
+        uploadedBy: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
       },
     });
 

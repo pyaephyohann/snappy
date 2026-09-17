@@ -11,6 +11,8 @@ export type GallerySnap = {
   createdAt: Date | string;
   /** Profile owner name when snaps come from multiple users (e.g. /snaps). */
   friendName?: string;
+  /** Uploader username for attribution (null on legacy snaps). */
+  uploaderName?: string | null;
 };
 
 interface SnapGalleryProps {
@@ -44,6 +46,7 @@ export default function SnapGallery({ snaps, friendName }: SnapGalleryProps) {
             createdAt={snap.createdAt}
             friendName={resolveFriendName(snap, friendName)}
             snapIndex={index}
+            uploaderName={snap.uploaderName}
             interactive
             onClick={() => setViewerIndex(index)}
           />

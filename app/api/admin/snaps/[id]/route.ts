@@ -33,6 +33,12 @@ export async function GET(
             profileImage: true,
           },
         },
+        uploadedBy: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
       },
     });
 
@@ -107,6 +113,12 @@ export async function PATCH(
             id: true,
             name: true,
             profileImage: true,
+          },
+        },
+        uploadedBy: {
+          select: {
+            id: true,
+            name: true,
           },
         },
       },
