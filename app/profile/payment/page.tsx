@@ -3,7 +3,6 @@ import { redirect } from "next/navigation";
 import Navbar from "@/components/layout/Navbar";
 import PremiumFeaturePaymentClient from "@/components/payment/PremiumFeaturePaymentClient";
 import { getAuthenticatedAppUser } from "@/lib/auth";
-import { getProfilePhotoGalleryUnlockState } from "@/lib/profile-photo-gallery-unlock";
 
 export default async function ProfilePaymentPage({
   searchParams,
@@ -21,8 +20,6 @@ export default async function ProfilePaymentPage({
     redirect("/profile/payment?feature=profile-photo");
   }
 
-  const galleryUnlock = await getProfilePhotoGalleryUnlockState(user.id);
-
   return (
     <div className="min-h-screen bg-background">
       <Navbar username={user.name} />
@@ -33,9 +30,7 @@ export default async function ProfilePaymentPage({
         >
           ← Back to profile
         </Link>
-        <PremiumFeaturePaymentClient
-          galleryUploadUnlocked={galleryUnlock.unlocked}
-        />
+        <PremiumFeaturePaymentClient />
       </main>
     </div>
   );
