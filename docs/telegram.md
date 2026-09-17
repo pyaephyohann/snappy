@@ -19,9 +19,24 @@ Mini App  → /telegram/app → POST /api/telegram/mini-app/session (initData �
 
 The bot menu button **📱 Open Snappy** (configured by `npm run telegram:setup`) opens the Mini App at `/telegram/app` when `SNAPPY_PUBLIC_URL` is set.
 
-## Telegram Mini App (T4.1 foundation)
+## Telegram Mini App
 
 Route: **`/telegram/app`** (full URL: `{SNAPPY_PUBLIC_URL}/telegram/app`).
+
+### Navigation (T4.2)
+
+| Route | Purpose |
+| --- | --- |
+| `/telegram/app` | Home — recent Snaps (same data as web home via `loadRecentSnapsForHome`) |
+| `/telegram/app/find` | Find placeholder |
+| `/telegram/app/upload` | Upload placeholder |
+| `/telegram/app/profile` | Basic profile + **Open Profile** (full web) |
+
+Bottom navigation is fixed with `env(safe-area-inset-bottom)`. Nested routes show Telegram **BackButton** (returns to home). Optional deep-link hint: `/telegram/app?screen=find` redirects to the Find tab.
+
+PWA install prompt and service worker registration are skipped under `/telegram/app/*`.
+
+### Session (T4.1 foundation)
 
 The Mini App loads Telegram’s official [WebApp JS SDK](https://telegram.org/js/telegram-web-app.js) in the browser, calls `Telegram.WebApp.ready()` and `expand()`, and hides the BackButton on the root screen.
 
@@ -123,11 +138,12 @@ Required migrations: `telegram_chat_states`, `telegram_accounts`, `telegram_link
 npm run test:telegram-find
 npm run test:telegram-upload
 npm run test:telegram-mini-app
+npm run test:telegram-mini-app-home
 ```
 
-## Deferred (post T4.1)
+## Deferred (post T4.2)
 
-- Full Mini App UI (feed, profile, search, upload screens)
+- Mini App Find / Upload / full profile screens
 - Telegram MainButton flows
 - Video uploads (until web Snap pipeline supports them)
 - Per-snap public deep links (bot uses `/friends/{username}` like share menu)

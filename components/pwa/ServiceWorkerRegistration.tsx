@@ -1,10 +1,18 @@
 "use client";
 
 import { useEffect } from "react";
+import { usePathname } from "next/navigation";
+import { isTelegramMiniAppPath } from "@/lib/telegram/mini-app-routes";
 
 export default function ServiceWorkerRegistration() {
+  const pathname = usePathname();
+
   useEffect(() => {
     if (typeof window === "undefined" || !("serviceWorker" in navigator)) {
+      return;
+    }
+
+    if (pathname && isTelegramMiniAppPath(pathname)) {
       return;
     }
 
@@ -22,7 +30,7 @@ export default function ServiceWorkerRegistration() {
           console.error("[PWA] Service worker registration failed", error);
         }
       });
-  }, []);
+  }, [pathname]);
 
   return null;
 }

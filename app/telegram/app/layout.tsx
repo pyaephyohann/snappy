@@ -1,5 +1,6 @@
 import Script from "next/script";
 import type { Metadata, Viewport } from "next";
+import TelegramMiniAppLayoutClient from "@/components/telegram/TelegramMiniAppLayoutClient";
 
 export const metadata: Metadata = {
   title: "Snappy · Telegram",
@@ -24,7 +25,7 @@ export default function TelegramMiniAppLayout({
         strategy="beforeInteractive"
       />
       <div className="min-h-[var(--tg-viewport-stable-height,100dvh)] bg-background text-foreground">
-        {children}
+        <TelegramMiniAppLayoutClient>{children}</TelegramMiniAppLayoutClient>
       </div>
     </>
   );

@@ -38,7 +38,6 @@ export function useTelegramWebApp(): TelegramWebAppState & {
     const applyDomSideEffects = (app: TelegramWebApp) => {
       app.ready();
       app.expand();
-      app.BackButton.hide();
 
       const root = document.documentElement;
       root.style.setProperty("--tg-viewport-height", `${app.viewportHeight}px`);

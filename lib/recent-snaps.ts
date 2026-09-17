@@ -89,3 +89,19 @@ export function serializeRecentSnaps(
     createdAt: snap.createdAt.toISOString(),
   }));
 }
+
+/** Shared home feed loader (web home + Telegram Mini App). */
+export async function loadRecentSnapsForHome(): Promise<
+  PublicRecentSnap[] | null
+> {
+  try {
+    const snaps = await getRecentSnaps(HOME_RECENT_SNAPS_LIMIT);
+    if (snaps.length === 0) {
+      return null;
+    }
+    return serializeRecentSnaps(snaps);
+  } catch (error) {
+    console.error("[Recent Snaps] Failed to load:", error);
+    return null;
+  }
+}

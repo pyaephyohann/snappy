@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
+import { isTelegramMiniAppPath } from "@/lib/telegram/mini-app-routes";
 
 const DISMISS_KEY = "snappy_pwa_install_dismissed";
 
@@ -31,6 +33,7 @@ function isIosSafari(): boolean {
 }
 
 export default function InstallPrompt() {
+  const pathname = usePathname();
   const [deferredPrompt, setDeferredPrompt] =
     useState<BeforeInstallPromptEvent | null>(null);
   const [showIosHint, setShowIosHint] = useState(false);
@@ -38,6 +41,10 @@ export default function InstallPrompt() {
 
   useEffect(() => {
     if (typeof window === "undefined") {
+      return;
+    }
+
+    if (pathname && isTelegramMiniAppPath(pathname)) {
       return;
     }
 
@@ -75,7 +82,7 @@ export default function InstallPrompt() {
     return () => {
       window.removeEventListener("beforeinstallprompt", onBeforeInstall);
     };
-  }, []);
+  }, [pathname]);
 
   const dismiss = useCallback(() => {
     setVisible(false);
@@ -96,6 +103,10 @@ export default function InstallPrompt() {
     await deferredPrompt.userChoice;
     dismiss();
   }, [deferredPrompt, dismiss]);
+
+  if (pathname && isTelegramMiniAppPath(pathname)) {
+    return null;
+  }
 
   if (!visible) {
     return null;

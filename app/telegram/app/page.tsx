@@ -1,5 +1,5 @@
-import TelegramMiniAppClient from "@/components/telegram/TelegramMiniAppClient";
+import TelegramMiniAppHome from "@/components/telegram/TelegramMiniAppHome";
 
-export default function TelegramMiniAppPage() {
-  return <TelegramMiniAppClient />;
+export default function TelegramMiniAppHomePage() {
+  return <TelegramMiniAppHome />;
 }

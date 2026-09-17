@@ -9,9 +9,13 @@ import type { PublicRecentSnap } from "@/lib/recent-snaps";
 
 interface RecentSnapsProps {
   snaps: PublicRecentSnap[];
+  showViewAllLink?: boolean;
 }
 
-export default function RecentSnaps({ snaps }: RecentSnapsProps) {
+export default function RecentSnaps({
+  snaps,
+  showViewAllLink = true,
+}: RecentSnapsProps) {
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
 
   const viewerSnap = viewerIndex !== null ? snaps[viewerIndex] : null;
@@ -23,12 +27,14 @@ export default function RecentSnaps({ snaps }: RecentSnapsProps) {
           <h2 className="text-xl font-semibold text-foreground sm:text-2xl">
             Recent Snaps
           </h2>
-          <Link
-            href="/snaps"
-            className="shrink-0 cursor-pointer text-sm font-medium text-primary hover:opacity-90"
-          >
-            View All →
-          </Link>
+          {showViewAllLink ? (
+            <Link
+              href="/snaps"
+              className="shrink-0 cursor-pointer text-sm font-medium text-primary hover:opacity-90"
+            >
+              View All →
+            </Link>
+          ) : null}
         </div>
 
         <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [-ms-overflow-style:none] sm:gap-4 [&::-webkit-scrollbar]:hidden">
