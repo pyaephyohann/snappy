@@ -4,6 +4,10 @@ import {
   adminErrorResponse,
   requireAdminApi,
 } from "@/lib/admin-api";
+import {
+  ADMIN_RECENT_SNAPS_LIMIT,
+  getRecentSnaps,
+} from "@/lib/recent-snaps";
 
 export async function GET() {
   try {
@@ -13,19 +17,7 @@ export async function GET() {
       prisma.user.count(),
       prisma.snap.count(),
       prisma.user.count({ where: { role: "ADMIN" } }),
-      prisma.snap.findMany({
-        take: 6,
-        orderBy: { createdAt: "desc" },
-        include: {
-          user: {
-            select: {
-              id: true,
-              name: true,
-              profileImage: true,
-            },
-          },
-        },
-      }),
+      getRecentSnaps(ADMIN_RECENT_SNAPS_LIMIT),
     ]);
 
     return NextResponse.json({

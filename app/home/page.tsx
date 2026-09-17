@@ -1,8 +1,11 @@
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import FriendCard from "@/components/home/FriendCard";
 import HeroCarousel from "@/components/home/HeroCarousel";
+import RecentSnapsSection from "@/components/home/RecentSnapsSection";
+import RecentSnapsSkeleton from "@/components/home/RecentSnapsSkeleton";
 import Navbar from "@/components/layout/Navbar";
 import GlowingBorder from "@/components/ui/glowing-border";
 import { getHeroCarouselData } from "@/lib/hero-carousel";
@@ -39,6 +42,10 @@ export default async function HomePage() {
           title={heroCarousel.title}
           slides={heroCarousel.slides}
         />
+
+        <Suspense fallback={<RecentSnapsSkeleton />}>
+          <RecentSnapsSection />
+        </Suspense>
 
         {/* Friends Section */}
         <section>
