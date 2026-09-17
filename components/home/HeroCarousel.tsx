@@ -43,6 +43,11 @@ function mapSlidesToCarouselImages(
 interface HeroCarouselProps {
   title?: string | null;
   slides?: PublicHeroCarouselSlide[];
+  /** When set, the carousel follows this slide index (e.g. payment method selection). */
+  activeSlideIndex?: number;
+  onActiveSlideIndexChange?: (index: number) => void;
+  /** Defaults to true when uncontrolled; payment flows typically pass false. */
+  autoPlay?: boolean;
 }
 
 const AUTO_PLAY_MS = 5000;
@@ -60,6 +65,12 @@ const slideVariants = {
     x: direction > 0 ? "-100%" : "100%",
     opacity: 0.6,
   }),
+};
+
+const controlledSlideVariants = {
+  enter: { opacity: 0, scale: 0.98 },
+  center: { opacity: 1, scale: 1 },
+  exit: { opacity: 0, scale: 0.98 },
 };
 
 function ChevronLeftIcon({ className }: { className?: string }) {
@@ -103,8 +114,12 @@ function ChevronRightIcon({ className }: { className?: string }) {
 export default function HeroCarousel({
   title = null,
   slides = [],
+  activeSlideIndex,
+  onActiveSlideIndexChange,
+  autoPlay = activeSlideIndex === undefined,
 }: HeroCarouselProps) {
   const [[currentIndex, direction], setSlide] = useState([0, 0]);
+  const isControlled = activeSlideIndex !== undefined;
   const [isPaused, setIsPaused] = useState(false);
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -117,24 +132,41 @@ export default function HeroCarousel({
   }, [slides]);
 
   const displayTitle = title?.trim() ? title.trim() : null;
-
   const total = carouselImages.length;
-  const activeIndex =
-    total > 0 ? Math.min(currentIndex, total - 1) : 0;
+
+  const activeIndex = (() => {
+    if (total <= 0) return 0;
+    if (isControlled && activeSlideIndex !== undefined) {
+      return Math.min(activeSlideIndex, total - 1);
+    }
+    return Math.min(currentIndex, total - 1);
+  })();
+
   const current = carouselImages[activeIndex];
 
   const paginate = useCallback(
     (newDirection: number) => {
+      const nextIndex = (activeIndex + newDirection + total) % total;
+      if (isControlled) {
+        onActiveSlideIndexChange?.(nextIndex);
+        return;
+      }
       setSlide(([index]) => {
-        const nextIndex = (index + newDirection + total) % total;
-        return [nextIndex, newDirection];
+        const computed = (index + newDirection + total) % total;
+        return [computed, newDirection];
       });
     },
-    [total],
+    [activeIndex, isControlled, onActiveSlideIndexChange, total],
   );
 
   const goToIndex = useCallback(
     (index: number) => {
+      if (isControlled) {
+        if (index !== activeIndex) {
+          onActiveSlideIndexChange?.(index);
+        }
+        return;
+      }
       setSlide(([currentIdx]) => {
         if (index === currentIdx) return [currentIdx, 0];
         const forward = (index - currentIdx + total) % total;
@@ -143,7 +175,7 @@ export default function HeroCarousel({
         return [index, newDirection];
       });
     },
-    [total],
+    [activeIndex, isControlled, onActiveSlideIndexChange, total],
   );
 
   useEffect(() => {
@@ -160,7 +192,7 @@ export default function HeroCarousel({
       intervalRef.current = null;
     }
 
-    if (isPaused || prefersReducedMotion || total <= 1) return;
+    if (!autoPlay || isPaused || prefersReducedMotion || total <= 1) return;
 
     intervalRef.current = setInterval(() => {
       paginate(1);
@@ -172,7 +204,7 @@ export default function HeroCarousel({
         intervalRef.current = null;
       }
     };
-  }, [isPaused, prefersReducedMotion, total, paginate]);
+  }, [autoPlay, isPaused, prefersReducedMotion, total, paginate]);
 
   if (total === 0) return null;
 
@@ -195,11 +227,11 @@ export default function HeroCarousel({
           onMouseLeave={() => setIsPaused(false)}
         >
           <div className="relative w-full aspect-[16/9] sm:aspect-[21/8] md:aspect-[21/7] min-h-[180px] sm:min-h-[220px] md:min-h-[260px] overflow-hidden">
-            <AnimatePresence initial={false} custom={direction}>
+            <AnimatePresence initial={false} custom={isControlled ? undefined : direction}>
               <motion.div
                 key={current.id}
-                custom={direction}
-                variants={slideVariants}
+                custom={isControlled ? undefined : direction}
+                variants={isControlled ? controlledSlideVariants : slideVariants}
                 initial="enter"
                 animate="center"
                 exit="exit"

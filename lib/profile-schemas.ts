@@ -23,3 +23,12 @@ export const updateProfileSchema = z
 export const updateProfilePhotoSchema = z.object({
   snapId: z.string().min(1, "Snap ID is required"),
 });
+
+export const profilePhotoGalleryUploadSchema = z.object({
+  imageUrl: z.string().url("Invalid image URL"),
+  publicId: z.string().min(1, "Public ID is required"),
+});
+
+export const profilePhotoGalleryPaymentSchema = z.object({
+  method: z.enum(["kpay", "aya", "uab"]),
+});

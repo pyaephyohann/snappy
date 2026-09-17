@@ -20,14 +20,20 @@ export type ProfilePageInitialData = {
   lastLoginAt: string | null;
   telegramConnected: boolean;
   telegramUsername: string | null;
+  profilePhotoGalleryUnlocked: boolean;
 };
 
 type EditField = "none" | "name" | "passcode";
 
+const PROFILE_PHOTO_PAYMENT_HREF =
+  "/profile/payment?feature=profile-photo";
+
 export default function ProfilePageClient({
   initial,
+  openPhotoPicker = false,
 }: {
   initial: ProfilePageInitialData;
+  openPhotoPicker?: boolean;
 }) {
   const router = useRouter();
   const [name, setName] = useState(initial.name);
@@ -35,12 +41,15 @@ export default function ProfilePageClient({
   const [profileImageSnapId, setProfileImageSnapId] = useState(
     initial.profileImageSnapId,
   );
-  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(
+    openPhotoPicker && initial.profilePhotoGalleryUnlocked,
+  );
   const [editField, setEditField] = useState<EditField>("none");
   const [passcode, setPasscode] = useState("");
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [formSuccess, setFormSuccess] = useState<string | null>(null);
+  const galleryUnlocked = initial.profilePhotoGalleryUnlocked;
 
   const savedName = name.trim() !== initial.name ? name.trim() : undefined;
   const trimmedPasscode = passcode.trim();
@@ -130,7 +139,13 @@ export default function ProfilePageClient({
             <div className="mt-5 flex justify-center lg:justify-start">
               <button
                 type="button"
-                onClick={() => setPickerOpen(true)}
+                onClick={() => {
+                  if (galleryUnlocked) {
+                    setPickerOpen(true);
+                    return;
+                  }
+                  router.push(PROFILE_PHOTO_PAYMENT_HREF);
+                }}
                 className="min-h-[44px] rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-medium hover:bg-muted"
               >
                 Change profile photo
@@ -320,6 +335,7 @@ export default function ProfilePageClient({
         <ProfileSnapPicker
           currentProfileImage={profileImage}
           currentProfileImageSnapId={profileImageSnapId}
+          galleryUploadUnlocked={galleryUnlocked}
           onClose={() => setPickerOpen(false)}
           onSaved={({
             profileImage: nextImage,

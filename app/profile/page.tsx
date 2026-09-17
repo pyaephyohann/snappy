@@ -6,17 +6,28 @@ import { getLinkedAccountByUserId } from "@/lib/telegram/account";
 import { resolveProfileImageUrl } from "@/lib/user-profile";
 import { prisma } from "@/lib/prisma";
 
-export default async function ProfilePage() {
+export default async function ProfilePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ openPhotoPicker?: string }>;
+}) {
   const user = await getAuthenticatedAppUser();
   if (!user) {
     redirect("/");
   }
 
-  const [telegramLink, snapCountRow] = await Promise.all([
+  const params = await searchParams;
+  const openPhotoPicker = params.openPhotoPicker === "1";
+
+  const [telegramLink, snapCountRow, galleryUnlock] = await Promise.all([
     getLinkedAccountByUserId(user.id),
     prisma.user.findUnique({
       where: { id: user.id },
       select: { _count: { select: { snaps: true } } },
+    }),
+    prisma.user.findUnique({
+      where: { id: user.id },
+      select: { profilePhotoGalleryUnlockedAt: true },
     }),
   ]);
 
@@ -43,7 +54,11 @@ export default async function ProfilePage() {
             lastLoginAt: user.lastLoginAt?.toISOString() ?? null,
             telegramConnected: Boolean(telegramLink),
             telegramUsername: telegramLink?.telegramUsername ?? null,
+            profilePhotoGalleryUnlocked: Boolean(
+              galleryUnlock?.profilePhotoGalleryUnlockedAt,
+            ),
           }}
+          openPhotoPicker={openPhotoPicker}
         />
       </main>
     </div>

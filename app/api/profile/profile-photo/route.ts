@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedAppUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getProfilePhotoGalleryUnlockState } from "@/lib/profile-photo-gallery-unlock";
 import { setUserProfilePhotoFromSnap } from "@/lib/profile-photo-service";
 import { updateProfilePhotoSchema } from "@/lib/profile-schemas";
 import { resolveProfileImageUrl } from "@/lib/user-profile";
@@ -17,7 +18,7 @@ export async function GET() {
     return unauthorized();
   }
 
-  const [profileUser, snaps] = await Promise.all([
+  const [profileUser, snaps, galleryUnlock] = await Promise.all([
     prisma.user.findUnique({
       where: { id: user.id },
       select: {
@@ -37,6 +38,7 @@ export async function GET() {
         createdAt: true,
       },
     }),
+    getProfilePhotoGalleryUnlockState(user.id),
   ]);
 
   if (!profileUser) {
@@ -55,6 +57,7 @@ export async function GET() {
       ...snap,
       createdAt: snap.createdAt.toISOString(),
     })),
+    galleryUploadUnlocked: galleryUnlock.unlocked,
   });
 }
 

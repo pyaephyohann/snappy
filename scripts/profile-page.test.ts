@@ -48,10 +48,25 @@ test("profile page has no standalone premium upload section", () => {
   assert.doesNotMatch(ui, /type=\"file\"/);
 });
 
-test("upload from gallery lives in snap picker and links to payment", () => {
+test("gallery choice lives in snap picker and links to payment when locked", () => {
   const picker = read("components/profile/ProfileSnapPicker.tsx");
-  assert.match(picker, /Upload From Gallery/);
+  assert.match(picker, /Choose from gallery/i);
   assert.match(picker, /\/profile\/payment\?feature=profile-photo/);
+  assert.match(picker, /\/api\/profile\/profile-photo\/gallery/);
+});
+
+test("profile photo gallery unlock is enforced server-side", () => {
+  const galleryRoute = read("app/api/profile/profile-photo/gallery/route.ts");
+  assert.match(galleryRoute, /getProfilePhotoGalleryUnlockState/);
+  assert.match(galleryRoute, /402/);
+  const paymentRoute = read("app/api/profile/profile-photo/payment/route.ts");
+  assert.match(paymentRoute, /completeProfilePhotoGalleryPayment/);
+});
+
+test("change profile photo opens payment until gallery unlock", () => {
+  const ui = read("components/profile/ProfilePageClient.tsx");
+  assert.match(ui, /profilePhotoGalleryUnlocked/);
+  assert.match(ui, /\/profile\/payment\?feature=profile-photo/);
 });
 
 test("telegram connect button is shared on profile and connect page", () => {
@@ -67,11 +82,14 @@ test("telegram connect button is shared on profile and connect page", () => {
   assert.match(profile, /TelegramConnectButton/);
 });
 
-test("payment page lists KPay AYA Pay UAB Pay", () => {
+test("payment page lists KPay AYA Pay UAB Pay and syncs carousel", () => {
   const payment = read("lib/premium-profile-photo-payment.ts");
   assert.match(payment, /KPay/);
   assert.match(payment, /AYA Pay/);
   assert.match(payment, /UAB Pay/);
   const client = read("components/payment/PremiumFeaturePaymentClient.tsx");
   assert.match(client, /HeroCarousel/);
+  assert.match(client, /selectedPaymentMethod/);
+  assert.match(client, /activeSlideIndex/);
+  assert.match(client, /Change your profile picture/);
 });

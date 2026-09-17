@@ -28,9 +28,10 @@ model AdminCredential {
 model User {
   id                 String             @id @default(cuid())
   name               String             @unique
-  profileImage       String
-  profileImageSnapId String?            @unique
-  passcodeHash       String?
+  profileImage                  String
+  profileImageSnapId            String?            @unique
+  profilePhotoGalleryUnlockedAt DateTime?
+  passcodeHash                  String?
   isActive           Boolean            @default(true)
   lastLoginAt        DateTime?
   role               UserRole           @default(USER)
@@ -41,9 +42,21 @@ model User {
   reactions          Reaction[]
   snaps              Snap[]
   profileImageSnap   Snap?              @relation("UserProfileImage", fields: [profileImageSnapId], references: [id], onDelete: SetNull)
-  telegramAccount    TelegramAccount?
+  telegramAccount              TelegramAccount?
+  profilePhotoGalleryPayments  ProfilePhotoGalleryPayment[]
 
   @@map("users")
+}
+
+model ProfilePhotoGalleryPayment {
+  id        String   @id @default(cuid())
+  userId    String
+  method    String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("profile_photo_gallery_payments")
 }
 
 model Snap {

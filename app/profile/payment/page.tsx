@@ -3,10 +3,7 @@ import { redirect } from "next/navigation";
 import Navbar from "@/components/layout/Navbar";
 import PremiumFeaturePaymentClient from "@/components/payment/PremiumFeaturePaymentClient";
 import { getAuthenticatedAppUser } from "@/lib/auth";
-
-const FEATURE_TITLES: Record<string, string> = {
-  "profile-photo": "Upload a new profile photo",
-};
+import { getProfilePhotoGalleryUnlockState } from "@/lib/profile-photo-gallery-unlock";
 
 export default async function ProfilePaymentPage({
   searchParams,
@@ -20,8 +17,11 @@ export default async function ProfilePaymentPage({
 
   const params = await searchParams;
   const feature = params.feature ?? "profile-photo";
-  const featureTitle =
-    FEATURE_TITLES[feature] ?? "Premium profile feature";
+  if (feature !== "profile-photo") {
+    redirect("/profile/payment?feature=profile-photo");
+  }
+
+  const galleryUnlock = await getProfilePhotoGalleryUnlockState(user.id);
 
   return (
     <div className="min-h-screen bg-background">
@@ -33,7 +33,9 @@ export default async function ProfilePaymentPage({
         >
           ← Back to profile
         </Link>
-        <PremiumFeaturePaymentClient featureTitle={featureTitle} />
+        <PremiumFeaturePaymentClient
+          galleryUploadUnlocked={galleryUnlock.unlocked}
+        />
       </main>
     </div>
   );
