@@ -29,6 +29,10 @@ import {
   validateCloudinarySnapPublicId,
   validateCloudinarySnapUrl,
 } from "../lib/snap-validation";
+import { readTelegramPhotoCaption } from "../lib/telegram/photo-caption";
+import { SNAP_MAX_CAPTION_LENGTH } from "../lib/snap-media";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 
 test("link token format and hash are stable", () => {
   const { token, tokenHash } = generateTelegramLinkToken();
@@ -99,6 +103,38 @@ test("buildTelegramConnectUrl uses configured origin only", () => {
     }
   }
   assert.equal(buildTelegramConnectUrl("x".repeat(40)), null);
+});
+
+test("readTelegramPhotoCaption preserves text emojis and line breaks", () => {
+  assert.equal(readTelegramPhotoCaption(undefined), undefined);
+  assert.equal(readTelegramPhotoCaption(null), undefined);
+  assert.equal(readTelegramPhotoCaption("   "), undefined);
+  assert.equal(
+    readTelegramPhotoCaption("Hello Snappy 📸"),
+    "Hello Snappy 📸",
+  );
+  const multiline = "Hello from Japan 🇯🇵\n\nThis is my new Snap.";
+  assert.equal(readTelegramPhotoCaption(multiline), multiline);
+});
+
+test("telegram photo handler passes message caption into snap creation", () => {
+  const uploadSrc = readFileSync(
+    resolve(import.meta.dirname, "../lib/telegram/upload-snap.ts"),
+    "utf8",
+  );
+  assert.match(uploadSrc, /readTelegramPhotoCaption\(ctx\.message\?\.caption\)/);
+  assert.match(uploadSrc, /caption: telegramCaption/);
+  assert.match(uploadSrc, /invalid_caption/);
+});
+
+test("caption too long message references snap max length", () => {
+  const messages = readFileSync(
+    resolve(import.meta.dirname, "../lib/telegram/messages.ts"),
+    "utf8",
+  );
+  assert.match(messages, /UPLOAD_CAPTION_TOO_LONG_MESSAGE/);
+  assert.match(messages, /SNAP_MAX_CAPTION_LENGTH/);
+  assert.equal(SNAP_MAX_CAPTION_LENGTH, 500);
 });
 
 test("snap validation accepts cloudinary snap assets", () => {

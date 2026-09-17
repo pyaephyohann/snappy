@@ -15,11 +15,13 @@ import {
 import { createTelegramLinkChallenge } from "./link-service";
 import { buildTelegramConnectUrl } from "./connect-url";
 import { downloadTelegramFile } from "./download-file";
+import { readTelegramPhotoCaption } from "./photo-caption";
 import { sanitizeTelegramError } from "./errors";
 import { getTelegramIdentity } from "./identity";
 import { TELEGRAM_CALLBACK } from "./keyboards";
 import {
   UPLOAD_AWAITING_PHOTO_MESSAGE,
+  UPLOAD_CAPTION_TOO_LONG_MESSAGE,
   UPLOAD_LINK_REQUIRED_MESSAGE,
   UPLOAD_LOOKUP_ERROR_MESSAGE,
   UPLOAD_MEDIA_INVALID_MESSAGE,
@@ -164,12 +166,15 @@ export async function handleTelegramPhotoMessage(ctx: Context): Promise<boolean>
     return true;
   }
 
+  const telegramCaption = readTelegramPhotoCaption(ctx.message?.caption);
+
   let created;
   try {
     created = await createSnapForUser({
       targetUserId: linked.userId,
       imageUrl: cloudinaryResult.secureUrl,
       publicId: cloudinaryResult.publicId,
+      caption: telegramCaption,
     });
   } catch (error) {
     console.error(
@@ -182,7 +187,11 @@ export async function handleTelegramPhotoMessage(ctx: Context): Promise<boolean>
   }
 
   if (!created.ok) {
-    await ctx.reply(UPLOAD_LOOKUP_ERROR_MESSAGE);
+    if (created.error === "invalid_caption") {
+      await ctx.reply(UPLOAD_CAPTION_TOO_LONG_MESSAGE);
+    } else {
+      await ctx.reply(UPLOAD_LOOKUP_ERROR_MESSAGE);
+    }
     await setAwaitingSnapUpload(identity.chatId);
     return true;
   }

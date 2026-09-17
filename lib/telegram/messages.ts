@@ -1,3 +1,5 @@
+import { SNAP_MAX_CAPTION_LENGTH } from "@/lib/snap-media";
+
 export const START_MESSAGE = [
   "📸 Welcome to Snappy!",
   "",
@@ -95,6 +97,12 @@ export const UPLOAD_MEDIA_TOO_LARGE_MESSAGE =
 
 export const UPLOAD_MEDIA_INVALID_MESSAGE =
   "That file doesn't look like a supported image. Please send a JPEG, PNG, WebP, or GIF.";
+
+export const UPLOAD_CAPTION_TOO_LONG_MESSAGE = [
+  "That caption is too long for Snappy.",
+  "",
+  `Please use ${SNAP_MAX_CAPTION_LENGTH} characters or fewer and send the photo again.`,
+].join("\n");
 
 export const UPLOAD_RATE_LIMIT_MESSAGE =
   "You've uploaded several Snaps recently. Please wait a bit before uploading again.";
