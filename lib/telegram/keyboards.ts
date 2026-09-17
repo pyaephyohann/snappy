@@ -4,7 +4,7 @@ import { buildTelegramMiniAppUrl } from "./mini-app-url";
 import { getSnappyPublicUrl } from "./public-url";
 
 export const TELEGRAM_CALLBACK = {
-  find: "find",
+  findFriends: "find_friends",
   upload: "upload",
 } as const;
 
@@ -14,14 +14,17 @@ export type TelegramCallbackAction =
 export function isTelegramCallbackAction(
   value: string,
 ): value is TelegramCallbackAction {
-  return value === TELEGRAM_CALLBACK.find || value === TELEGRAM_CALLBACK.upload;
+  return (
+    value === TELEGRAM_CALLBACK.findFriends ||
+    value === TELEGRAM_CALLBACK.upload
+  );
 }
 
 export function buildMainKeyboard(
   publicUrl: string | null = getSnappyPublicUrl(),
 ): InlineKeyboard {
   const keyboard = new InlineKeyboard()
-    .text("🔎 Find Snap", TELEGRAM_CALLBACK.find)
+    .text("👥 Find Friends", TELEGRAM_CALLBACK.findFriends)
     .text("📤 Upload Snap", TELEGRAM_CALLBACK.upload);
 
   const miniAppUrl = buildTelegramMiniAppUrl();

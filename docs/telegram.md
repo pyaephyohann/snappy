@@ -12,12 +12,27 @@ Mini App  → /telegram/app → POST /api/telegram/mini-app/session (initData �
 
 | Command | Behavior |
 | --- | --- |
-| `/start` | Welcome message plus Find / Upload / Mini App / web buttons |
+| `/start` | Welcome message plus Find Friends / Upload / Mini App / web buttons |
 | `/help` | Lists commands; clears conversation state |
-| `/find` | Prompts for a Snap code, then looks up the Snap |
+| `/find-friends` | View your friends' Snaps (friend list → name search → 3 Snaps per page) |
 | `/upload` | Connect Snappy (if needed), then upload a photo Snap |
 
+Registered bot commands (via `telegram:setup`): `start`, `help`, `find-friends`, `upload`. The legacy bot command **`/find` (Snap code lookup) has been removed** — it is no longer registered and is not listed in help.
+
+The main inline keyboard **👥 Find Friends** starts the same flow as `/find-friends`.
+
+Deep links: `/start find-friends` or `/start findfriends` opens the find-friends flow; `/start upload` opens upload.
+
 The bot menu button **📱 Open Snappy** (configured by `npm run telegram:setup`) opens the Mini App at `/telegram/app` when `SNAPPY_PUBLIC_URL` is set.
+
+### Bot Find vs Mini App Find
+
+| Feature | Where | Snap code? |
+| --- | --- | --- |
+| **Find friends' Snaps** | Bot `/find-friends` | No — type a friend's name |
+| **Find Snap by code** | Mini App `/telegram/app/find` | Yes — same CUID rules as web |
+
+Snap-code lookup is **not** available through the Telegram bot anymore. The Mini App find screen, `/api/telegram/mini-app/find`, and deep links (`screen=find`, `start_param=find_<cuid>`) are **unchanged**.
 
 ## Telegram Mini App
 
@@ -52,13 +67,13 @@ PWA install prompt and service worker registration are skipped under `/telegram/
 **Bot → Mini App**
 
 - Menu / **📱 Open Snappy** → `/telegram/app` (unchanged).
-- `/find` and successful bot Find results include **📱 Open Find in Snappy** (`web_app` URL with `screen=find`, and `code` when a Snap was found).
-- `/start find` and `/start upload` deep-link into the existing bot flows.
+- Mini App keyboards may still include **📱 Open Find in Snappy** (`web_app` URL with `screen=find`, optional `code`) for snap-code find inside the Mini App — not via bot `/find`.
+- `/start find-friends`, `/start findfriends`, and `/start upload` deep-link into the corresponding bot flows.
 
 **Mini App → Bot**
 
 - Set `TELEGRAM_BOT_USERNAME` (public handle, no secret).
-- Home shows **Open Snappy Bot**; Find shows **Find with Bot** (`https://t.me/<bot>?start=find`).
+- Home shows **Open Snappy Bot**; Find shows **Find with Bot** (`https://t.me/<bot>?start=find`) — opens Mini App-oriented bot entry, not bot Snap-code chat.
 - Uses `Telegram.WebApp.openTelegramLink` when available.
 
 **Home quick actions:** Find / Upload / Profile tiles link to existing Mini App routes (bottom nav unchanged).
@@ -159,21 +174,96 @@ No automatic matching by Telegram username. No bot token in URLs. Expired or reu
 
 1. Linked user sends `/upload`.
 2. Bot sets `telegram_chat_states.awaitingMode = upload_snap` (15-minute TTL).
-3. User sends a **photo** (largest Telegram size).
+3. User sends a **photo** (largest Telegram size), optionally with a **Telegram caption** on the same message.
 4. Server downloads via **Telegram Bot API** (`getFile` + official file URL), validates bytes (max **10 MB**, JPEG/PNG/WebP/GIF — same as web uploader), uploads through **`lib/cloudinary-server-upload`**, creates a Snap via **`lib/snap-create-service`** owned by the linked user.
-5. Success message with **View Snap** (friend profile URL) and **Upload Another**.
+5. If the photo message includes a caption, that text becomes the **Snappy Snap caption** (same max length rules as web; over-length captions are rejected with a friendly bot message).
+6. Success message with **View Snap** (friend profile URL) and **Upload Another**.
+
+Example:
+
+```text
+Telegram:  [photo] + caption "Beautiful sunset 🌅"
+     ↓
+Snappy:    same image, caption "Beautiful sunset 🌅"
+```
 
 **Not supported on Telegram yet:** video and documents (web uploader is images only).
 
 **Rate limit:** max **10 Telegram uploads per hour** per `telegramUserId` (`telegram_upload_logs`). Web uploads are unaffected.
 
-## Find flow (T2)
+## Find friends flow (bot)
 
-Snap code = existing **`Snap.id`** (cuid). State: `find_snap` in `telegram_chat_states`.
+Command: **`/find-friends`** — *View your friends' Snaps*.
+
+Requires a linked Snappy account (same linking flow as upload). The bot resolves the Snappy user from **`telegram_accounts`**; it never asks for or trusts a client-supplied Snappy user ID.
+
+### User flow
+
+```text
+/find-friends
+      ↓
+Friends list (actual friends for the linked user)
+      ↓
+User types friend's name
+      ↓
+First up to 3 Snaps (newest first)
+      ↓
+User types the same friend's name again
+      ↓
+Next up to 3 Snaps
+      ↓
+Continue 3 at a time until exhausted
+```
+
+### Friend search
+
+- Search runs **only** among the authenticated user's friends (same canonical list as web home / users list: other **active** Snappy users).
+- **Case-insensitive** matching; **partial** names match (e.g. `pyae` can match `Pyae Phyo`).
+- If the typed text **exactly** matches one friend's full name, that friend is chosen even when partial matches would include others.
+- **Multiple** partial matches → numbered list; user is asked to type the full name.
+- **No match** → retry message; find-friends mode stays active.
+
+### Pagination
+
+- Page size: **`FIND_FRIENDS_SNAPS_PAGE_SIZE = 3`**.
+- Snaps ordered **`createdAt` descending** (newest first, aligned with friend profile pages).
+- First successful pick for a friend → Snaps **1–3**; typing the **same** resolved friend again → **4–6**, then **7–9**, etc.
+- Typing a **different** friend's name → pagination **resets** to the first page for that friend.
+- Per Telegram **chat**, the bot remembers the **selected friend** and **offset** until TTL expiry or state reset (see below).
+- No more Snaps: completion message; friend with zero Snaps: empty-state message (no empty media).
+
+### Media
+
+- **One** Snap → single photo message (page footer in caption when applicable).
+- **Two or three** Snaps → Telegram **media group** when sending succeeds; captions on individual items where supported, page footer on the last item.
+- If media-group send fails, the bot falls back to sending photos individually and still sends the page footer text.
+
+### Privacy and security
+
+- Linked account only; no arbitrary Snappy user IDs or Snap IDs from the user.
+- **No Snap codes** in this flow.
+- Friend identity comes from server-side friend list + name match; Snap queries use the resolved friend user ID only.
+- Snaps require an **active** owner; image URLs must pass existing **Telegram-safe** HTTPS checks (e.g. Cloudinary).
+- Users cannot use `/find-friends` to search non-friends or arbitrary Snaps.
+
+## Find Snap by code (Mini App only)
+
+Snap code = existing **`Snap.id`** (cuid). Use the Mini App at **`/telegram/app/find`** or deep links with `screen=find` — not the bot.
 
 ## Conversation state
 
-Modes: `find_snap`, `upload_snap` in PostgreSQL (`telegram_chat_states`). `/start`, `/help`, and unknown commands clear state. `/find` and `/upload` switch modes. States expire after 15 minutes.
+PostgreSQL table **`telegram_chat_states`**, keyed by Telegram **chat ID**.
+
+| Mode | Purpose |
+| --- | --- |
+| `find_friends` | Awaiting friend name; stores selected friend + pagination offset for find-friends |
+| `upload_snap` | Awaiting photo for upload |
+
+`/start`, `/help`, and unknown `/` commands **clear** state. `/find-friends` and `/upload` set their modes. While in find-friends mode, plain text (non-commands) is treated as a friend name search.
+
+States expire after **`TELEGRAM_CHAT_STATE_TTL_MS`** (15 minutes) based on `updatedAt`, same as before.
+
+Deploy note: find-friends pagination uses columns `findFriendsFriendId` and `findFriendsOffset` — apply migration **`20260918180000_telegram_find_friends_state`** before relying on pagination in production.
 
 ## Environment variables
 
@@ -207,11 +297,12 @@ After deploy:
 npx prisma migrate deploy
 ```
 
-Required migrations: `telegram_chat_states`, `telegram_accounts`, `telegram_link_challenges`, `telegram_upload_logs`.
+Required migrations include: `telegram_chat_states`, `telegram_accounts`, `telegram_link_challenges`, `telegram_upload_logs`, and **`20260918180000_telegram_find_friends_state`** (adds `findFriendsFriendId`, `findFriendsOffset` on `telegram_chat_states`).
 
 ## Tests
 
 ```bash
+npm run test:telegram-find-friends
 npm run test:telegram-find
 npm run test:telegram-upload
 npm run test:telegram-mini-app

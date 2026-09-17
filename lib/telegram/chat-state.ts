@@ -1,13 +1,13 @@
 import { prisma } from "@/lib/prisma";
 import {
-  TELEGRAM_AWAITING_FIND,
+  TELEGRAM_AWAITING_FIND_FRIENDS,
   TELEGRAM_AWAITING_UPLOAD,
   TELEGRAM_CHAT_STATE_TTL_MS,
   type TelegramAwaitingMode,
 } from "./chat-state-constants";
 
 export {
-  TELEGRAM_AWAITING_FIND,
+  TELEGRAM_AWAITING_FIND_FRIENDS,
   TELEGRAM_AWAITING_UPLOAD,
   TELEGRAM_CHAT_STATE_TTL_MS,
 } from "./chat-state-constants";
@@ -15,6 +15,11 @@ export {
 function isExpired(updatedAt: Date, now = Date.now()): boolean {
   return now - updatedAt.getTime() > TELEGRAM_CHAT_STATE_TTL_MS;
 }
+
+export type TelegramFindFriendsState = {
+  friendId: string | null;
+  offset: number;
+};
 
 export async function setTelegramAwaitingMode(
   chatId: string,
@@ -48,7 +53,7 @@ export async function getTelegramAwaitingMode(
     return null;
   }
   if (
-    row.awaitingMode === TELEGRAM_AWAITING_FIND ||
+    row.awaitingMode === TELEGRAM_AWAITING_FIND_FRIENDS ||
     row.awaitingMode === TELEGRAM_AWAITING_UPLOAD
   ) {
     return row.awaitingMode;
@@ -56,12 +61,71 @@ export async function getTelegramAwaitingMode(
   return null;
 }
 
-export async function setAwaitingSnapCode(chatId: string): Promise<void> {
-  await setTelegramAwaitingMode(chatId, TELEGRAM_AWAITING_FIND);
+export async function beginFindFriendsBrowse(chatId: string): Promise<void> {
+  await prisma.telegramChatState.upsert({
+    where: { chatId },
+    create: {
+      chatId,
+      awaitingMode: TELEGRAM_AWAITING_FIND_FRIENDS,
+      findFriendsFriendId: null,
+      findFriendsOffset: 0,
+    },
+    update: {
+      awaitingMode: TELEGRAM_AWAITING_FIND_FRIENDS,
+      findFriendsFriendId: null,
+      findFriendsOffset: 0,
+    },
+  });
 }
 
-export async function isAwaitingSnapCode(chatId: string): Promise<boolean> {
-  return (await getTelegramAwaitingMode(chatId)) === TELEGRAM_AWAITING_FIND;
+export async function isAwaitingFindFriends(chatId: string): Promise<boolean> {
+  return (await getTelegramAwaitingMode(chatId)) === TELEGRAM_AWAITING_FIND_FRIENDS;
+}
+
+export async function getFindFriendsState(
+  chatId: string,
+): Promise<TelegramFindFriendsState | null> {
+  const row = await prisma.telegramChatState.findUnique({
+    where: { chatId },
+    select: {
+      awaitingMode: true,
+      findFriendsFriendId: true,
+      findFriendsOffset: true,
+      updatedAt: true,
+    },
+  });
+  if (!row || row.awaitingMode !== TELEGRAM_AWAITING_FIND_FRIENDS) {
+    return null;
+  }
+  if (isExpired(row.updatedAt)) {
+    await clearTelegramChatState(chatId);
+    return null;
+  }
+  return {
+    friendId: row.findFriendsFriendId,
+    offset: row.findFriendsOffset ?? 0,
+  };
+}
+
+export async function setFindFriendsPagination(
+  chatId: string,
+  friendId: string,
+  offset: number,
+): Promise<void> {
+  await prisma.telegramChatState.upsert({
+    where: { chatId },
+    create: {
+      chatId,
+      awaitingMode: TELEGRAM_AWAITING_FIND_FRIENDS,
+      findFriendsFriendId: friendId,
+      findFriendsOffset: offset,
+    },
+    update: {
+      awaitingMode: TELEGRAM_AWAITING_FIND_FRIENDS,
+      findFriendsFriendId: friendId,
+      findFriendsOffset: offset,
+    },
+  });
 }
 
 export async function setAwaitingSnapUpload(chatId: string): Promise<void> {

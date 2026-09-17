@@ -12,7 +12,7 @@ import {
   TELEGRAM_LINK_TTL_MS,
 } from "../lib/telegram/link-token";
 import {
-  TELEGRAM_AWAITING_FIND,
+  TELEGRAM_AWAITING_FIND_FRIENDS,
   TELEGRAM_AWAITING_UPLOAD,
   TELEGRAM_CHAT_STATE_TTL_MS,
 } from "../lib/telegram/chat-state-constants";
@@ -57,7 +57,7 @@ test("link challenge expiry respects TTL window", () => {
 });
 
 test("chat modes distinguish find vs upload", () => {
-  assert.notEqual(TELEGRAM_AWAITING_FIND, TELEGRAM_AWAITING_UPLOAD);
+  assert.notEqual(TELEGRAM_AWAITING_FIND_FRIENDS, TELEGRAM_AWAITING_UPLOAD);
   assert.equal(TELEGRAM_CHAT_STATE_TTL_MS, 15 * 60 * 1000);
 });
 

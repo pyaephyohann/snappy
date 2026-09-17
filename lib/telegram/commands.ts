@@ -5,9 +5,9 @@ import {
   TELEGRAM_CALLBACK,
 } from "./keyboards";
 import {
-  beginFindSnapFlow,
-  handleFindSnapCodeMessage,
-} from "./find-snap";
+  beginFindFriendsFlow,
+  handleFindFriendsNameMessage,
+} from "./find-friends";
 import { clearTelegramChatState } from "./chat-state";
 import {
   beginUploadSnapFlow,
@@ -24,7 +24,10 @@ import { registerTelegramBotErrorHandler } from "./bot-error-handler";
 export const TELEGRAM_BOT_COMMANDS = [
   { command: "start", description: "Introduce Snappy" },
   { command: "help", description: "Show available commands" },
-  { command: "find", description: "Find a Snap by code" },
+  {
+    command: "find-friends",
+    description: "View your friends' Snaps",
+  },
   { command: "upload", description: "Upload a photo Snap" },
 ] as const;
 
@@ -34,8 +37,8 @@ export function registerTelegramHandlers(bot: Bot): void {
     const payload =
       ctx.message?.text?.split(/\s+/).slice(1).join(" ").trim().toLowerCase() ??
       "";
-    if (payload === "find") {
-      await beginFindSnapFlow(ctx);
+    if (payload === "find-friends" || payload === "findfriends") {
+      await beginFindFriendsFlow(ctx);
       return;
     }
     if (payload === "upload") {
@@ -50,17 +53,17 @@ export function registerTelegramHandlers(bot: Bot): void {
     await replyWithMainKeyboard(ctx, HELP_MESSAGE);
   });
 
-  bot.command("find", async (ctx) => {
-    await beginFindSnapFlow(ctx);
+  bot.command("find-friends", async (ctx) => {
+    await beginFindFriendsFlow(ctx);
   });
 
   bot.command("upload", async (ctx) => {
     await beginUploadSnapFlow(ctx);
   });
 
-  bot.callbackQuery(TELEGRAM_CALLBACK.find, async (ctx) => {
+  bot.callbackQuery(TELEGRAM_CALLBACK.findFriends, async (ctx) => {
     await ctx.answerCallbackQuery();
-    await beginFindSnapFlow(ctx);
+    await beginFindFriendsFlow(ctx);
   });
 
   bot.callbackQuery(TELEGRAM_CALLBACK.upload, async (ctx) => {
@@ -88,8 +91,8 @@ export function registerTelegramHandlers(bot: Bot): void {
   });
 
   bot.on("message:text", async (ctx) => {
-    const handledFind = await handleFindSnapCodeMessage(ctx);
-    if (handledFind) {
+    const handledFindFriends = await handleFindFriendsNameMessage(ctx);
+    if (handledFindFriends) {
       return;
     }
 

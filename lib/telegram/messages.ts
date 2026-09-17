@@ -6,7 +6,7 @@ export const START_MESSAGE = [
   "Share and discover moments with your friends.",
   "",
   "Commands:",
-  "/find — Find a Snap",
+  "/find-friends — View your friends' Snaps",
   "/upload — Upload a Snap",
   "/help — Show available commands",
 ].join("\n");
@@ -15,34 +15,82 @@ export const HELP_MESSAGE = [
   "Snappy Telegram commands:",
   "",
   "/start — Introduction and shortcuts",
-  "/find — Find a Snap by its Snap code",
+  "/find-friends — View your friends' Snaps",
   "/upload — Upload a photo Snap",
   "/help — Show this message",
   "",
   "Use the buttons below — 📱 Open Snappy launches the Mini App — or open Snappy on the web.",
 ].join("\n");
 
-export const FIND_PROMPT_MESSAGE = [
-  "🔎 Find a Snap",
+export const FIND_FRIENDS_NOT_LINKED_MESSAGE = [
+  "👥 Find friends' Snaps",
   "",
-  "Send me the Snap code and I'll find it for you.",
+  "Connect your Snappy account first. Send /upload to get a connect link.",
 ].join("\n");
 
-export const FIND_NOT_FOUND_MESSAGE = [
-  "🔎 Snap not found",
+export const FIND_FRIENDS_NO_FRIENDS_MESSAGE =
+  "You don't have any friends yet.";
+
+export const FIND_FRIENDS_LOOKUP_ERROR_MESSAGE =
+  "Something went wrong. Please try again in a moment.";
+
+export function formatFindFriendsIntro(friendNames: string[]): string {
+  const lines = [
+    "👥 Your friends",
+    "",
+    "Type a friend's name to see their Snaps.",
+    "",
+  ];
+  const maxListed = 40;
+  const listed = friendNames.slice(0, maxListed);
+  for (const name of listed) {
+    lines.push(`• ${name}`);
+  }
+  if (friendNames.length > maxListed) {
+    lines.push(`• …and ${friendNames.length - maxListed} more`);
+  }
+  return lines.join("\n");
+}
+
+export function formatFindFriendsMultipleMatches(
+  friends: { name: string }[],
+): string {
+  const lines = ["I found multiple friends:", ""];
+  friends.forEach((friend, index) => {
+    lines.push(`${index + 1}. ${friend.name}`);
+  });
+  lines.push("", "Type the friend's full name.");
+  return lines.join("\n");
+}
+
+export const FIND_FRIENDS_NOT_FOUND_MESSAGE = [
+  "I couldn't find that friend.",
   "",
-  "I couldn't find a Snap with that code.",
-  "Please check the code and try again.",
+  "Try typing their name again.",
 ].join("\n");
 
-export const FIND_INVALID_CODE_MESSAGE = [
-  "That doesn't look like a valid Snap code.",
-  "",
-  "Send the Snap code exactly as shown in Snappy (for example, a code starting with \"c\").",
-].join("\n");
+export function formatFindFriendsPageIntro(friendName: string): string {
+  return `I found ${friendName}.`;
+}
 
-export const FIND_LOOKUP_ERROR_MESSAGE =
-  "Something went wrong while looking up that Snap. Please try again in a moment.";
+export function formatFindFriendsShowingRange(
+  start: number,
+  end: number,
+): string {
+  return `Showing ${start}–${end}.`;
+}
+
+export function formatFindFriendsMoreHint(): string {
+  return "Type the friend's name again for more.";
+}
+
+export function formatFindFriendsAllDone(friendName: string): string {
+  return `That's all the Snaps from ${friendName}. 📸`;
+}
+
+export function formatFindFriendsNoSnaps(friendName: string): string {
+  return `${friendName} hasn't posted any Snaps yet.`;
+}
 
 export function formatFindFoundMessage(options: {
   creatorName: string;

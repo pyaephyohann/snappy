@@ -147,11 +147,13 @@ model PushSubscription {
   @@map("push_subscriptions")
 }
 
-/// Serverless-safe Telegram conversation flags (e.g. awaiting Snap code after /find).
+/// Serverless-safe Telegram conversation flags (e.g. /find-friends, /upload).
 model TelegramChatState {
-  chatId       String   @id
-  awaitingMode String?
-  updatedAt    DateTime @updatedAt
+  chatId               String   @id
+  awaitingMode         String?
+  findFriendsFriendId  String?
+  findFriendsOffset    Int      @default(0)
+  updatedAt            DateTime @updatedAt
 
   @@map("telegram_chat_states")
 }

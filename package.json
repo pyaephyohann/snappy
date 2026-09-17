@@ -13,6 +13,7 @@
     "telegram:verify-production": "tsx scripts/verify-telegram-production.ts",
     "telegram:dev": "tsx scripts/telegram-dev.ts",
     "test:telegram-find": "node --import tsx --test scripts/telegram-find-snap.test.ts",
+    "test:telegram-find-friends": "node --import tsx --test scripts/telegram-find-friends.test.ts",
     "test:telegram-upload": "node --import tsx --test scripts/telegram-account-upload.test.ts",
     "test:telegram-mini-app": "node --import tsx --test scripts/telegram-mini-app.test.ts",
     "test:telegram-mini-app-home": "node --import tsx --test scripts/telegram-mini-app-home.test.ts",

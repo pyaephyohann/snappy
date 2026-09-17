@@ -1,5 +1,31 @@
 import type { FriendPickerUser } from "@/components/friends/FriendsPickerPanel";
 
+export type FriendNameMatch = {
+  id: string;
+  name: string;
+};
+
+export function matchFriendsByNamePartial(
+  friends: FriendNameMatch[],
+  rawQuery: string,
+): FriendNameMatch[] {
+  const query = rawQuery.trim().toLowerCase();
+  if (!query) {
+    return [];
+  }
+
+  const exact = friends.filter(
+    (friend) => friend.name.toLowerCase() === query,
+  );
+  if (exact.length === 1) {
+    return exact;
+  }
+
+  return friends.filter((friend) =>
+    friend.name.toLowerCase().includes(query),
+  );
+}
+
 export function filterFriendsByQuery(
   friends: FriendPickerUser[],
   query: string,
