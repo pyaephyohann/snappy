@@ -4,6 +4,7 @@ import { useCallback, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
 import SnapShareMenu from '@/components/friends/SnapShareMenu';
+import SnapSocialBar from '@/components/snaps/SnapSocialBar';
 import GlowingBorder from '@/components/ui/glowing-border';
 import { GlowButton } from '@/components/ui/glow-button';
 import { buildSnapFilename, downloadImage } from '@/lib/download-image';
@@ -24,6 +25,7 @@ interface SnapCardProps {
 }
 
 export default function SnapCard({
+  id,
   imageUrl,
   caption,
   createdAt,
@@ -209,9 +211,13 @@ export default function SnapCard({
             )}
           </div>
 
-          {/* Share */}
+          {/* Social actions + Share */}
           <div className="px-2 sm:px-4 pb-3 sm:pb-4">
-            <div className="flex items-center justify-end border-t border-border pt-3">
+            <div
+              className="flex items-center justify-between gap-2 border-t border-border pt-3"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <SnapSocialBar snapId={id} />
               <SnapShareMenu
                 url={getSnapUrl()}
                 title={getShareTitle()}
