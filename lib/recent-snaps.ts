@@ -6,11 +6,35 @@ export const ADMIN_RECENT_SNAPS_LIMIT = 6;
 /** Home page horizontal strip limit. */
 export const HOME_RECENT_SNAPS_LIMIT = 10;
 
-export type RecentSnapWithUser = {
+const snapWithOwnerSelect = {
+  id: true,
+  imageUrl: true,
+  caption: true,
+  createdAt: true,
+  user: {
+    select: {
+      id: true,
+      name: true,
+      profileImage: true,
+    },
+  },
+} as const;
+
+const snapCardSelect = {
+  id: true,
+  imageUrl: true,
+  caption: true,
+  createdAt: true,
+} as const;
+
+export type SnapCardFields = {
   id: string;
   imageUrl: string;
   caption: string | null;
   createdAt: Date;
+};
+
+export type RecentSnapWithUser = SnapCardFields & {
   user: {
     id: string;
     name: string;
@@ -24,19 +48,24 @@ export async function getRecentSnaps(
   return prisma.snap.findMany({
     take: limit,
     orderBy: { createdAt: "desc" },
-    select: {
-      id: true,
-      imageUrl: true,
-      caption: true,
-      createdAt: true,
-      user: {
-        select: {
-          id: true,
-          name: true,
-          profileImage: true,
-        },
-      },
-    },
+    select: snapWithOwnerSelect,
+  });
+}
+
+export async function getAllSnaps(): Promise<RecentSnapWithUser[]> {
+  return prisma.snap.findMany({
+    orderBy: { createdAt: "desc" },
+    select: snapWithOwnerSelect,
+  });
+}
+
+export async function getSnapsByUserId(
+  userId: string,
+): Promise<SnapCardFields[]> {
+  return prisma.snap.findMany({
+    where: { userId },
+    orderBy: { createdAt: "desc" },
+    select: snapCardSelect,
   });
 }
 

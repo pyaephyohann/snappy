@@ -4,16 +4,23 @@ import { useState } from 'react';
 import SnapCard from '@/components/friends/SnapCard';
 import SnapViewer from '@/components/snaps/SnapViewer';
 
-interface Snap {
+export type GallerySnap = {
   id: string;
   imageUrl: string;
   caption: string | null;
   createdAt: Date | string;
-}
+  /** Profile owner name when snaps come from multiple users (e.g. /snaps). */
+  friendName?: string;
+};
 
 interface SnapGalleryProps {
-  snaps: Snap[];
-  friendName: string;
+  snaps: GallerySnap[];
+  /** Default profile name when each snap omits `friendName` (friend profile page). */
+  friendName?: string;
+}
+
+function resolveFriendName(snap: GallerySnap, defaultFriendName?: string): string {
+  return snap.friendName ?? defaultFriendName ?? '';
 }
 
 export default function SnapGallery({ snaps, friendName }: SnapGalleryProps) {
@@ -35,7 +42,7 @@ export default function SnapGallery({ snaps, friendName }: SnapGalleryProps) {
             imageUrl={snap.imageUrl}
             caption={snap.caption}
             createdAt={snap.createdAt}
-            friendName={friendName}
+            friendName={resolveFriendName(snap, friendName)}
             snapIndex={index}
             interactive
             onClick={() => setViewerIndex(index)}
@@ -43,18 +50,18 @@ export default function SnapGallery({ snaps, friendName }: SnapGalleryProps) {
         ))}
       </div>
 
-      {viewerSnap && viewerIndex !== null && (
+      {viewerSnap && viewerIndex !== null ? (
         <SnapViewer
           key={viewerSnap.id}
           isOpen
           onClose={handleCloseViewer}
           imageUrl={viewerSnap.imageUrl}
           caption={viewerSnap.caption}
-          friendName={friendName}
+          friendName={resolveFriendName(viewerSnap, friendName)}
           snapIndex={viewerIndex}
           snapId={viewerSnap.id}
         />
-      )}
+      ) : null}
     </>
   );
 }

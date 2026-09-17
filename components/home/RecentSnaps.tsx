@@ -24,7 +24,7 @@ export default function RecentSnaps({ snaps }: RecentSnapsProps) {
             Recent Snaps
           </h2>
           <Link
-            href="/search"
+            href="/snaps"
             className="shrink-0 cursor-pointer text-sm font-medium text-primary hover:opacity-90"
           >
             View All →
