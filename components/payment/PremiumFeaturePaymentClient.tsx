@@ -21,8 +21,6 @@ export default function PremiumFeaturePaymentClient({
   const router = useRouter();
   const [selectedPaymentMethod, setSelectedPaymentMethod] =
     useState<PremiumProfilePhotoPaymentMethodId>("kpay");
-  const [paying, setPaying] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const activeSlideIndex = useMemo(
     () => slideIndexForProfilePhotoPaymentMethod(selectedPaymentMethod),
@@ -30,37 +28,8 @@ export default function PremiumFeaturePaymentClient({
   );
 
   const handleCompletePayment = async () => {
-    setPaying(true);
-    setError(null);
-
-    try {
-      const response = await fetch("/api/profile/profile-photo/payment", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ method: selectedPaymentMethod }),
-      });
-
-      const result = (await response.json()) as {
-        error?: string;
-        unlocked?: boolean;
-      };
-
-      if (!response.ok || !result.unlocked) {
-        throw new Error(result.error ?? "Payment could not be completed.");
-      }
-
-      router.push("/profile?openPhotoPicker=1");
-      router.refresh();
-    } catch (paymentError) {
-      setError(
-        paymentError instanceof Error
-          ? paymentError.message
-          : "Payment could not be completed.",
-      );
-    } finally {
-      setPaying(false);
-    }
+    // Presentational only for the profile-photo flow: payment processing is
+    // intentionally not wired up yet. Keep the button non-functional.
   };
 
   if (galleryUploadUnlocked) {
@@ -135,20 +104,13 @@ export default function PremiumFeaturePaymentClient({
         </ul>
       </section>
 
-      {error ? (
-        <p className="text-sm text-destructive" role="alert">
-          {error}
-        </p>
-      ) : null}
-
       <div className="flex justify-center">
         <button
           type="button"
-          disabled={paying}
           onClick={() => void handleCompletePayment()}
-          className="min-h-[44px] w-full rounded-xl bg-primary px-4 py-3 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:min-w-[12rem]"
+          className="min-h-[44px] w-full rounded-xl bg-primary px-4 py-3 text-sm font-medium text-primary-foreground hover:opacity-90 sm:w-auto sm:min-w-[12rem]"
         >
-          {paying ? "Processing…" : `Pay with ${PREMIUM_PROFILE_PHOTO_PAYMENT_METHODS.find((m) => m.id === selectedPaymentMethod)?.label ?? "selected method"}`}
+          {`Pay with ${PREMIUM_PROFILE_PHOTO_PAYMENT_METHODS.find((m) => m.id === selectedPaymentMethod)?.label ?? "selected method"}`}
         </button>
       </div>
     </div>

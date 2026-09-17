@@ -63,10 +63,17 @@ test("profile photo gallery unlock is enforced server-side", () => {
   assert.match(paymentRoute, /completeProfilePhotoGalleryPayment/);
 });
 
-test("change profile photo opens payment until gallery unlock", () => {
+test("change profile photo opens snap picker, not payment", () => {
   const ui = read("components/profile/ProfilePageClient.tsx");
-  assert.match(ui, /profilePhotoGalleryUnlocked/);
-  assert.match(ui, /\/profile\/payment\?feature=profile-photo/);
+  // Change Profile Photo always opens the Snap picker — never payment.
+  assert.match(ui, /onClick=\{\(\) => setPickerOpen\(true\)\}/);
+  assert.doesNotMatch(ui, /\/profile\/payment\?feature=profile-photo/);
+  // Upload from Gallery (inside the picker) is the only payment entry point.
+  const picker = read("components/profile/ProfileSnapPicker.tsx");
+  assert.match(picker, /\/profile\/payment\?feature=profile-photo/);
+  // Pay button on the payment page is presentational for this flow.
+  const payment = read("components/payment/PremiumFeaturePaymentClient.tsx");
+  assert.doesNotMatch(payment, /\/api\/profile\/profile-photo\/payment/);
 });
 
 test("telegram connect button is shared on profile and connect page", () => {

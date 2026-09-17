@@ -25,9 +25,6 @@ export type ProfilePageInitialData = {
 
 type EditField = "none" | "name" | "passcode";
 
-const PROFILE_PHOTO_PAYMENT_HREF =
-  "/profile/payment?feature=profile-photo";
-
 export default function ProfilePageClient({
   initial,
   openPhotoPicker = false,
@@ -41,9 +38,7 @@ export default function ProfilePageClient({
   const [profileImageSnapId, setProfileImageSnapId] = useState(
     initial.profileImageSnapId,
   );
-  const [pickerOpen, setPickerOpen] = useState(
-    openPhotoPicker && initial.profilePhotoGalleryUnlocked,
-  );
+  const [pickerOpen, setPickerOpen] = useState(openPhotoPicker);
   const [editField, setEditField] = useState<EditField>("none");
   const [passcode, setPasscode] = useState("");
   const [saving, setSaving] = useState(false);
@@ -139,13 +134,7 @@ export default function ProfilePageClient({
             <div className="mt-5 flex justify-center lg:justify-start">
               <button
                 type="button"
-                onClick={() => {
-                  if (galleryUnlocked) {
-                    setPickerOpen(true);
-                    return;
-                  }
-                  router.push(PROFILE_PHOTO_PAYMENT_HREF);
-                }}
+                onClick={() => setPickerOpen(true)}
                 className="min-h-[44px] rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-medium hover:bg-muted"
               >
                 Change profile photo
