@@ -1,10 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import RecentSnaps from "@/components/home/RecentSnaps";
 import RecentSnapsSkeleton from "@/components/home/RecentSnapsSkeleton";
+import TelegramOpenBotLink from "@/components/telegram/TelegramOpenBotLink";
 import { GlowButton } from "@/components/ui/glow-button";
 import type { PublicRecentSnap } from "@/lib/recent-snaps";
+import { TELEGRAM_MINI_APP_ROUTES } from "@/lib/telegram/mini-app-routes";
 
 type HomeResponse = {
   snaps: PublicRecentSnap[] | null;
@@ -89,6 +92,19 @@ export default function TelegramMiniAppHome() {
         ) : null}
       </header>
 
+      <nav
+        className="mb-6 grid grid-cols-3 gap-2"
+        aria-label="Quick actions"
+      >
+        <MiniAppQuickAction href={TELEGRAM_MINI_APP_ROUTES.find} label="Find Snap" emoji="🔍" />
+        <MiniAppQuickAction href={TELEGRAM_MINI_APP_ROUTES.upload} label="Upload" emoji="📤" />
+        <MiniAppQuickAction href={TELEGRAM_MINI_APP_ROUTES.profile} label="Profile" emoji="👤" />
+      </nav>
+
+      <div className="mb-6 text-center">
+        <TelegramOpenBotLink label="Open Snappy Bot" />
+      </div>
+
       {state.status === "loading" ? <RecentSnapsSkeleton /> : null}
 
       {state.status === "error" ? (
@@ -120,5 +136,27 @@ export default function TelegramMiniAppHome() {
         </div>
       ) : null}
     </div>
+  );
+}
+
+function MiniAppQuickAction({
+  href,
+  label,
+  emoji,
+}: {
+  href: string;
+  label: string;
+  emoji: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className="flex flex-col items-center rounded-xl border border-border bg-card px-2 py-3 text-center text-xs font-medium text-foreground transition-colors hover:bg-muted"
+    >
+      <span className="text-lg" aria-hidden>
+        {emoji}
+      </span>
+      <span className="mt-1">{label}</span>
+    </Link>
   );
 }

@@ -12,7 +12,11 @@ import {
   setAwaitingSnapCode,
 } from "./chat-state";
 import { sanitizeTelegramError } from "./errors";
-import { TELEGRAM_CALLBACK } from "./keyboards";
+import {
+  appendMiniAppFindButton,
+  buildMiniAppFindEntryKeyboard,
+  TELEGRAM_CALLBACK,
+} from "./keyboards";
 import {
   FIND_INVALID_CODE_MESSAGE,
   FIND_LOOKUP_ERROR_MESSAGE,
@@ -27,7 +31,10 @@ export async function beginFindSnapFlow(ctx: Context): Promise<void> {
   if (chatId) {
     await setAwaitingSnapCode(chatId);
   }
-  await ctx.reply(FIND_PROMPT_MESSAGE);
+  const miniAppKeyboard = buildMiniAppFindEntryKeyboard();
+  await ctx.reply(FIND_PROMPT_MESSAGE, {
+    reply_markup: miniAppKeyboard ?? undefined,
+  });
 }
 
 export async function handleFindSnapCodeMessage(ctx: Context): Promise<boolean> {
@@ -78,7 +85,7 @@ export async function handleFindSnapCodeMessage(ctx: Context): Promise<boolean> 
   try {
     await ctx.replyWithPhoto(result.snap.imageUrl, {
       caption: message,
-      reply_markup: buildFindResultKeyboard(viewUrl),
+      reply_markup: buildFindResultKeyboard(viewUrl, result.snap.code),
     });
   } catch (error) {
     console.error(
@@ -86,7 +93,7 @@ export async function handleFindSnapCodeMessage(ctx: Context): Promise<boolean> 
       sanitizeTelegramError(error),
     );
     await ctx.reply(message, {
-      reply_markup: buildFindResultKeyboard(viewUrl),
+      reply_markup: buildFindResultKeyboard(viewUrl, result.snap.code),
     });
   }
 
@@ -94,15 +101,20 @@ export async function handleFindSnapCodeMessage(ctx: Context): Promise<boolean> 
 }
 
 function buildFindRetryKeyboard(): InlineKeyboard {
-  return new InlineKeyboard().text("🔎 Try again", TELEGRAM_CALLBACK.find);
+  const keyboard = new InlineKeyboard().text("🔎 Try again", TELEGRAM_CALLBACK.find);
+  return appendMiniAppFindButton(keyboard);
 }
 
-function buildFindResultKeyboard(viewUrl: string | null): InlineKeyboard {
+function buildFindResultKeyboard(
+  viewUrl: string | null,
+  snapCode: string,
+): InlineKeyboard {
   const keyboard = new InlineKeyboard();
   if (viewUrl) {
     keyboard.url("🔗 View Snap", viewUrl).row();
   }
-  keyboard.text("🔎 Find Another", TELEGRAM_CALLBACK.find);
+  appendMiniAppFindButton(keyboard, snapCode);
+  keyboard.row().text("🔎 Find Another", TELEGRAM_CALLBACK.find);
   return keyboard;
 }
 

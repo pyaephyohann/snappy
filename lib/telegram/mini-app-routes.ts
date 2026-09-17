@@ -11,7 +11,7 @@ export type TelegramMiniAppScreen = keyof typeof TELEGRAM_MINI_APP_ROUTES;
 
 const SCREEN_PARAM = "screen";
 
-/** Maps ?screen=find to a path (deep-link readiness for later milestones). */
+/** @deprecated Use resolveTelegramMiniAppDeepLinkTarget from mini-app-deep-link.ts */
 export function resolveTelegramMiniAppScreenPath(
   pathname: string,
   searchParams: URLSearchParams,

@@ -14,7 +14,9 @@ interface TelegramWebApp {
     user?: TelegramWebAppUser;
     auth_date?: number;
     hash?: string;
+    start_param?: string;
   };
+  openTelegramLink?: (url: string) => void;
   ready: () => void;
   expand: () => void;
   close: () => void;

@@ -14,6 +14,7 @@ import { GlowButton } from "@/components/ui/glow-button";
 import { useTelegramBackButton } from "@/hooks/useTelegramBackButton";
 import { normalizeSnapLookupCode } from "@/lib/snap-code";
 import type { MiniAppFindSnapPayload } from "@/lib/telegram/mini-app-find";
+import TelegramOpenBotLink from "@/components/telegram/TelegramOpenBotLink";
 import { TELEGRAM_MINI_APP_ROUTES } from "@/lib/telegram/mini-app-routes";
 
 type FindPhase =
@@ -174,6 +175,9 @@ export default function TelegramMiniAppFind() {
         <p className="mt-2 text-sm text-muted-foreground">
           Enter the Snap code below.
         </p>
+        <div className="mt-3">
+          <TelegramOpenBotLink label="Find with Bot" variant="find" />
+        </div>
       </header>
 
       {showForm ? (

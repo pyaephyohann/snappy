@@ -32,9 +32,36 @@ Route: **`/telegram/app`** (full URL: `{SNAPPY_PUBLIC_URL}/telegram/app`).
 | `/telegram/app/upload` | Native image upload (Cloudinary sign + session-owned Snap create) |
 | `/telegram/app/profile` | Account info, Snap count, Telegram connect/disconnect, **Open Full Profile** |
 
-Bottom navigation is fixed with `env(safe-area-inset-bottom)`. Nested routes show Telegram **BackButton** (returns to home). Optional deep-link hint: `/telegram/app?screen=find` redirects to the Find tab.
+Bottom navigation is fixed with `env(safe-area-inset-bottom)`. Nested routes show Telegram **BackButton** (returns to home).
 
 PWA install prompt and service worker registration are skipped under `/telegram/app/*`.
+
+### Integration & deep links (T5)
+
+**Canonical HTTPS deep link:**
+
+`{SNAPPY_PUBLIC_URL}/telegram/app?screen=<home|find|upload|profile>&code=<snap-cuid>`
+
+- `code` is optional and only used with `screen=find`. Values are normalized with the same Snap CUID rules as T2/T4.3; invalid codes open the Find form without leaking whether a Snap exists.
+- Example: `https://snapppy.info/telegram/app?screen=find&code=clxyz…`
+
+**Telegram `start_param` (compact, for `startapp` links):**
+
+`find`, `find_<cuid>`, `upload`, `profile`, `home` — parsed client-side for navigation only, never for authentication.
+
+**Bot → Mini App**
+
+- Menu / **📱 Open Snappy** → `/telegram/app` (unchanged).
+- `/find` and successful bot Find results include **📱 Open Find in Snappy** (`web_app` URL with `screen=find`, and `code` when a Snap was found).
+- `/start find` and `/start upload` deep-link into the existing bot flows.
+
+**Mini App → Bot**
+
+- Set `TELEGRAM_BOT_USERNAME` (public handle, no secret).
+- Home shows **Open Snappy Bot**; Find shows **Find with Bot** (`https://t.me/<bot>?start=find`).
+- Uses `Telegram.WebApp.openTelegramLink` when available.
+
+**Home quick actions:** Find / Upload / Profile tiles link to existing Mini App routes (bottom nav unchanged).
 
 ### Session (T4.1 foundation)
 
@@ -139,11 +166,14 @@ npm run test:telegram-find
 npm run test:telegram-upload
 npm run test:telegram-mini-app
 npm run test:telegram-mini-app-home
+npm run test:telegram-mini-app-find
+npm run test:telegram-mini-app-upload
+npm run test:telegram-mini-app-profile
+npm run test:telegram-mini-app-integration
 ```
 
-## Deferred (post T4.2)
+## Deferred (post T5)
 
-- Mini App Find / Upload / full profile screens
 - Telegram MainButton flows
 - Video uploads (until web Snap pipeline supports them)
-- Per-snap public deep links (bot uses `/friends/{username}` like share menu)
+- Per-snap public deep links beyond Find (bot uses `/friends/{username}` like share menu)

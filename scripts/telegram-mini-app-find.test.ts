@@ -91,9 +91,10 @@ test("find route owns Telegram BackButton; shell skips find path", () => {
 });
 
 test("shell screen=find deep link remains supported", () => {
-  const routes = readFileSync(
-    resolve(import.meta.dirname, "../lib/telegram/mini-app-routes.ts"),
+  const deepLink = readFileSync(
+    resolve(import.meta.dirname, "../lib/telegram/mini-app-deep-link.ts"),
     "utf8",
   );
-  assert.match(routes, /screen=find/);
+  assert.match(deepLink, /TELEGRAM_MINI_APP_QUERY\.screen/);
+  assert.match(deepLink, /find/);
 });

@@ -1,4 +1,5 @@
 import { InlineKeyboard } from "grammy";
+import { buildTelegramMiniAppDeepLink } from "./mini-app-deep-link";
 import { buildTelegramMiniAppUrl } from "./mini-app-url";
 import { getSnappyPublicUrl } from "./public-url";
 
@@ -33,4 +34,31 @@ export function buildMainKeyboard(
   }
 
   return keyboard;
+}
+
+export function appendMiniAppFindButton(
+  keyboard: InlineKeyboard,
+  snapCode?: string,
+): InlineKeyboard {
+  const url = buildTelegramMiniAppDeepLink({
+    screen: "find",
+    code: snapCode,
+  });
+  if (url) {
+    keyboard.row().webApp("📱 Open Find in Snappy", url);
+  }
+  return keyboard;
+}
+
+export function buildMiniAppFindEntryKeyboard(
+  snapCode?: string,
+): InlineKeyboard | null {
+  const url = buildTelegramMiniAppDeepLink({
+    screen: "find",
+    code: snapCode,
+  });
+  if (!url) {
+    return null;
+  }
+  return new InlineKeyboard().webApp("📱 Open Find in Snappy", url);
 }

@@ -30,6 +30,17 @@ export const TELEGRAM_BOT_COMMANDS = [
 export function registerTelegramHandlers(bot: Bot): void {
   bot.command("start", async (ctx) => {
     await clearTelegramChatStateForContext(ctx);
+    const payload =
+      ctx.message?.text?.split(/\s+/).slice(1).join(" ").trim().toLowerCase() ??
+      "";
+    if (payload === "find") {
+      await beginFindSnapFlow(ctx);
+      return;
+    }
+    if (payload === "upload") {
+      await beginUploadSnapFlow(ctx);
+      return;
+    }
     await replyWithMainKeyboard(ctx, START_MESSAGE);
   });
 
