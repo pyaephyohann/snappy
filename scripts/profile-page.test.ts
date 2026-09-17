@@ -48,11 +48,15 @@ test("profile page has no standalone premium upload section", () => {
   assert.doesNotMatch(ui, /type=\"file\"/);
 });
 
-test("gallery choice lives in snap picker and links to payment when locked", () => {
+test("gallery choice in snap picker only navigates to payment", () => {
   const picker = read("components/profile/ProfileSnapPicker.tsx");
-  assert.match(picker, /Choose from gallery/i);
+  assert.match(picker, /Upload from Gallery/i);
   assert.match(picker, /\/profile\/payment\?feature=profile-photo/);
-  assert.match(picker, /\/api\/profile\/profile-photo\/gallery/);
+  // Zero gallery interaction before payment: no file input, no upload call.
+  assert.doesNotMatch(picker, /type="file"/);
+  assert.doesNotMatch(picker, /inputRef/);
+  assert.doesNotMatch(picker, /uploadImageFileToCloudinary/);
+  assert.doesNotMatch(picker, /\/api\/profile\/profile-photo\/gallery/);
 });
 
 test("profile photo gallery unlock is enforced server-side", () => {

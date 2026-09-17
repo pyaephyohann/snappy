@@ -1,60 +1,23 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
 import Modal from "@/components/admin/Modal";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatAdminDate } from "@/lib/admin-types";
-import {
-  SNAP_UPLOAD_ACCEPT,
-  uploadImageFileToCloudinary,
-} from "@/lib/snap-upload-client";
 
 const PROFILE_PHOTO_PAYMENT_HREF =
   "/profile/payment?feature=profile-photo";
 
 function ChooseFromGalleryAction({
   disabled,
-  galleryUploadUnlocked,
-  onPickFile,
 }: {
   disabled?: boolean;
-  galleryUploadUnlocked: boolean;
-  onPickFile: (file: File) => void;
 }) {
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  if (galleryUploadUnlocked) {
-    return (
-      <>
-        <input
-          ref={inputRef}
-          type="file"
-          accept={SNAP_UPLOAD_ACCEPT}
-          className="sr-only"
-          disabled={disabled}
-          onChange={(event) => {
-            const file = event.target.files?.[0];
-            event.target.value = "";
-            if (file) {
-              onPickFile(file);
-            }
-          }}
-        />
-        <button
-          type="button"
-          disabled={disabled}
-          onClick={() => inputRef.current?.click()}
-          className="min-h-[44px] w-full rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-medium text-foreground hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          Choose from gallery
-        </button>
-      </>
-    );
-  }
-
+  // Paid-feature entry point ONLY — navigates to the payment page.
+  // Never opens a file picker / gallery before payment.
   return (
     <Link
       href={PROFILE_PHOTO_PAYMENT_HREF}
@@ -81,7 +44,6 @@ export type ProfilePhotoSnap = {
 interface ProfileSnapPickerProps {
   currentProfileImage: string;
   currentProfileImageSnapId: string | null;
-  galleryUploadUnlocked: boolean;
   onClose: () => void;
   onSaved: (payload: {
     profileImage: string;
@@ -217,8 +179,6 @@ function PickerBody(props: {
   profileImage: string | null;
   saving: boolean;
   hasChanges: boolean;
-  galleryUploadUnlocked: boolean;
-  onGalleryFile: (file: File) => void;
   onSelect: (id: string) => void;
   onCancel: () => void;
   onSave: () => void;
@@ -231,8 +191,6 @@ function PickerBody(props: {
     profileImage,
     saving,
     hasChanges,
-    galleryUploadUnlocked,
-    onGalleryFile,
     onSelect,
     onCancel,
     onSave,
@@ -240,11 +198,7 @@ function PickerBody(props: {
 
   return (
     <div className="space-y-4">
-      <ChooseFromGalleryAction
-        disabled={saving}
-        galleryUploadUnlocked={galleryUploadUnlocked}
-        onPickFile={onGalleryFile}
-      />
+      <ChooseFromGalleryAction disabled={saving} />
 
       <div>
         <h3 className="text-sm font-semibold text-foreground">
@@ -293,7 +247,6 @@ function PickerBody(props: {
 export default function ProfileSnapPicker({
   currentProfileImage,
   currentProfileImageSnapId,
-  galleryUploadUnlocked,
   onClose,
   onSaved,
 }: ProfileSnapPickerProps) {
@@ -305,7 +258,6 @@ export default function ProfileSnapPicker({
   const [selectedSnapId, setSelectedSnapId] = useState<string | null>(
     currentProfileImageSnapId,
   );
-  const [galleryUnlocked, setGalleryUnlocked] = useState(galleryUploadUnlocked);
 
   useEffect(() => {
     let cancelled = false;
@@ -325,7 +277,6 @@ export default function ProfileSnapPicker({
             profileImageSnapId: string | null;
           };
           snaps?: ProfilePhotoSnap[];
-          galleryUploadUnlocked?: boolean;
         };
 
         if (cancelled) return;
@@ -340,9 +291,6 @@ export default function ProfileSnapPicker({
         setSelectedSnapId(
           result.user?.profileImageSnapId ?? currentProfileImageSnapId,
         );
-        if (typeof result.galleryUploadUnlocked === "boolean") {
-          setGalleryUnlocked(result.galleryUploadUnlocked);
-        }
       } catch (loadError) {
         if (cancelled) return;
         setError(
@@ -374,54 +322,6 @@ export default function ProfileSnapPicker({
     selectedSnap !== null &&
     (selectedSnap.id !== currentProfileImageSnapId ||
       selectedSnap.imageUrl !== currentProfileImage);
-
-  const handleGalleryFile = async (file: File) => {
-    if (saving) return;
-
-    setSaving(true);
-    setError(null);
-
-    try {
-      const uploaded = await uploadImageFileToCloudinary(file);
-      const response = await fetch("/api/profile/profile-photo/gallery", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          imageUrl: uploaded.imageUrl,
-          publicId: uploaded.publicId,
-        }),
-      });
-
-      const result = (await response.json()) as {
-        error?: string;
-        profileImage?: string;
-        profileImageSnapId?: string;
-      };
-
-      if (
-        !response.ok ||
-        !result.profileImage ||
-        !result.profileImageSnapId
-      ) {
-        throw new Error(result.error ?? "Failed to update profile photo");
-      }
-
-      onSaved({
-        profileImage: result.profileImage,
-        profileImageSnapId: result.profileImageSnapId,
-      });
-      onClose();
-    } catch (galleryError) {
-      setError(
-        galleryError instanceof Error
-          ? galleryError.message
-          : "Failed to upload from gallery",
-      );
-    } finally {
-      setSaving(false);
-    }
-  };
 
   const handleSave = async () => {
     if (!selectedSnapId || saving) return;
@@ -472,8 +372,6 @@ export default function ProfileSnapPicker({
       profileImage={profileImage}
       saving={saving}
       hasChanges={hasChanges}
-      galleryUploadUnlocked={galleryUnlocked}
-      onGalleryFile={(file) => void handleGalleryFile(file)}
       onSelect={setSelectedSnapId}
       onCancel={() => {
         if (!saving) onClose();

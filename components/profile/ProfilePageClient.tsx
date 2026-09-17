@@ -44,7 +44,6 @@ export default function ProfilePageClient({
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [formSuccess, setFormSuccess] = useState<string | null>(null);
-  const galleryUnlocked = initial.profilePhotoGalleryUnlocked;
 
   const savedName = name.trim() !== initial.name ? name.trim() : undefined;
   const trimmedPasscode = passcode.trim();
@@ -324,7 +323,6 @@ export default function ProfilePageClient({
         <ProfileSnapPicker
           currentProfileImage={profileImage}
           currentProfileImageSnapId={profileImageSnapId}
-          galleryUploadUnlocked={galleryUnlocked}
           onClose={() => setPickerOpen(false)}
           onSaved={({
             profileImage: nextImage,
