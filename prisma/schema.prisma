@@ -145,3 +145,12 @@ model PushSubscription {
   @@index([deviceId])
   @@map("push_subscriptions")
 }
+
+/// Serverless-safe Telegram conversation flags (e.g. awaiting Snap code after /find).
+model TelegramChatState {
+  chatId       String   @id
+  awaitingMode String?
+  updatedAt    DateTime @updatedAt
+
+  @@map("telegram_chat_states")
+}

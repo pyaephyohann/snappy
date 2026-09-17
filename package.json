@@ -10,7 +10,8 @@
     "test:auth": "node --import tsx --test scripts/auth-logic.test.ts",
     "seed": "tsx prisma/seed.ts",
     "telegram:setup": "tsx scripts/setup-telegram-webhook.ts",
-    "telegram:dev": "tsx scripts/telegram-dev.ts"
+    "telegram:dev": "tsx scripts/telegram-dev.ts",
+    "test:telegram-find": "node --import tsx --test scripts/telegram-find-snap.test.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.7.1",
