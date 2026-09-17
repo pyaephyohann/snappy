@@ -219,10 +219,11 @@ export default function NavbarDesktopFriendSearch() {
             void loadFriends();
           }}
           onKeyDown={onInputKeyDown}
-          className="h-10 w-full rounded-full border border-border/80 bg-background/95 py-2 text-center text-sm text-foreground shadow-sm transition-[border-color,box-shadow,background-color] duration-200 placeholder:text-center placeholder:text-muted-foreground/80 hover:border-border hover:bg-background hover:shadow-md focus-visible:border-primary/35 focus-visible:bg-background focus-visible:outline-none focus-visible:shadow-md focus-visible:ring-2 focus-visible:ring-primary/15"
+          className="h-10 w-full appearance-none rounded-full border border-border/80 bg-background/95 py-2 text-center text-sm text-foreground shadow-sm transition-[border-color,box-shadow,background-color] duration-200 placeholder:text-center placeholder:text-muted-foreground/80 hover:border-border hover:bg-background hover:shadow-md focus-visible:border-primary/35 focus-visible:bg-background focus-visible:outline-none focus-visible:shadow-md focus-visible:ring-2 focus-visible:ring-primary/15 [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden"
           style={{
             paddingLeft: SEARCH_INPUT_SIDE_INSET,
             paddingRight: SEARCH_INPUT_SIDE_INSET,
+            borderRadius: "9999px",
           }}
         />
         {showShortcutBadge ? (
