@@ -48,6 +48,11 @@ interface HeroCarouselProps {
   onActiveSlideIndexChange?: (index: number) => void;
   /** Defaults to true when uncontrolled; payment flows typically pass false. */
   autoPlay?: boolean;
+  /**
+   * Image container ratio/fit. "banner" (default) is the wide home hero crop;
+   * "payment" is a 4:3 box with object-contain so full payment images show.
+   */
+  variant?: "banner" | "payment";
 }
 
 const AUTO_PLAY_MS = 5000;
@@ -117,6 +122,7 @@ export default function HeroCarousel({
   activeSlideIndex,
   onActiveSlideIndexChange,
   autoPlay = activeSlideIndex === undefined,
+  variant = "banner",
 }: HeroCarouselProps) {
   const [[currentIndex, direction], setSlide] = useState([0, 0]);
   const isControlled = activeSlideIndex !== undefined;
@@ -226,7 +232,13 @@ export default function HeroCarousel({
           onMouseEnter={() => setIsPaused(true)}
           onMouseLeave={() => setIsPaused(false)}
         >
-          <div className="relative w-full aspect-[16/9] sm:aspect-[21/8] md:aspect-[21/7] min-h-[180px] sm:min-h-[220px] md:min-h-[260px] overflow-hidden">
+          <div
+            className={`relative w-full overflow-hidden ${
+              variant === "payment"
+                ? "aspect-[4/3]"
+                : "aspect-[16/9] sm:aspect-[21/8] md:aspect-[21/7] min-h-[180px] sm:min-h-[220px] md:min-h-[260px]"
+            }`}
+          >
             <AnimatePresence initial={false} custom={isControlled ? undefined : direction}>
               <motion.div
                 key={current.id}
@@ -242,7 +254,9 @@ export default function HeroCarousel({
                   src={current.image}
                   alt={current.alt}
                   fill
-                  className="object-cover"
+                  className={
+                    variant === "payment" ? "object-contain" : "object-cover"
+                  }
                   sizes="(max-width: 768px) 100vw, (max-width: 1280px) 90vw, 1280px"
                   priority={activeIndex === 0}
                 />

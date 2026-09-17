@@ -42,6 +42,7 @@ export default function PremiumFeaturePaymentClient() {
           setSelectedPaymentMethod(paymentMethodIdForSlideIndex(index));
         }}
         autoPlay={false}
+        variant="payment"
       />
 
       <section aria-label="Choose payment method">
