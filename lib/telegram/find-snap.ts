@@ -30,13 +30,6 @@ export async function beginFindSnapFlow(ctx: Context): Promise<void> {
   await ctx.reply(FIND_PROMPT_MESSAGE);
 }
 
-export async function clearFindSnapFlow(chatId: string | null): Promise<void> {
-  if (!chatId) {
-    return;
-  }
-  await clearTelegramChatState(chatId);
-}
-
 export async function handleFindSnapCodeMessage(ctx: Context): Promise<boolean> {
   const chatId = getChatId(ctx);
   const text = ctx.message?.text;

@@ -14,7 +14,7 @@ export const HELP_MESSAGE = [
   "",
   "/start — Introduction and shortcuts",
   "/find — Find a Snap by its Snap code",
-  "/upload — Upload a Snap (coming soon)",
+  "/upload — Upload a photo Snap",
   "/help — Show this message",
   "",
   "Use the buttons below, or open Snappy on the web.",
@@ -66,11 +66,44 @@ export function formatFindFoundMessage(options: {
   return lines.join("\n");
 }
 
-export const UPLOAD_MESSAGE = [
-  "📤 Upload Snap",
+export const UPLOAD_NOT_LINKED_MESSAGE = [
+  "📤 Upload a Snap",
   "",
-  "Snap uploads through Telegram will be available here soon.",
+  "Before you can upload from Telegram, connect your Snappy account.",
 ].join("\n");
+
+export const UPLOAD_LINK_REQUIRED_MESSAGE =
+  "Your Telegram account is not connected to Snappy. Send /upload to connect.";
+
+export const UPLOAD_PROMPT_MESSAGE = [
+  "📤 Upload a Snap",
+  "",
+  "Send me a photo.",
+].join("\n");
+
+export const UPLOAD_SUCCESS_MESSAGE = [
+  "✅ Snap uploaded!",
+  "",
+  "Your Snap is now on Snappy.",
+].join("\n");
+
+export const UPLOAD_UNSUPPORTED_MEDIA_MESSAGE =
+  "Please send a photo. Snappy currently supports images up to 10 MB through Telegram.";
+
+export const UPLOAD_MEDIA_TOO_LARGE_MESSAGE =
+  "That image is too large. Please send a photo under 10 MB.";
+
+export const UPLOAD_MEDIA_INVALID_MESSAGE =
+  "That file doesn't look like a supported image. Please send a JPEG, PNG, WebP, or GIF.";
+
+export const UPLOAD_RATE_LIMIT_MESSAGE =
+  "You've uploaded several Snaps recently. Please wait a bit before uploading again.";
+
+export const UPLOAD_LOOKUP_ERROR_MESSAGE =
+  "Something went wrong during upload. Please try again in a moment.";
+
+export const UPLOAD_AWAITING_PHOTO_MESSAGE =
+  "I'm waiting for a photo. Send an image, or /upload to start over.";
 
 export const UNKNOWN_COMMAND_MESSAGE =
   "Unknown command. Send /help to see what I can do.";

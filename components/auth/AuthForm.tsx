@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -24,6 +24,8 @@ export default function AuthForm() {
   const [authError, setAuthError] = useState<string | null>(null);
   const isSubmittingRef = useRef(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const returnTo = searchParams.get("returnTo");
 
   const {
     register,
@@ -51,7 +53,15 @@ export default function AuthForm() {
 
         if (response.ok) {
           const result = (await response.json()) as { redirectTo?: string };
-          const redirectUrl = result.redirectTo || "/home";
+          const safeReturn =
+            returnTo &&
+            returnTo.startsWith("/") &&
+            !returnTo.startsWith("//") &&
+            !returnTo.includes("://")
+              ? returnTo
+              : null;
+          const redirectUrl =
+            safeReturn || result.redirectTo || "/home";
           router.push(redirectUrl);
         } else if (response.status === 401) {
           setAuthError("Invalid passcode.");
@@ -67,7 +77,7 @@ export default function AuthForm() {
         setIsSubmitting(false);
       }
     },
-    [router],
+    [router, returnTo],
   );
 
   return (

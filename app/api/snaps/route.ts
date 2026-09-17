@@ -2,7 +2,7 @@ import { after } from 'next/server';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { requireSession } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
+import { createSnapForUser } from '@/lib/snap-create-service';
 import { broadcastNewSnap } from '@/lib/notifications/notification-service';
 
 const createSnapSchema = z.object({
@@ -12,46 +12,8 @@ const createSnapSchema = z.object({
   caption: z.string().max(500, 'Caption must be less than 500 characters').optional(),
 });
 
-const CLOUDINARY_DOMAIN = 'res.cloudinary.com';
-const CLOUDINARY_FOLDER = 'snappy/snaps/';
-
-function validateCloudinaryUrl(url: string): boolean {
-  try {
-    const urlObj = new URL(url);
-    
-    // Must be HTTPS
-    if (urlObj.protocol !== 'https:') {
-      return false;
-    }
-    
-    // Must belong to Cloudinary domain
-    if (urlObj.hostname !== CLOUDINARY_DOMAIN) {
-      return false;
-    }
-    
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-function validateCloudinaryPublicId(publicId: string): boolean {
-  // Must be non-empty
-  if (!publicId || publicId.trim().length === 0) {
-    return false;
-  }
-  
-  // Must belong to expected folder
-  if (!publicId.startsWith(CLOUDINARY_FOLDER)) {
-    return false;
-  }
-  
-  return true;
-}
-
 export async function POST(request: NextRequest) {
   try {
-    // Authenticate the request
     const session = await requireSession();
     
     if (!session || !session.authenticated) {
@@ -61,7 +23,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Parse and validate request body
     const body = await request.json();
     const validationResult = createSnapSchema.safeParse(body);
     
@@ -74,69 +35,47 @@ export async function POST(request: NextRequest) {
 
     const { targetUserId, imageUrl, publicId, caption } = validationResult.data;
 
-    // Normalize empty caption to null
-    const normalizedCaption = caption && caption.trim().length > 0 ? caption.trim() : null;
+    const result = await createSnapForUser({
+      targetUserId,
+      imageUrl,
+      publicId,
+      caption,
+    });
 
-    // Validate Cloudinary URL
-    if (!validateCloudinaryUrl(imageUrl)) {
+    if (!result.ok) {
+      if (result.error === 'target_not_found') {
+        return NextResponse.json(
+          { error: 'Target user not found' },
+          { status: 404 }
+        );
+      }
       return NextResponse.json(
-        { error: 'Invalid image URL' },
+        { error: 'Invalid request data' },
         { status: 400 }
       );
     }
-
-    // Validate Cloudinary public ID
-    if (!validateCloudinaryPublicId(publicId)) {
-      return NextResponse.json(
-        { error: 'Invalid public ID' },
-        { status: 400 }
-      );
-    }
-
-    // Verify target user exists
-    const targetUser = await prisma.user.findUnique({
-      where: { id: targetUserId },
-    });
-
-    if (!targetUser) {
-      return NextResponse.json(
-        { error: 'Target user not found' },
-        { status: 404 }
-      );
-    }
-
-    // Create Snap - belongs to target user, not logged-in user
-    const snap = await prisma.snap.create({
-      data: {
-        userId: targetUserId, // Snap belongs to target user
-        imageUrl,
-        publicId,
-        caption: normalizedCaption,
-      },
-    });
 
     after(async () => {
       try {
         await broadcastNewSnap({
-          snapId: snap.id,
-          profileOwnerName: targetUser.name,
+          snapId: result.snap.id,
+          profileOwnerName: result.ownerName,
         });
       } catch (notifyError) {
         console.error('Snap notification error:', notifyError);
       }
     });
 
-    // Return safe response
     return NextResponse.json(
       { 
         snap: {
-          id: snap.id,
-          imageUrl: snap.imageUrl,
-          publicId: snap.publicId,
-          caption: snap.caption,
-          userId: snap.userId,
-          createdAt: snap.createdAt,
-          updatedAt: snap.updatedAt,
+          id: result.snap.id,
+          imageUrl: result.snap.imageUrl,
+          publicId: result.snap.publicId,
+          caption: result.snap.caption,
+          userId: result.snap.userId,
+          createdAt: result.snap.createdAt,
+          updatedAt: result.snap.updatedAt,
         }
       },
       { status: 201 }

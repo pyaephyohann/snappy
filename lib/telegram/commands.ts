@@ -6,31 +6,35 @@ import {
 } from "./keyboards";
 import {
   beginFindSnapFlow,
-  clearFindSnapFlow,
   handleFindSnapCodeMessage,
 } from "./find-snap";
+import { clearTelegramChatState } from "./chat-state";
+import {
+  beginUploadSnapFlow,
+  handleTelegramPhotoMessage,
+  handleAwaitingUploadNonPhotoMessage,
+} from "./upload-snap";
 import {
   HELP_MESSAGE,
   START_MESSAGE,
   UNKNOWN_COMMAND_MESSAGE,
-  UPLOAD_MESSAGE,
 } from "./messages";
 
 export const TELEGRAM_BOT_COMMANDS = [
   { command: "start", description: "Introduce Snappy" },
   { command: "help", description: "Show available commands" },
   { command: "find", description: "Find a Snap by code" },
-  { command: "upload", description: "Upload a Snap (coming soon)" },
+  { command: "upload", description: "Upload a photo Snap" },
 ] as const;
 
 export function registerTelegramHandlers(bot: Bot): void {
   bot.command("start", async (ctx) => {
-    await clearFindSnapFlow(getChatId(ctx));
+    await clearTelegramChatStateForContext(ctx);
     await replyWithMainKeyboard(ctx, START_MESSAGE);
   });
 
   bot.command("help", async (ctx) => {
-    await clearFindSnapFlow(getChatId(ctx));
+    await clearTelegramChatStateForContext(ctx);
     await replyWithMainKeyboard(ctx, HELP_MESSAGE);
   });
 
@@ -39,8 +43,7 @@ export function registerTelegramHandlers(bot: Bot): void {
   });
 
   bot.command("upload", async (ctx) => {
-    await clearFindSnapFlow(getChatId(ctx));
-    await ctx.reply(UPLOAD_MESSAGE);
+    await beginUploadSnapFlow(ctx);
   });
 
   bot.callbackQuery(TELEGRAM_CALLBACK.find, async (ctx) => {
@@ -50,8 +53,7 @@ export function registerTelegramHandlers(bot: Bot): void {
 
   bot.callbackQuery(TELEGRAM_CALLBACK.upload, async (ctx) => {
     await ctx.answerCallbackQuery();
-    await clearFindSnapFlow(getChatId(ctx));
-    await ctx.reply(UPLOAD_MESSAGE);
+    await beginUploadSnapFlow(ctx);
   });
 
   bot.on("callback_query:data", async (ctx) => {
@@ -62,9 +64,25 @@ export function registerTelegramHandlers(bot: Bot): void {
     await ctx.answerCallbackQuery({ text: "Unknown action" });
   });
 
-  bot.on("message:text", async (ctx) => {
-    const handled = await handleFindSnapCodeMessage(ctx);
+  bot.on("message:photo", async (ctx) => {
+    const handled = await handleTelegramPhotoMessage(ctx);
     if (handled) {
+      return;
+    }
+  });
+
+  bot.on(["message:video", "message:document", "message:animation"], async (ctx) => {
+    await handleAwaitingUploadNonPhotoMessage(ctx);
+  });
+
+  bot.on("message:text", async (ctx) => {
+    const handledFind = await handleFindSnapCodeMessage(ctx);
+    if (handledFind) {
+      return;
+    }
+
+    const handledUploadHint = await handleAwaitingUploadNonPhotoMessage(ctx);
+    if (handledUploadHint) {
       return;
     }
 
@@ -72,13 +90,20 @@ export function registerTelegramHandlers(bot: Bot): void {
     if (!text.startsWith("/")) {
       return;
     }
-    await clearFindSnapFlow(getChatId(ctx));
+    await clearTelegramChatStateForContext(ctx);
     await ctx.reply(UNKNOWN_COMMAND_MESSAGE);
   });
 }
 
 function replyWithMainKeyboard(ctx: Context, text: string) {
   return ctx.reply(text, { reply_markup: buildMainKeyboard() });
+}
+
+async function clearTelegramChatStateForContext(ctx: Context): Promise<void> {
+  const chatId = getChatId(ctx);
+  if (chatId) {
+    await clearTelegramChatState(chatId);
+  }
 }
 
 function getChatId(ctx: Context): string | null {

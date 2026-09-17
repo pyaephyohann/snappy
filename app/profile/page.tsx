@@ -2,6 +2,8 @@ import { redirect } from "next/navigation";
 import Image from "next/image";
 import Navbar from "@/components/layout/Navbar";
 import ProfileLogoutButton from "@/components/profile/ProfileLogoutButton";
+import TelegramDisconnectButton from "@/components/profile/TelegramDisconnectButton";
+import { getLinkedAccountByUserId } from "@/lib/telegram/account";
 import { getAuthenticatedAppUser } from "@/lib/auth";
 import { resolveProfileImageUrl } from "@/lib/user-profile";
 import { formatAdminDate } from "@/lib/admin-types";
@@ -16,6 +18,7 @@ export default async function ProfilePage() {
     user.profileImage,
     user.profileImageSnap?.imageUrl,
   );
+  const telegramLink = await getLinkedAccountByUserId(user.id);
 
   return (
     <div className="min-h-screen bg-background">
@@ -56,7 +59,23 @@ export default async function ProfilePage() {
               <dt className="text-muted-foreground">Account</dt>
               <dd className="font-medium text-foreground">Active</dd>
             </div>
+            <div className="flex items-center justify-between gap-4">
+              <dt className="text-muted-foreground">Telegram</dt>
+              <dd className="font-medium text-foreground">
+                {telegramLink
+                  ? telegramLink.telegramUsername
+                    ? `@${telegramLink.telegramUsername}`
+                    : "Connected"
+                  : "Not connected"}
+              </dd>
+            </div>
           </dl>
+
+          {telegramLink ? (
+            <div className="mt-6 border-t border-border pt-6">
+              <TelegramDisconnectButton />
+            </div>
+          ) : null}
 
           <div className="mt-8 flex justify-center">
             <ProfileLogoutButton />

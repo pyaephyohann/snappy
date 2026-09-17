@@ -1,9 +1,10 @@
 # Snappy Telegram bot
 
-Telegram talks to the existing Next.js app over a webhook. The bot uses the same PostgreSQL database and Snap model as the web app.
+Telegram talks to the existing Next.js app over a webhook. The bot uses the same PostgreSQL database, Cloudinary pipeline, and Snap model as the web app.
 
 ```
-Telegram → POST /api/telegram/webhook → lib/telegram → lib/snap-lookup → Prisma
+Telegram → POST /api/telegram/webhook → lib/telegram → lib/snap-* / Prisma
+Web link  → /telegram/connect → POST /api/telegram/link (Snappy session)
 ```
 
 ## Supported commands
@@ -11,105 +12,75 @@ Telegram → POST /api/telegram/webhook → lib/telegram → lib/snap-lookup →
 | Command | Behavior |
 | --- | --- |
 | `/start` | Welcome message plus Find / Upload / Open Snappy buttons |
-| `/help` | Lists commands (clears any in-progress find flow) |
+| `/help` | Lists commands; clears conversation state |
 | `/find` | Prompts for a Snap code, then looks up the Snap |
-| `/upload` | Placeholder: Telegram uploads are not implemented yet |
+| `/upload` | Connect Snappy (if needed), then upload a photo Snap |
 
-The **Find Snap** inline button starts the same flow as `/find`.
+## Account linking (explicit)
 
-## Snap codes
+Telegram identity is **`from.id`** (numeric Telegram user ID) from verified webhook updates — never from user-typed text. Usernames are stored for display only and can change.
 
-Snappy’s Snap code is the existing **`Snap.id`** value (Prisma `cuid()`), the same identifier used by Snappy API routes and admin tools. There is no separate `SNAP-…` format.
+1. User sends `/upload` without a link.
+2. Bot creates a **single-use, short-lived** row in `telegram_link_challenges` and sends **Connect Snappy** → `{SNAPPY_PUBLIC_URL}/telegram/connect?token=…`.
+3. User signs in with the **existing Snappy passcode** flow (`/login?returnTo=…`).
+4. User confirms on `/telegram/connect`; the server calls `POST /api/telegram/link` with the token.
+5. A row in `telegram_accounts` links `telegramUserId` ↔ `userId` (both unique).
 
-## Find flow and conversation state
+No automatic matching by Telegram username. No bot token in URLs. Expired or reused tokens are rejected.
 
-1. User sends `/find` (or taps **Find Snap**).
-2. Bot asks for the Snap code.
-3. User sends the code in the next message.
-4. Bot replies with a preview (when possible), creator, date, and **View Snap** / **Find Another**.
+**Disconnect:** Profile → **Disconnect Telegram** (authenticated web action only).
 
-Because Snappy runs on serverless Vercel, find mode is stored in PostgreSQL (`telegram_chat_states`), not in memory or Redis. Rows expire after 15 minutes of inactivity. Sending `/start`, `/help`, or `/upload` clears find mode so users are not stuck waiting.
+## Upload flow
 
-## View Snap URL
+1. Linked user sends `/upload`.
+2. Bot sets `telegram_chat_states.awaitingMode = upload_snap` (15-minute TTL).
+3. User sends a **photo** (largest Telegram size).
+4. Server downloads via **Telegram Bot API** (`getFile` + official file URL), validates bytes (max **10 MB**, JPEG/PNG/WebP/GIF — same as web uploader), uploads through **`lib/cloudinary-server-upload`**, creates a Snap via **`lib/snap-create-service`** owned by the linked user.
+5. Success message with **View Snap** (friend profile URL) and **Upload Another**.
 
-**View Snap** opens the same destination as in-app sharing: the friend profile path `/friends/{username}` on your configured HTTPS origin (`SNAPPY_PUBLIC_URL` or Vercel production host). Snappy still requires login in the browser; the bot does not bypass session middleware.
+**Not supported on Telegram yet:** video and documents (web uploader is images only).
 
-## Privacy
+**Rate limit:** max **10 Telegram uploads per hour** per `telegramUserId` (`telegram_upload_logs`). Web uploads are unaffected.
 
-Telegram find uses the same discoverability rule as the in-app friend profile: the Snap must exist, the owner must be **active** (`User.isActive`), and preview images must be HTTPS Cloudinary URLs already stored on the Snap. Inactive owners or invalid image hosts are treated as **not found** (no metadata leak).
+## Find flow (T2)
 
-## Deferred to later milestones
+Snap code = existing **`Snap.id`** (cuid). State: `find_snap` in `telegram_chat_states`.
 
-- Telegram ↔ Snappy account linking
-- Telegram upload from `/upload` (Cloudinary + Prisma)
-- Per-snap deep links (if the web app adds them)
-- Notifications or other product features through Telegram
+## Conversation state
+
+Modes: `find_snap`, `upload_snap` in PostgreSQL (`telegram_chat_states`). `/start`, `/help`, and unknown commands clear state. `/find` and `/upload` switch modes. States expire after 15 minutes.
 
 ## Environment variables
 
-Set these on the server only (Vercel project env, `.env.local`). Do not prefix them with `NEXT_PUBLIC_`.
+Server-only (never `NEXT_PUBLIC_` for secrets):
 
-| Variable | Required | Purpose |
-| --- | --- | --- |
-| `TELEGRAM_BOT_TOKEN` | Yes | Bot token from BotFather |
-| `TELEGRAM_WEBHOOK_SECRET` | Yes for production webhook | 1–256 chars matching `[A-Za-z0-9_-]`. Sent as Telegram `secret_token` and checked on every webhook request |
-| `SNAPPY_PUBLIC_URL` | Recommended | HTTPS origin for **Open Snappy** and **View Snap**, e.g. `https://your-snappy-domain`. If unset, production uses Vercel’s `VERCEL_PROJECT_PRODUCTION_URL` when present. No domain is invented. |
-| `TELEGRAM_WEBHOOK_URL` | Optional | Full webhook URL. Defaults to `${SNAPPY_PUBLIC_URL}/api/telegram/webhook` |
-| `DATABASE_URL` | Yes | Must include the `telegram_chat_states` table (run Prisma migrations after deploy) |
+| Variable | Purpose |
+| --- | --- |
+| `TELEGRAM_BOT_TOKEN` | Bot API |
+| `TELEGRAM_WEBHOOK_SECRET` | Webhook validation |
+| `SNAPPY_PUBLIC_URL` | Connect + View Snap buttons |
+| `DATABASE_URL` | Includes telegram_* tables |
+| Cloudinary vars | Same as web uploads |
 
-## Database migration
+## Migrations
 
-After deploying T2, apply migrations so find mode can persist:
+After deploy:
 
 ```bash
 npx prisma migrate deploy
 ```
 
-## Create the bot
-
-1. Open Telegram and message [@BotFather](https://t.me/BotFather).
-2. Run `/newbot` and follow the prompts.
-3. Copy the bot token into `TELEGRAM_BOT_TOKEN`. Never commit it.
-4. Optionally run `/setcommands`:
-
-```
-start - Introduce Snappy
-help - Show available commands
-find - Find a Snap by code
-upload - Upload a Snap (coming soon)
-```
-
-5. Generate a webhook secret (example: `openssl rand -hex 32`) and set `TELEGRAM_WEBHOOK_SECRET`.
-
-## Production webhook
-
-Snappy is a Vercel web app, so Telegram delivers updates to:
-
-```
-https://<your-snappy-host>/api/telegram/webhook
-```
-
-1. Deploy with env vars set in Vercel.
-2. Run `npx prisma migrate deploy` against production `DATABASE_URL`.
-3. From a machine that has the Telegram env vars:
-
-```bash
-npm run telegram:setup
-```
-
-## Local testing
-
-```bash
-npm run test:telegram-find
-npm run telegram:dev   # requires TELEGRAM_BOT_TOKEN in .env.local
-```
-
-Then try `/find`, paste a real Snap `id`, and confirm `/help` still works while waiting for a code.
+Required migrations: `telegram_chat_states`, `telegram_accounts`, `telegram_link_challenges`, `telegram_upload_logs`.
 
 ## Tests
 
 ```bash
 npm run test:telegram-find
+npm run test:telegram-upload
 ```
 
-Covers Snap code normalization, privacy helpers, URL building, and message formatting.
+## Deferred
+
+- Telegram Mini App
+- Video uploads (until web Snap pipeline supports them)
+- Per-snap public deep links (bot uses `/friends/{username}` like share menu)
