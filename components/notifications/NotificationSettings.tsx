@@ -6,6 +6,7 @@ import {
   getExistingSubscription,
   getPushSupportStatus,
   subscribeToWebPush,
+  syncExistingPushSubscriptionToServer,
   unsubscribeFromWebPush,
 } from "@/lib/push-client";
 
@@ -53,6 +54,9 @@ export default function NotificationSettings() {
       }
 
       const subscription = await getExistingSubscription();
+      if (subscription) {
+        await syncExistingPushSubscriptionToServer();
+      }
       if (!cancelled) {
         setUiState(subscription ? "enabled" : "disabled");
       }

@@ -38,6 +38,64 @@ export async function getExistingSubscription(): Promise<PushSubscription | null
   return registration.pushManager.getSubscription();
 }
 
+async function savePushSubscriptionToServer(
+  subscription: PushSubscription,
+): Promise<boolean> {
+  const json = subscription.toJSON();
+  if (!json.endpoint || !json.keys?.p256dh || !json.keys?.auth) {
+    return false;
+  }
+
+  const deviceId = getOrCreateDeviceId();
+
+  const saveResponse = await fetch("/api/notifications/subscribe", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      deviceId,
+      endpoint: json.endpoint,
+      keys: {
+        p256dh: json.keys.p256dh,
+        auth: json.keys.auth,
+      },
+    }),
+  });
+
+  return saveResponse.ok;
+}
+
+/** Upserts an existing browser subscription on the server (idempotent by endpoint). */
+export async function syncExistingPushSubscriptionToServer(): Promise<boolean> {
+  if (getPushSupportStatus() === "unsupported") {
+    return false;
+  }
+
+  if (
+    typeof Notification !== "undefined" &&
+    Notification.permission !== "granted"
+  ) {
+    return false;
+  }
+
+  try {
+    const subscription = await getExistingSubscription();
+    if (!subscription) {
+      return false;
+    }
+
+    const saved = await savePushSubscriptionToServer(subscription);
+    if (!saved) {
+      console.error(
+        "[Web Push] Failed to sync existing subscription with the server.",
+      );
+    }
+    return saved;
+  } catch (error) {
+    console.error("[Web Push] Subscription sync error:", error);
+    return false;
+  }
+}
+
 export async function subscribeToWebPush(): Promise<
   "granted" | "denied" | "default" | "error" | "missing-vapid"
 > {
@@ -68,27 +126,8 @@ export async function subscribeToWebPush(): Promise<
     ) as unknown as BufferSource,
   });
 
-  const json = subscription.toJSON();
-  if (!json.endpoint || !json.keys?.p256dh || !json.keys?.auth) {
-    return "error";
-  }
-
-  const deviceId = getOrCreateDeviceId();
-
-  const saveResponse = await fetch("/api/notifications/subscribe", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      deviceId,
-      endpoint: json.endpoint,
-      keys: {
-        p256dh: json.keys.p256dh,
-        auth: json.keys.auth,
-      },
-    }),
-  });
-
-  if (!saveResponse.ok) {
+  const saved = await savePushSubscriptionToServer(subscription);
+  if (!saved) {
     return "error";
   }
 
