@@ -10,11 +10,6 @@ import GlowingBorder from "@/components/ui/glowing-border";
 import Image from "next/image";
 
 const authSchema = z.object({
-  username: z
-    .string()
-    .min(2, "Username must be at least 2 characters")
-    .max(50, "Username must be less than 50 characters")
-    .trim(),
   passcode: z
     .string()
     .min(4, "Passcode must be at least 4 characters")
@@ -51,16 +46,15 @@ export default function AuthForm() {
             "Content-Type": "application/json",
           },
           credentials: "include",
-          body: JSON.stringify(data),
+          body: JSON.stringify({ passcode: data.passcode }),
         });
 
         if (response.ok) {
           const result = (await response.json()) as { redirectTo?: string };
-          // Use the server-determined redirect URL (role-based)
           const redirectUrl = result.redirectTo || "/home";
           router.push(redirectUrl);
         } else if (response.status === 401) {
-          setAuthError("Invalid username or passcode.");
+          setAuthError("Invalid passcode.");
         } else if (response.status === 400) {
           setAuthError("Invalid request. Please check your input.");
         } else {
@@ -84,7 +78,6 @@ export default function AuthForm() {
       className="w-full max-w-md px-4"
     >
       <div className="bg-card border border-border rounded-2xl p-6 sm:p-8 shadow-xl">
-        {/* Logo and Tagline */}
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -108,7 +101,6 @@ export default function AuthForm() {
           </p>
         </motion.div>
 
-        {/* Form */}
         <form
           noValidate
           onSubmit={(event) => {
@@ -123,55 +115,15 @@ export default function AuthForm() {
             if (event.key !== "Enter" || event.nativeEvent.isComposing) return;
             if (!(event.target instanceof HTMLInputElement)) return;
 
-            // Enter in an input should submit the form. Some environments do not
-            // fire implicit submission reliably, so trigger the same native submit
-            // path used by the Sign In button.
             event.preventDefault();
             event.currentTarget.requestSubmit();
           }}
           className="space-y-4 sm:space-y-6"
         >
-          {/* Username Field */}
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.4, delay: 0.2 }}
-          >
-            <label
-              htmlFor="username"
-              className="block text-sm font-medium text-foreground mb-2"
-            >
-              Username
-            </label>
-            <input
-              id="username"
-              type="text"
-              placeholder="Enter your desired name"
-              autoComplete="username"
-              disabled={isSubmitting}
-              {...register("username")}
-              aria-invalid={errors.username ? "true" : "false"}
-              aria-describedby={errors.username ? "username-error" : undefined}
-              className="w-full px-4 py-3 sm:py-2.5 text-base border border-border rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-all"
-            />
-            {errors.username && (
-              <motion.p
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                id="username-error"
-                className="text-destructive text-sm mt-1"
-                role="alert"
-              >
-                {errors.username.message}
-              </motion.p>
-            )}
-          </motion.div>
-
-          {/* Passcode Field */}
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.4, delay: 0.3 }}
           >
             <label
               htmlFor="passcode"
@@ -249,11 +201,10 @@ export default function AuthForm() {
             )}
           </motion.div>
 
-          {/* Submit Button */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.4 }}
+            transition={{ duration: 0.4, delay: 0.3 }}
           >
             <GlowingBorder radius="lg" className="block w-full">
               <button
@@ -293,7 +244,6 @@ export default function AuthForm() {
           </motion.div>
         </form>
 
-        {/* General Error State */}
         {authError && (
           <motion.div
             initial={{ opacity: 0 }}

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireSession } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { resolveUserFromSession } from '@/lib/session-user';
 
 export async function POST(
   request: NextRequest,
@@ -31,11 +32,7 @@ export async function POST(
       );
     }
 
-    // Get username from session
-    const username = session.username;
-    const user = await prisma.user.findUnique({
-      where: { name: username },
-    });
+    const user = await resolveUserFromSession(session);
 
     if (!user) {
       return NextResponse.json(

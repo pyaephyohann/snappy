@@ -1,31 +1,66 @@
 import { redirect } from "next/navigation";
-import { getSession } from "@/lib/auth";
+import Image from "next/image";
 import Navbar from "@/components/layout/Navbar";
+import ProfileLogoutButton from "@/components/profile/ProfileLogoutButton";
+import { getAuthenticatedAppUser } from "@/lib/auth";
+import { resolveProfileImageUrl } from "@/lib/user-profile";
+import { formatAdminDate } from "@/lib/admin-types";
 
 export default async function ProfilePage() {
-  const session = await getSession();
-  if (!session) {
+  const user = await getAuthenticatedAppUser();
+  if (!user) {
     redirect("/");
   }
 
+  const profileImage = resolveProfileImageUrl(
+    user.profileImage,
+    user.profileImageSnap?.imageUrl,
+  );
+
   return (
     <div className="min-h-screen bg-background">
-      <Navbar username={session.username} />
+      <Navbar username={user.name} />
       <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
-        <h1 className="mb-2 text-xl font-semibold text-foreground sm:text-2xl">
+        <h1 className="mb-6 text-xl font-semibold text-foreground sm:text-2xl">
           Profile
         </h1>
-        <div className="mt-8 rounded-xl border border-border bg-card px-6 py-12 text-center sm:py-16">
-          <span className="inline-flex items-center rounded-full border border-border bg-muted/50 px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Soon
-          </span>
-          <p className="mt-4 text-base font-medium text-foreground">
-            Your profile is on the way
+
+        <div className="mx-auto max-w-md rounded-2xl border border-border bg-card px-6 py-8 text-center shadow-sm">
+          <div className="relative mx-auto h-28 w-28 overflow-hidden rounded-full bg-muted ring-2 ring-border">
+            <Image
+              src={profileImage}
+              alt={`${user.name}'s profile`}
+              fill
+              className="object-cover"
+              sizes="112px"
+              priority
+            />
+          </div>
+          <h2 className="mt-5 text-2xl font-semibold text-foreground">
+            {user.name}
+          </h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Snappy member since {formatAdminDate(user.createdAt)}
           </p>
-          <p className="mx-auto mt-2 max-w-sm text-sm text-muted-foreground">
-            We&apos;re building a space for your Snappy identity. Check back
-            here soon.
-          </p>
+
+          <dl className="mt-8 space-y-4 border-t border-border pt-6 text-left text-sm">
+            <div className="flex items-center justify-between gap-4">
+              <dt className="text-muted-foreground">Last sign-in</dt>
+              <dd className="font-medium text-foreground">
+                {user.lastLoginAt
+                  ? formatAdminDate(user.lastLoginAt)
+                  : "Just now"}
+              </dd>
+            </div>
+            <div className="flex items-center justify-between gap-4">
+              <dt className="text-muted-foreground">Account</dt>
+              <dd className="font-medium text-foreground">Active</dd>
+            </div>
+          </dl>
+
+          <div className="mt-8 flex justify-center">
+            <ProfileLogoutButton />
+          </div>
         </div>
       </main>
     </div>

@@ -3,9 +3,23 @@ export interface AdminUser {
   name: string;
   role: "USER" | "ADMIN";
   profileImage: string;
+  isActive: boolean;
+  lastLoginAt: string | null;
+  hasPasscode: boolean;
   snapCount: number;
   createdAt: string;
   updatedAt: string;
+}
+
+export function formatAdminDateTime(value: string | Date | null) {
+  if (!value) return "Never";
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date(value));
 }
 
 export interface AdminSnap {

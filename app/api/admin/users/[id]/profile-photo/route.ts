@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { adminErrorResponse, requireAdminApi } from "@/lib/admin-api";
+import { serializeAdminUser } from "@/lib/admin-user-utils";
 
 const updateProfilePhotoSchema = z.object({
   snapId: z.string().min(1, "Snap ID is required"),
@@ -23,6 +24,7 @@ export async function GET(
         id: true,
         name: true,
         profileImage: true,
+        profileImageSnapId: true,
       },
     });
 
@@ -31,7 +33,6 @@ export async function GET(
     }
 
     const snaps = await prisma.snap.findMany({
-      where: { userId: id },
       orderBy: { createdAt: "desc" },
       take: PROFILE_PHOTO_SNAP_LIMIT,
       select: {
@@ -47,6 +48,7 @@ export async function GET(
         id: user.id,
         name: user.name,
         profileImage: user.profileImage,
+        profileImageSnapId: user.profileImageSnapId,
       },
       snaps,
     });
@@ -91,11 +93,8 @@ export async function PATCH(
 
     const { snapId } = validation.data;
 
-    const snap = await prisma.snap.findFirst({
-      where: {
-        id: snapId,
-        userId: id,
-      },
+    const snap = await prisma.snap.findUnique({
+      where: { id: snapId },
       select: {
         id: true,
         imageUrl: true,
@@ -104,7 +103,7 @@ export async function PATCH(
 
     if (!snap) {
       return NextResponse.json(
-        { error: "Selected image does not belong to this user" },
+        { error: "Selected snap was not found" },
         { status: 404 },
       );
     }
@@ -112,6 +111,7 @@ export async function PATCH(
     const updatedUser = await prisma.user.update({
       where: { id },
       data: {
+        profileImageSnapId: snap.id,
         profileImage: snap.imageUrl,
       },
       include: {
@@ -122,15 +122,7 @@ export async function PATCH(
     });
 
     return NextResponse.json({
-      user: {
-        id: updatedUser.id,
-        name: updatedUser.name,
-        role: updatedUser.role,
-        profileImage: updatedUser.profileImage,
-        snapCount: updatedUser._count.snaps,
-        createdAt: updatedUser.createdAt,
-        updatedAt: updatedUser.updatedAt,
-      },
+      user: serializeAdminUser(updatedUser),
     });
   } catch (error) {
     const authResponse = adminErrorResponse(error);

@@ -1,27 +1,31 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { updateSharedPasscode } from "@/lib/auth";
 import {
   adminErrorResponse,
   isPrismaUniqueError,
   requireAdminApi,
 } from "@/lib/admin-api";
 import type { Prisma } from "@prisma/client";
+import { assertPasscodeAvailable, hashPasscode } from "@/lib/passcode-utils";
+import {
+  resolveProfileImageSnap,
+  serializeAdminUser,
+} from "@/lib/admin-user-utils";
 
 const createUserSchema = z.object({
   name: z
     .string()
-    .min(2, "Username must be at least 2 characters")
-    .max(50, "Username must be less than 50 characters")
+    .min(2, "Name must be at least 2 characters")
+    .max(50, "Name must be less than 50 characters")
     .trim(),
-  role: z.enum(["USER", "ADMIN"]),
-  profileImage: z.string().min(1).optional(),
+  role: z.enum(["USER", "ADMIN"]).default("USER"),
+  profileImageSnapId: z.string().min(1).nullable().optional(),
   passcode: z
     .string()
     .min(4, "Passcode must be at least 4 characters")
-    .max(128, "Passcode must be less than 128 characters")
-    .optional(),
+    .max(128, "Passcode must be less than 128 characters"),
+  isActive: z.boolean().optional(),
 });
 
 export async function GET(request: NextRequest) {
@@ -57,15 +61,7 @@ export async function GET(request: NextRequest) {
     });
 
     return NextResponse.json({
-      users: users.map((user) => ({
-        id: user.id,
-        name: user.name,
-        role: user.role,
-        profileImage: user.profileImage,
-        snapCount: user._count.snaps,
-        createdAt: user.createdAt,
-        updatedAt: user.updatedAt,
-      })),
+      users: users.map((user) => serializeAdminUser(user)),
     });
   } catch (error) {
     const authResponse = adminErrorResponse(error);
@@ -93,13 +89,39 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { name, role, profileImage, passcode } = validation.data;
+    const { name, role, profileImageSnapId, passcode, isActive } =
+      validation.data;
+
+    const passcodeCheck = await assertPasscodeAvailable(passcode);
+    if (!passcodeCheck.ok) {
+      return NextResponse.json({ error: passcodeCheck.error }, { status: 409 });
+    }
+
+    let profileData: { profileImageSnapId?: string | null; profileImage?: string } =
+      {};
+    try {
+      if (profileImageSnapId !== undefined) {
+        profileData = await resolveProfileImageSnap(profileImageSnapId);
+      }
+    } catch {
+      return NextResponse.json(
+        { error: "Selected snap was not found" },
+        { status: 400 },
+      );
+    }
+
+    const passcodeHash = await hashPasscode(passcode);
 
     const user = await prisma.user.create({
       data: {
         name,
         role,
-        profileImage: profileImage ?? "/anya.jpeg",
+        passcodeHash,
+        isActive: isActive ?? true,
+        profileImage: profileData.profileImage ?? "/anya.jpeg",
+        ...(profileData.profileImageSnapId !== undefined
+          ? { profileImageSnapId: profileData.profileImageSnapId }
+          : {}),
       },
       include: {
         _count: {
@@ -108,22 +130,8 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    if (passcode) {
-      await updateSharedPasscode(passcode);
-    }
-
     return NextResponse.json(
-      {
-        user: {
-          id: user.id,
-          name: user.name,
-          role: user.role,
-          profileImage: user.profileImage,
-          snapCount: user._count.snaps,
-          createdAt: user.createdAt,
-          updatedAt: user.updatedAt,
-        },
-      },
+      { user: serializeAdminUser(user) },
       { status: 201 }
     );
   } catch (error) {
@@ -132,7 +140,7 @@ export async function POST(request: NextRequest) {
 
     if (isPrismaUniqueError(error)) {
       return NextResponse.json(
-        { error: "A user with this username already exists" },
+        { error: "A user with this name already exists" },
         { status: 409 }
       );
     }

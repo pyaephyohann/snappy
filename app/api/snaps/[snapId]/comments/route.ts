@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { requireSession } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { resolveUserFromSession } from '@/lib/session-user';
 
 const MAX_COMMENT_LENGTH = 500;
 
@@ -54,11 +55,7 @@ export async function POST(
       );
     }
 
-    // Get username from session
-    const username = session.username;
-    const user = await prisma.user.findUnique({
-      where: { name: username },
-    });
+    const user = await resolveUserFromSession(session);
 
     if (!user) {
       return NextResponse.json(
@@ -139,11 +136,7 @@ export async function GET(
       );
     }
 
-    // Get username from session
-    const username = session.username;
-    const user = await prisma.user.findUnique({
-      where: { name: username },
-    });
+    const user = await resolveUserFromSession(session);
 
     if (!user) {
       return NextResponse.json(

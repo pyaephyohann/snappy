@@ -44,6 +44,7 @@ async function hmacSign(
 interface SessionPayload {
   authenticated: boolean;
   role?: string;
+  userId?: string;
   timestamp: number;
 }
 

@@ -145,6 +145,33 @@ function clearFailedAttempts(clientKey: string) {
   failedAttempts.delete(clientKey);
 }
 
+type AdminCredentialLookup = { passcodeHash: string } | null;
+
+/**
+ * Side-effect-free check: does this passcode match the configured admin credential?
+ * Used for passcode uniqueness validation (user create/edit) without touching login rate limits.
+ */
+export async function doesPasscodeMatchAdminCredential(
+  passcode: string,
+  credentialOverride?: AdminCredentialLookup,
+): Promise<boolean> {
+  const adminPasscode = process.env.ADMIN_PASSCODE;
+  if (adminPasscode && passcode === adminPasscode) {
+    return true;
+  }
+
+  const credential =
+    credentialOverride !== undefined
+      ? credentialOverride
+      : await prisma.adminCredential.findFirst();
+
+  if (!credential) {
+    return false;
+  }
+
+  return bcrypt.compare(passcode, credential.passcodeHash);
+}
+
 /**
  * Verify an admin passcode. Uses env var ADMIN_PASSCODE first,
  * falls back to database credential.
@@ -159,28 +186,15 @@ export async function verifyAdminPasscode(
   const isDev = process.env.NODE_ENV !== "production";
 
   try {
-    // Check env var first
-    const adminPasscode = process.env.ADMIN_PASSCODE;
-    if (adminPasscode && passcode === adminPasscode) {
-      clearFailedAttempts(clientKey);
-      return true;
+    const matches = await doesPasscodeMatchAdminCredential(passcode);
+    if (isDev && !process.env.ADMIN_PASSCODE) {
+      console.log("[ADMIN AUTH] Starting admin passcode verification");
+    }
+    if (isDev && matches && process.env.ADMIN_PASSCODE !== passcode) {
+      console.log("[ADMIN AUTH] Passcode comparison result:", matches);
     }
 
-    // Fallback to database credential
-    if (isDev) console.log("[ADMIN AUTH] Starting admin passcode verification");
-
-    const credential = await prisma.adminCredential.findFirst();
-
-    if (!credential) {
-      if (isDev) console.error("[ADMIN AUTH] No admin credential found in database");
-      recordFailedAttempt(clientKey);
-      return false;
-    }
-
-    const isValid = await bcrypt.compare(passcode, credential.passcodeHash);
-    if (isDev) console.log("[ADMIN AUTH] Passcode comparison result:", isValid);
-
-    if (!isValid) {
+    if (!matches) {
       recordFailedAttempt(clientKey);
       return false;
     }

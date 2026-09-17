@@ -219,7 +219,6 @@ export default function BottomNav({ username }: BottomNavProps) {
         match: (path) =>
           path === "/profile" || path.startsWith("/profile/"),
         icon: (active) => <ProfileIcon active={active} />,
-        showSoonBadge: true,
       },
     ],
     [],

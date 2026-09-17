@@ -5,7 +5,7 @@ import Image from "next/image";
 import { motion } from "framer-motion";
 import ConfirmDialog from "@/components/admin/ConfirmDialog";
 import UserFormModal from "@/components/admin/UserFormModal";
-import UserProfilePhotoModal from "@/components/admin/UserProfilePhotoModal";
+import type { UserFormSubmitData } from "@/components/admin/UserFormModal";
 import {
   EditIcon,
   PlusIcon,
@@ -14,7 +14,7 @@ import {
 import { useToast } from "@/components/admin/ToastProvider";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { AdminUser } from "@/lib/admin-types";
-import { formatAdminDate } from "@/lib/admin-types";
+import { formatAdminDate, formatAdminDateTime } from "@/lib/admin-types";
 import { adminFetch } from "@/lib/admin-client";
 
 type RoleFilter = "ALL" | "USER" | "ADMIN";
@@ -32,7 +32,6 @@ export default function UsersPageClient() {
   const [formError, setFormError] = useState<string | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
-  const [photoModalOpen, setPhotoModalOpen] = useState(false);
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
@@ -84,11 +83,7 @@ export default function UsersPageClient() {
     setModalOpen(true);
   };
 
-  const handleSubmit = async (data: {
-    name: string;
-    role: "USER" | "ADMIN";
-    passcode?: string;
-  }) => {
+  const handleSubmit = async (data: UserFormSubmitData) => {
     setFormLoading(true);
     setFormError(null);
 
@@ -133,14 +128,22 @@ export default function UsersPageClient() {
       const response = await adminFetch(`/api/admin/users/${selectedUser.id}`, {
         method: "DELETE",
       });
-      const result = (await response.json()) as { error?: string };
+      const result = (await response.json()) as {
+        error?: string;
+        disabled?: boolean;
+        message?: string;
+      };
 
       if (!response.ok) {
         showToast(result.error ?? "Failed to delete user", "error");
         return;
       }
 
-      showToast("User deleted successfully");
+      showToast(
+        result.disabled
+          ? (result.message ?? "User disabled")
+          : "User deleted successfully",
+      );
       setDeleteOpen(false);
       setSelectedUser(null);
       await fetchUsers();
@@ -233,10 +236,10 @@ export default function UsersPageClient() {
                     User
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                    Role
+                    Status
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                    Snaps
+                    Last login
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
                     Created
@@ -271,16 +274,16 @@ export default function UsersPageClient() {
                     <td className="px-4 py-4">
                       <span
                         className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-                          user.role === "ADMIN"
-                            ? "bg-primary/10 text-primary"
+                          user.isActive
+                            ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
                             : "bg-muted text-muted-foreground"
                         }`}
                       >
-                        {user.role}
+                        {user.isActive ? "Active" : "Disabled"}
                       </span>
                     </td>
                     <td className="px-4 py-4 text-sm text-muted-foreground">
-                      {user.snapCount}
+                      {formatAdminDateTime(user.lastLoginAt)}
                     </td>
                     <td className="px-4 py-4 text-sm text-muted-foreground">
                       {formatAdminDate(user.createdAt)}
@@ -333,7 +336,8 @@ export default function UsersPageClient() {
                   <div>
                     <p className="font-medium">{user.name}</p>
                     <p className="text-xs text-muted-foreground">
-                      {user.role} · {user.snapCount} snaps
+                      {user.isActive ? "Active" : "Disabled"} ·{" "}
+                      {formatAdminDateTime(user.lastLoginAt)}
                     </p>
                   </div>
                 </div>
@@ -370,26 +374,6 @@ export default function UsersPageClient() {
         error={formError}
         onClose={() => setModalOpen(false)}
         onSubmit={handleSubmit}
-        onChooseProfilePhoto={
-          modalMode === "edit" && selectedUser
-            ? () => setPhotoModalOpen(true)
-            : undefined
-        }
-      />
-
-      <UserProfilePhotoModal
-        open={photoModalOpen}
-        user={selectedUser}
-        onClose={() => setPhotoModalOpen(false)}
-        onSaved={(updatedUser) => {
-          setSelectedUser(updatedUser);
-          setUsers((current) =>
-            current.map((item) =>
-              item.id === updatedUser.id ? updatedUser : item,
-            ),
-          );
-          showToast("Profile photo updated");
-        }}
       />
 
       <ConfirmDialog

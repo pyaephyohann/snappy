@@ -1,27 +1,32 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { updateSharedPasscode } from "@/lib/auth";
 import {
   adminErrorResponse,
   isPrismaUniqueError,
   requireAdminApi,
 } from "@/lib/admin-api";
+import { assertPasscodeAvailable, hashPasscode } from "@/lib/passcode-utils";
+import {
+  resolveProfileImageSnap,
+  serializeAdminUser,
+} from "@/lib/admin-user-utils";
 
 const updateUserSchema = z.object({
   name: z
     .string()
-    .min(2, "Username must be at least 2 characters")
-    .max(50, "Username must be less than 50 characters")
+    .min(2, "Name must be at least 2 characters")
+    .max(50, "Name must be less than 50 characters")
     .trim()
     .optional(),
   role: z.enum(["USER", "ADMIN"]).optional(),
-  profileImage: z.string().min(1).optional(),
+  profileImageSnapId: z.string().min(1).nullable().optional(),
   passcode: z
     .string()
     .min(4, "Passcode must be at least 4 characters")
     .max(128, "Passcode must be less than 128 characters")
     .optional(),
+  isActive: z.boolean().optional(),
 });
 
 export async function GET(
@@ -46,15 +51,7 @@ export async function GET(
     }
 
     return NextResponse.json({
-      user: {
-        id: user.id,
-        name: user.name,
-        role: user.role,
-        profileImage: user.profileImage,
-        snapCount: user._count.snaps,
-        createdAt: user.createdAt,
-        updatedAt: user.updatedAt,
-      },
+      user: serializeAdminUser(user),
     });
   } catch (error) {
     const authResponse = adminErrorResponse(error);
@@ -95,12 +92,10 @@ export async function PATCH(
       );
     }
 
-    const { name, role, profileImage, passcode } = validation.data;
+    const { name, role, profileImageSnapId, passcode, isActive } =
+      validation.data;
 
-    if (
-      role === "USER" &&
-      existingUser.role === "ADMIN"
-    ) {
+    if (role === "USER" && existingUser.role === "ADMIN") {
       const adminCount = await prisma.user.count({ where: { role: "ADMIN" } });
       if (adminCount <= 1) {
         return NextResponse.json(
@@ -110,12 +105,44 @@ export async function PATCH(
       }
     }
 
+    if (passcode) {
+      const passcodeCheck = await assertPasscodeAvailable(passcode, id);
+      if (!passcodeCheck.ok) {
+        return NextResponse.json(
+          { error: passcodeCheck.error },
+          { status: 409 },
+        );
+      }
+    }
+
+    let profilePatch: { profileImageSnapId?: string | null; profileImage?: string } =
+      {};
+    if (profileImageSnapId !== undefined) {
+      try {
+        profilePatch = await resolveProfileImageSnap(profileImageSnapId);
+      } catch {
+        return NextResponse.json(
+          { error: "Selected snap was not found" },
+          { status: 400 },
+        );
+      }
+    }
+
     const user = await prisma.user.update({
       where: { id },
       data: {
         ...(name !== undefined ? { name } : {}),
         ...(role !== undefined ? { role } : {}),
-        ...(profileImage !== undefined ? { profileImage } : {}),
+        ...(isActive !== undefined ? { isActive } : {}),
+        ...(passcode ? { passcodeHash: await hashPasscode(passcode) } : {}),
+        ...(profileImageSnapId !== undefined
+          ? {
+              profileImageSnapId: profilePatch.profileImageSnapId,
+              ...(profilePatch.profileImage !== undefined
+                ? { profileImage: profilePatch.profileImage }
+                : {}),
+            }
+          : {}),
       },
       include: {
         _count: {
@@ -124,20 +151,8 @@ export async function PATCH(
       },
     });
 
-    if (passcode) {
-      await updateSharedPasscode(passcode);
-    }
-
     return NextResponse.json({
-      user: {
-        id: user.id,
-        name: user.name,
-        role: user.role,
-        profileImage: user.profileImage,
-        snapCount: user._count.snaps,
-        createdAt: user.createdAt,
-        updatedAt: user.updatedAt,
-      },
+      user: serializeAdminUser(user),
     });
   } catch (error) {
     const authResponse = adminErrorResponse(error);
@@ -145,7 +160,7 @@ export async function PATCH(
 
     if (isPrismaUniqueError(error)) {
       return NextResponse.json(
-        { error: "A user with this username already exists" },
+        { error: "A user with this name already exists" },
         { status: 409 }
       );
     }
@@ -168,7 +183,18 @@ export async function DELETE(
 
     const user = await prisma.user.findUnique({
       where: { id },
-      select: { id: true, name: true, role: true },
+      select: {
+        id: true,
+        name: true,
+        role: true,
+        _count: {
+          select: {
+            snaps: true,
+            comments: true,
+            reactions: true,
+          },
+        },
+      },
     });
 
     if (!user) {
@@ -185,9 +211,27 @@ export async function DELETE(
       }
     }
 
+    const hasData =
+      user._count.snaps > 0 ||
+      user._count.comments > 0 ||
+      user._count.reactions > 0;
+
+    if (hasData) {
+      await prisma.user.update({
+        where: { id },
+        data: { isActive: false, passcodeHash: null },
+      });
+
+      return NextResponse.json({
+        success: true,
+        disabled: true,
+        message: "User was disabled because they have existing activity in Snappy.",
+      });
+    }
+
     await prisma.user.delete({ where: { id } });
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, disabled: false });
   } catch (error) {
     const authResponse = adminErrorResponse(error);
     if (authResponse) return authResponse;

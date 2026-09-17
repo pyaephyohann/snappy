@@ -26,16 +26,21 @@ model AdminCredential {
 }
 
 model User {
-  id                String             @id @default(cuid())
-  name              String             @unique
-  profileImage      String
-  role              UserRole           @default(USER)
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
-  commentLikes      CommentLike[]
-  comments          Comment[]
-  reactions         Reaction[]
-  snaps             Snap[]
+  id                 String             @id @default(cuid())
+  name               String             @unique
+  profileImage       String
+  profileImageSnapId String?            @unique
+  passcodeHash       String?
+  isActive           Boolean            @default(true)
+  lastLoginAt        DateTime?
+  role               UserRole           @default(USER)
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  commentLikes       CommentLike[]
+  comments           Comment[]
+  reactions          Reaction[]
+  snaps              Snap[]
+  profileImageSnap   Snap?              @relation("UserProfileImage", fields: [profileImageSnapId], references: [id], onDelete: SetNull)
 
   @@map("users")
 }
@@ -52,6 +57,7 @@ model Snap {
   reactions         Reaction[]
   heroCarouselSlide HeroCarouselSlide?
   user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  profileImageUser  User?              @relation("UserProfileImage")
 
   @@index([userId])
   @@index([createdAt])
