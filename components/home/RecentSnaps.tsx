@@ -62,7 +62,7 @@ export default function RecentSnaps({
               </p>
               {snap.uploadedBy ? (
                 <p className="mt-0.5 truncate text-center text-[10px] text-muted-foreground sm:text-xs">
-                  @{snap.uploadedBy.name}
+                  Uploaded by {snap.uploadedBy.name}
                 </p>
               ) : null}
             </motion.button>

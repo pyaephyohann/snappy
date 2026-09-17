@@ -204,7 +204,7 @@ export default function SnapCard({
             )}
             {uploaderName ? (
               <p className="text-muted-foreground text-[11px] sm:text-xs">
-                Uploaded by @{uploaderName}
+                Uploaded by {uploaderName}
               </p>
             ) : null}
             {createdAt && (
