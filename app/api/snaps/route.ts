@@ -1,3 +1,4 @@
+import { after } from 'next/server';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { requireSession } from '@/lib/auth';
@@ -114,7 +115,7 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    void (async () => {
+    after(async () => {
       try {
         await broadcastNewSnap({
           snapId: snap.id,
@@ -123,7 +124,7 @@ export async function POST(request: NextRequest) {
       } catch (notifyError) {
         console.error('Snap notification error:', notifyError);
       }
-    })();
+    });
 
     // Return safe response
     return NextResponse.json(

@@ -18,6 +18,16 @@ export interface PushPayload {
   badge?: string;
 }
 
+function pushErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  if (typeof error === "string") {
+    return error;
+  }
+  return "Unknown error";
+}
+
 async function sendPushToSubscription(
   subscription: {
     endpoint: string;
@@ -25,7 +35,8 @@ async function sendPushToSubscription(
     auth: string;
   },
   payload: PushPayload,
-): Promise<void> {
+  subscriptionIndex: number,
+): Promise<boolean> {
   const body = JSON.stringify({
     title: payload.title,
     body: payload.body,
@@ -48,6 +59,7 @@ async function sendPushToSubscription(
       },
       body,
     );
+    return true;
   } catch (error: unknown) {
     const statusCode =
       error &&
@@ -63,9 +75,12 @@ async function sendPushToSubscription(
           where: { endpoint: subscription.endpoint },
         })
         .catch(() => undefined);
-    } else {
-      console.error("[Web Push] Delivery failed:", error);
     }
+
+    console.error(
+      `[Web Push] Delivery failed for subscription #${subscriptionIndex + 1}: status=${statusCode ?? "unknown"} message=${pushErrorMessage(error)}`,
+    );
+    return false;
   }
 }
 
@@ -78,6 +93,7 @@ export async function broadcastNewSnap({
   profileOwnerName: string;
 }): Promise<void> {
   if (!isWebPushConfigured()) {
+    console.warn("[Web Push] Broadcast skipped: VAPID not configured");
     return;
   }
 
@@ -108,12 +124,24 @@ export async function broadcastNewSnap({
   const subscriptions = await prisma.pushSubscription.findMany();
 
   if (subscriptions.length === 0) {
+    console.warn("[Web Push] Broadcast skipped: 0 subscriptions");
     return;
   }
 
-  await Promise.all(
-    subscriptions.map((subscription) =>
-      sendPushToSubscription(subscription, payload),
+  console.log(
+    `[Web Push] Broadcasting new Snap to ${subscriptions.length} subscriptions`,
+  );
+
+  const results = await Promise.all(
+    subscriptions.map((subscription, index) =>
+      sendPushToSubscription(subscription, payload, index),
     ),
+  );
+
+  const succeeded = results.filter(Boolean).length;
+  const failed = results.length - succeeded;
+
+  console.log(
+    `[Web Push] Broadcast completed: ${succeeded} succeeded, ${failed} failed`,
   );
 }
