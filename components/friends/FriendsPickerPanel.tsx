@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Image from "next/image";
+import { filterFriendsByQuery } from "@/lib/friends-search";
 
 export interface FriendPickerUser {
   id: string;
@@ -22,13 +23,10 @@ export default function FriendsPickerPanel({
 }: FriendsPickerPanelProps) {
   const [query, setQuery] = useState("");
 
-  const filtered = useMemo(() => {
-    const normalized = query.trim().toLowerCase();
-    if (!normalized) return friends;
-    return friends.filter((friend) =>
-      friend.name.toLowerCase().includes(normalized),
-    );
-  }, [friends, query]);
+  const filtered = useMemo(
+    () => filterFriendsByQuery(friends, query),
+    [friends, query],
+  );
 
   return (
     <div className="space-y-4">

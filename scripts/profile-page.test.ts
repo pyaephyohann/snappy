@@ -31,10 +31,14 @@ test("profile photo service enforces snap ownership", () => {
   assert.match(service, /status: 403/);
 });
 
-test("desktop navbar includes Profile link", () => {
+test("desktop navbar includes Profile link and inline friend search", () => {
   const navbar = read("components/layout/Navbar.tsx");
   assert.match(navbar, /href: "\/profile"/);
-  assert.match(navbar, /hidden items-center gap-1 lg:flex/);
+  assert.match(navbar, /NavbarDesktopFriendSearch/);
+  assert.doesNotMatch(navbar, /href: "\/search"/);
+  const search = read("components/layout/NavbarDesktopFriendSearch.tsx");
+  assert.match(search, /\/api\/users\/list/);
+  assert.match(search, /Search friends/);
 });
 
 test("profile page has no standalone premium upload section", () => {

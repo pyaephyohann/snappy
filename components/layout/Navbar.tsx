@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import NavbarDesktopFriendSearch from "@/components/layout/NavbarDesktopFriendSearch";
 import SnappyLogo from "@/components/ui/SnappyLogo";
 import ThemeSwitcher from "@/components/theme/ThemeSwitcher";
 
@@ -22,11 +23,6 @@ const DESKTOP_NAV: DesktopNavItem[] = [
     match: (path) => path === "/home" || path.startsWith("/home/"),
   },
   {
-    href: "/search",
-    label: "Search",
-    match: (path) => path === "/search" || path.startsWith("/search/"),
-  },
-  {
     href: "/notifications",
     label: "Alerts",
     match: (path) =>
@@ -45,8 +41,8 @@ export default function Navbar({ username }: NavbarProps) {
   return (
     <header className="safe-area-pt sticky top-0 z-10 border-b border-border bg-card/50 backdrop-blur-sm">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex min-w-0 flex-1 items-center gap-6">
+        <div className="flex items-center justify-between gap-3 lg:gap-4">
+          <div className="flex min-w-0 flex-1 items-center gap-4 lg:gap-6">
             <Link
               href="/home"
               className="flex shrink-0 items-center gap-2 rounded px-2 py-1 transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -55,7 +51,7 @@ export default function Navbar({ username }: NavbarProps) {
             </Link>
 
             <nav
-              className="hidden items-center gap-1 lg:flex"
+              className="hidden shrink-0 items-center gap-1 lg:flex"
               aria-label="Main navigation"
             >
               {DESKTOP_NAV.map((item) => {
@@ -76,10 +72,12 @@ export default function Navbar({ username }: NavbarProps) {
                 );
               })}
             </nav>
+
+            <NavbarDesktopFriendSearch />
           </div>
 
           <div className="flex shrink-0 items-center gap-3 sm:gap-4">
-            <span className="caveat-font truncate text-lg text-muted-foreground sm:text-xl lg:text-2xl">
+            <span className="caveat-font max-w-[8rem] truncate text-lg text-muted-foreground sm:max-w-none sm:text-xl lg:text-2xl">
               {username}
             </span>
             <ThemeSwitcher />
