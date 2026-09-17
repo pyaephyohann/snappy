@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import SnappyLogo from "@/components/ui/SnappyLogo";
 import ThemeSwitcher from "@/components/theme/ThemeSwitcher";
 
@@ -8,22 +9,77 @@ interface NavbarProps {
   username: string;
 }
 
-export default function Navbar({ username }: NavbarProps) {
-  return (
-    <header className="safe-area-pt border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-10">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between">
-          {/* Left: Snappy Branding */}
-          <Link
-            href="/home"
-            className="flex items-center gap-2 hover:opacity-90 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded px-2 py-1"
-          >
-            <SnappyLogo />
-          </Link>
+type DesktopNavItem = {
+  href: string;
+  label: string;
+  match: (path: string) => boolean;
+};
 
-          {/* Right: Username + Theme */}
-          <div className="flex items-center gap-3 sm:gap-4">
-            <span className="text-lg sm:text-xl lg:text-2xl text-muted-foreground caveat-font">
+const DESKTOP_NAV: DesktopNavItem[] = [
+  {
+    href: "/home",
+    label: "Home",
+    match: (path) => path === "/home" || path.startsWith("/home/"),
+  },
+  {
+    href: "/search",
+    label: "Search",
+    match: (path) => path === "/search" || path.startsWith("/search/"),
+  },
+  {
+    href: "/notifications",
+    label: "Alerts",
+    match: (path) =>
+      path === "/notifications" || path.startsWith("/notifications/"),
+  },
+  {
+    href: "/profile",
+    label: "Profile",
+    match: (path) => path === "/profile" || path.startsWith("/profile/"),
+  },
+];
+
+export default function Navbar({ username }: NavbarProps) {
+  const pathname = usePathname();
+
+  return (
+    <header className="safe-area-pt sticky top-0 z-10 border-b border-border bg-card/50 backdrop-blur-sm">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex min-w-0 flex-1 items-center gap-6">
+            <Link
+              href="/home"
+              className="flex shrink-0 items-center gap-2 rounded px-2 py-1 transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <SnappyLogo />
+            </Link>
+
+            <nav
+              className="hidden items-center gap-1 lg:flex"
+              aria-label="Main navigation"
+            >
+              {DESKTOP_NAV.map((item) => {
+                const active = item.match(pathname);
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                      active
+                        ? "bg-primary/10 text-primary"
+                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    }`}
+                    aria-current={active ? "page" : undefined}
+                  >
+                    {item.label}
+                  </Link>
+                );
+              })}
+            </nav>
+          </div>
+
+          <div className="flex shrink-0 items-center gap-3 sm:gap-4">
+            <span className="caveat-font truncate text-lg text-muted-foreground sm:text-xl lg:text-2xl">
               {username}
             </span>
             <ThemeSwitcher />

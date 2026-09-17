@@ -8,6 +8,48 @@ import Modal from "@/components/admin/Modal";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatAdminDate } from "@/lib/admin-types";
 
+const PROFILE_PHOTO_PAYMENT_HREF =
+  "/profile/payment?feature=profile-photo";
+
+function LockIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={1.75}
+        d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"
+      />
+    </svg>
+  );
+}
+
+function UploadFromGalleryRow({ disabled }: { disabled?: boolean }) {
+  return (
+    <Link
+      href={PROFILE_PHOTO_PAYMENT_HREF}
+      className={`flex min-h-[44px] items-center justify-between gap-3 rounded-xl border border-border bg-muted/20 px-4 py-3 text-sm font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+        disabled ? "pointer-events-none opacity-50" : ""
+      }`}
+      aria-label="Upload from gallery — paid feature"
+    >
+      <span className="flex items-center gap-2">
+        Upload From Gallery
+        <LockIcon className="h-4 w-4 text-muted-foreground" />
+      </span>
+      <span className="text-muted-foreground" aria-hidden="true">
+        →
+      </span>
+    </Link>
+  );
+}
+
 export type ProfilePhotoSnap = {
   id: string;
   imageUrl: string;
@@ -172,6 +214,17 @@ function PickerBody(props: {
 
   return (
     <div className="space-y-4">
+      <UploadFromGalleryRow disabled={saving} />
+
+      <div>
+        <h3 className="text-sm font-semibold text-foreground">
+          Choose from My Snaps
+        </h3>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Pick one of your existing Snaps as your profile photo.
+        </p>
+      </div>
+
       {error ? (
         <div
           className="rounded-xl border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-destructive"
@@ -348,7 +401,7 @@ export default function ProfileSnapPicker({
       <div className="hidden lg:block">
         <Modal
           open
-          title="Choose from My Snaps"
+          title="Change profile photo"
           onClose={() => {
             if (!saving) onClose();
           }}
@@ -375,18 +428,18 @@ export default function ProfileSnapPicker({
               animate={{ y: 0 }}
               exit={{ y: "100%" }}
               transition={{ type: "spring", stiffness: 420, damping: 36 }}
-              className="fixed inset-x-0 bottom-0 z-[71] max-h-[88vh] overflow-hidden rounded-t-2xl border border-border bg-card shadow-xl"
+              className="fixed inset-x-0 bottom-0 z-[71] flex max-h-[88vh] flex-col overflow-hidden rounded-t-2xl border border-border bg-card shadow-xl"
               role="dialog"
               aria-modal="true"
               aria-labelledby="profile-snap-picker-title"
             >
-              <div className="safe-area-pb px-4 pb-4 pt-3">
-                <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-muted" />
+              <div className="safe-area-pb min-h-0 flex-1 overflow-y-auto px-4 pb-[calc(var(--bottom-nav-height,0px)+1rem)] pt-3 lg:pb-4">
+                <div className="mx-auto mb-3 h-1 w-10 shrink-0 rounded-full bg-muted" />
                 <h2
                   id="profile-snap-picker-title"
                   className="mb-4 text-lg font-semibold text-foreground"
                 >
-                  Choose from My Snaps
+                  Change profile photo
                 </h2>
                 {body}
               </div>

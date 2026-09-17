@@ -41,7 +41,7 @@ export default function TelegramDisconnectButton() {
         type="button"
         disabled={loading}
         onClick={() => void handleDisconnect()}
-        className="w-full justify-center text-sm"
+        className="w-full justify-center rounded-xl border border-border bg-card px-4 py-3 text-sm font-medium text-foreground"
       >
         {loading ? "Disconnecting…" : "Disconnect Telegram"}
       </GlowButton>
