@@ -18,6 +18,7 @@ type NavItem = {
   href: string;
   match: (path: string) => boolean;
   icon: (active: boolean) => ReactNode;
+  showSoonBadge?: boolean;
 };
 
 const ICON_CLASS = "h-6 w-6 shrink-0";
@@ -153,6 +154,9 @@ function NavLinkItem({
           : "text-muted-foreground hover:text-foreground"
       }`}
       aria-current={active ? "page" : undefined}
+      aria-label={
+        item.showSoonBadge ? `${item.label}, coming soon` : undefined
+      }
     >
       <span className="relative inline-flex">
         {item.icon(active)}
@@ -164,6 +168,14 @@ function NavLinkItem({
             {badgeCount > 9 ? "9+" : badgeCount}
           </span>
         ) : null}
+        {item.showSoonBadge ? (
+          <span
+            className="absolute -right-3 -top-1 rounded-full border border-border bg-card px-1 py-px text-[8px] font-semibold uppercase leading-tight tracking-wide text-primary shadow-sm"
+            aria-hidden="true"
+          >
+            Soon
+          </span>
+        ) : null}
       </span>
       <span className="leading-none">{item.label}</span>
     </Link>
@@ -171,14 +183,10 @@ function NavLinkItem({
 }
 
 export default function BottomNav({ username }: BottomNavProps) {
+  void username;
   const pathname = usePathname();
   const [cameraFlowOpen, setCameraFlowOpen] = useState(false);
   const { count: unreadCount } = useUnreadNotificationCount();
-
-  const profileHref = useMemo(
-    () => `/friends/${encodeURIComponent(username)}`,
-    [username],
-  );
 
   const navItems: NavItem[] = useMemo(
     () => [
@@ -207,16 +215,14 @@ export default function BottomNav({ username }: BottomNavProps) {
       {
         key: "profile",
         label: "Profile",
-        href: profileHref,
-        match: (path) => {
-          if (!path.startsWith("/friends/")) return false;
-          const slug = decodeURIComponent(path.split("/")[2] ?? "");
-          return slug === username;
-        },
+        href: "/profile",
+        match: (path) =>
+          path === "/profile" || path.startsWith("/profile/"),
         icon: (active) => <ProfileIcon active={active} />,
+        showSoonBadge: true,
       },
     ],
-    [profileHref, username],
+    [],
   );
 
   const leftItems = navItems.slice(0, 2);
@@ -266,7 +272,7 @@ export default function BottomNav({ username }: BottomNavProps) {
               </svg>
             </div>
 
-            <div className="safe-area-pb relative flex items-end justify-between px-1 pb-1.5 pt-5">
+            <div className="safe-area-pb relative flex items-end justify-between px-1 pb-1.5 pt-6">
               <div className="flex flex-1 justify-around">
                 {leftItems.map((item) => (
                   <NavLinkItem

@@ -157,7 +157,8 @@ export default async function middleware(request: NextRequest) {
     path.startsWith("/home") ||
     path.startsWith("/friends") ||
     path.startsWith("/search") ||
-    path.startsWith("/snaps")
+    path.startsWith("/snaps") ||
+    path.startsWith("/profile")
   ) {
     const session = await hasValidSession(
       request,
