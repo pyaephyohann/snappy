@@ -58,11 +58,15 @@ function ChooseFromGalleryAction({
   return (
     <Link
       href={PROFILE_PHOTO_PAYMENT_HREF}
-      className={`flex min-h-[44px] items-center justify-center rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+      className={`relative flex min-h-[44px] cursor-pointer items-center justify-center overflow-hidden rounded-xl border border-primary/40 bg-card px-4 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
         disabled ? "pointer-events-none opacity-50" : ""
       }`}
     >
-      Choose from gallery
+      <span
+        aria-hidden
+        className="absolute inset-0 rounded-xl bg-primary/20 blur-md motion-safe:animate-pulse"
+      />
+      <span className="relative">Upload from Gallery</span>
     </Link>
   );
 }

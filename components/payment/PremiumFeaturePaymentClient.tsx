@@ -141,14 +141,16 @@ export default function PremiumFeaturePaymentClient({
         </p>
       ) : null}
 
-      <button
-        type="button"
-        disabled={paying}
-        onClick={() => void handleCompletePayment()}
-        className="min-h-[44px] w-full rounded-xl bg-primary px-4 py-3 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:min-w-[12rem]"
-      >
-        {paying ? "Processing…" : `Pay with ${PREMIUM_PROFILE_PHOTO_PAYMENT_METHODS.find((m) => m.id === selectedPaymentMethod)?.label ?? "selected method"}`}
-      </button>
+      <div className="flex justify-center">
+        <button
+          type="button"
+          disabled={paying}
+          onClick={() => void handleCompletePayment()}
+          className="min-h-[44px] w-full rounded-xl bg-primary px-4 py-3 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:min-w-[12rem]"
+        >
+          {paying ? "Processing…" : `Pay with ${PREMIUM_PROFILE_PHOTO_PAYMENT_METHODS.find((m) => m.id === selectedPaymentMethod)?.label ?? "selected method"}`}
+        </button>
+      </div>
     </div>
   );
 }
