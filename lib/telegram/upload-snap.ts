@@ -206,16 +206,21 @@ export async function handleTelegramPhotoMessage(ctx: Context): Promise<boolean>
     );
   }
 
-  void broadcastNewSnap({
-    snapId: created.snap.id,
-    profileOwnerName: created.ownerName,
-    uploaderName: created.uploaderName,
-  }).catch((notifyError) => {
+  // Await the broadcast: the webhook response is returned right after this
+  // handler, and an un-awaited promise would be terminated on serverless
+  // before the push is delivered. Errors are caught so upload never fails.
+  try {
+    await broadcastNewSnap({
+      snapId: created.snap.id,
+      profileOwnerName: created.ownerName,
+      uploaderName: created.uploaderName,
+    });
+  } catch (notifyError) {
     console.error(
       "[TELEGRAM] Snap notification error:",
       sanitizeTelegramError(notifyError),
     );
-  });
+  }
 
   const viewUrl = buildAbsoluteSnappyUrl(
     getSnappyPublicUrl(),

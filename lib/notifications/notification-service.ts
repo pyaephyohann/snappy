@@ -112,7 +112,7 @@ export async function broadcastNewSnap({
   const title = "New Snap on Snappy";
   const body = uploaderName?.trim()
     ? `${uploaderName.trim()} uploaded a new Snap`
-    : "A new Snap has been uploaded.";
+    : "A new Snap has been uploaded";
 
   const notificationId = crypto.randomUUID();
   const createdAt = new Date().toISOString();
