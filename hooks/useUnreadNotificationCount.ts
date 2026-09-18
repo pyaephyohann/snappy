@@ -1,35 +1,38 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import {
-  getUnreadLocalNotificationCount,
-  NOTIFICATIONS_UPDATED_EVENT,
-} from "@/lib/local-notifications";
+import { NOTIFICATIONS_UPDATED_EVENT } from "@/lib/local-notifications";
 
 export function useUnreadNotificationCount() {
-  const [count, setCount] = useState(() => getUnreadLocalNotificationCount());
+  const [count, setCount] = useState(0);
 
-  const refresh = useCallback(() => {
-    setCount(getUnreadLocalNotificationCount());
+  const refresh = useCallback(async () => {
+    try {
+      const res = await fetch("/api/notifications/unread-count", {
+        cache: "no-store",
+      });
+      if (!res.ok) {
+        return;
+      }
+      const data = (await res.json()) as { count: number };
+      setCount(data.count);
+    } catch {
+      /* keep previous count */
+    }
   }, []);
 
   useEffect(() => {
-    const onFocus = () => refresh();
-    const onUpdated = () => refresh();
-    const onStorage = (event: StorageEvent) => {
-      if (event.key === "snappy:notifications" || event.key === null) {
-        refresh();
-      }
-    };
+    const timer = setTimeout(() => void refresh(), 0);
+    const onFocus = () => void refresh();
+    const onUpdated = () => void refresh();
 
     window.addEventListener("focus", onFocus);
     window.addEventListener(NOTIFICATIONS_UPDATED_EVENT, onUpdated);
-    window.addEventListener("storage", onStorage);
 
     return () => {
+      clearTimeout(timer);
       window.removeEventListener("focus", onFocus);
       window.removeEventListener(NOTIFICATIONS_UPDATED_EVENT, onUpdated);
-      window.removeEventListener("storage", onStorage);
     };
   }, [refresh]);
 

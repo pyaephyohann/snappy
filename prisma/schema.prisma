@@ -178,12 +178,14 @@ model Notification {
   actorId   String
   snapId    String?
   body      String?
+  readAt    DateTime?
   createdAt DateTime         @default(now())
   user      User             @relation("NotificationRecipient", fields: [userId], references: [id], onDelete: Cascade)
   actor     User             @relation("NotificationActor", fields: [actorId], references: [id], onDelete: Cascade)
   snap      Snap?            @relation(fields: [snapId], references: [id], onDelete: Cascade)
 
   @@index([userId, createdAt])
+  @@index([userId, readAt])
   @@map("notifications")
 }
 

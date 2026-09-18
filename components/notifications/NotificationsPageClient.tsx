@@ -2,12 +2,18 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  listLocalNotifications,
-  markLocalNotificationRead,
-  NOTIFICATIONS_UPDATED_EVENT,
-  type LocalNotification,
-} from "@/lib/local-notifications";
+import { NOTIFICATIONS_UPDATED_EVENT } from "@/lib/local-notifications";
+
+type NotificationItem = {
+  id: string;
+  type: "NEW_SNAP" | "REACTION" | "COMMENT";
+  actor: { name: string; image: string };
+  snapId: string | null;
+  snapOwnerName: string | null;
+  body: string | null;
+  read: boolean;
+  createdAt: string;
+};
 
 function formatRelativeTime(iso: string): string {
   const date = new Date(iso);
@@ -22,48 +28,102 @@ function formatRelativeTime(iso: string): string {
   return date.toLocaleDateString();
 }
 
+function notificationTitle(item: NotificationItem): string {
+  if (item.type === "REACTION") {
+    return `${item.actor.name} reacted to your Snap`;
+  }
+  if (item.type === "COMMENT") {
+    return `${item.actor.name} commented on your Snap`;
+  }
+  return item.body ?? "A new Snap has been uploaded";
+}
+
+function notificationBody(item: NotificationItem): string | null {
+  if (item.type === "REACTION" || item.type === "COMMENT") {
+    return item.body;
+  }
+  return null;
+}
+
+function targetUrl(item: NotificationItem): string {
+  if (item.snapOwnerName) {
+    return `/friends/${encodeURIComponent(item.snapOwnerName)}`;
+  }
+  return "/notifications";
+}
+
 export default function NotificationsPageClient() {
   const router = useRouter();
-  const [items, setItems] = useState<LocalNotification[]>(() =>
-    listLocalNotifications(),
-  );
+  const [items, setItems] = useState<NotificationItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const reload = useCallback(() => {
-    setItems(listLocalNotifications());
+  const reload = useCallback(async () => {
+    try {
+      const res = await fetch("/api/notifications", { cache: "no-store" });
+      if (!res.ok) {
+        setError("Could not load notifications.");
+        return;
+      }
+      const data = (await res.json()) as {
+        notifications: NotificationItem[];
+      };
+      setItems(data.notifications);
+      setError(null);
+    } catch {
+      setError("Could not load notifications.");
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
-    const onUpdated = () => reload();
-    const onStorage = (event: StorageEvent) => {
-      if (event.key === "snappy:notifications" || event.key === null) {
-        reload();
-      }
-    };
-
+    const timer = setTimeout(() => void reload(), 0);
+    const onUpdated = () => void reload();
     window.addEventListener(NOTIFICATIONS_UPDATED_EVENT, onUpdated);
-    window.addEventListener("storage", onStorage);
     window.addEventListener("focus", onUpdated);
-
     return () => {
+      clearTimeout(timer);
       window.removeEventListener(NOTIFICATIONS_UPDATED_EVENT, onUpdated);
-      window.removeEventListener("storage", onStorage);
       window.removeEventListener("focus", onUpdated);
     };
   }, [reload]);
 
-  const handleOpen = (item: LocalNotification) => {
-    if (!item.readAt) {
-      markLocalNotificationRead(item.id);
-      setItems(listLocalNotifications());
+  const handleOpen = (item: NotificationItem) => {
+    if (!item.read) {
+      setItems((prev) =>
+        prev.map((n) => (n.id === item.id ? { ...n, read: true } : n)),
+      );
+      void fetch(`/api/notifications/${item.id}/read`, {
+        method: "PATCH",
+      }).catch(() => undefined);
     }
-    router.push(item.targetUrl);
+    router.push(targetUrl(item));
   };
+
+  if (loading) {
+    return (
+      <div className="rounded-xl border border-border bg-card px-6 py-12 text-center">
+        <p className="text-sm text-muted-foreground sm:text-base">
+          Loading notifications…
+        </p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="rounded-xl border border-border bg-card px-6 py-12 text-center">
+        <p className="text-sm text-muted-foreground sm:text-base">{error}</p>
+      </div>
+    );
+  }
 
   if (items.length === 0) {
     return (
       <div className="rounded-xl border border-border bg-card px-6 py-12 text-center">
         <p className="text-sm text-muted-foreground sm:text-base">
-          You&apos;re all caught up. New Snaps will show up here on this device.
+          You&apos;re all caught up. New Snaps will show up here.
         </p>
       </div>
     );
@@ -72,7 +132,8 @@ export default function NotificationsPageClient() {
   return (
     <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
       {items.map((item) => {
-        const unread = !item.readAt;
+        const unread = !item.read;
+        const body = notificationBody(item);
         return (
           <li key={item.id}>
             <button
@@ -91,14 +152,18 @@ export default function NotificationsPageClient() {
               <span className="min-w-0 flex-1">
                 <span
                   className={`block text-sm ${
-                    unread ? "font-semibold text-foreground" : "font-medium text-foreground"
+                    unread
+                      ? "font-semibold text-foreground"
+                      : "font-medium text-foreground"
                   }`}
                 >
-                  {item.title}
+                  {notificationTitle(item)}
                 </span>
-                <span className="mt-0.5 block text-sm text-muted-foreground">
-                  {item.body}
-                </span>
+                {body ? (
+                  <span className="mt-0.5 block text-sm text-muted-foreground">
+                    {body}
+                  </span>
+                ) : null}
                 <span className="mt-1 block text-xs text-muted-foreground">
                   {formatRelativeTime(item.createdAt)}
                 </span>
