@@ -373,7 +373,7 @@ export default function HeroCarouselPageClient() {
                             alt={slide.snap.user.name}
                             width={24}
                             height={24}
-                            className="h-6 w-6 shrink-0 rounded-full object-cover"
+                            className="!h-6 !w-6 shrink-0 overflow-hidden rounded-full object-cover"
                           />
                           <p className="truncate text-sm font-medium">
                             {slide.snap.user.name}

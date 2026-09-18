@@ -186,7 +186,7 @@ export default function SnapsPageClient() {
                     alt={snap.user.name}
                     width={32}
                     height={32}
-                    className="h-8 w-8 overflow-hidden rounded-full object-cover"
+                    className="!h-8 !w-8 overflow-hidden rounded-full object-cover"
                   />
                   <div>
                     <p className="text-sm font-medium">{snap.user.name}</p>

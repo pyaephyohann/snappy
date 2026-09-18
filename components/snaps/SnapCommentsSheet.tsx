@@ -1,10 +1,10 @@
-'use client';
+"use client";
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
-import Image from 'next/image';
-import { AnimatePresence, motion } from 'framer-motion';
-import { MAX_COMMENT_LENGTH } from '@/lib/snap-reactions';
+import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import Image from "next/image";
+import { AnimatePresence, motion } from "framer-motion";
+import { MAX_COMMENT_LENGTH } from "@/lib/snap-reactions";
 
 export interface SnapCommentItem {
   id: string;
@@ -28,10 +28,10 @@ interface SnapCommentsSheetProps {
 
 function formatCommentDate(value: string): string {
   const date = new Date(value);
-  return date.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
   });
 }
 
@@ -44,10 +44,10 @@ export default function SnapCommentsSheet({
   const [comments, setComments] = useState<SnapCommentItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
-  const [draft, setDraft] = useState('');
+  const [draft, setDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
   // Portals require a DOM document — only true after client mount.
-  const [mounted] = useState(() => typeof document !== 'undefined');
+  const [mounted] = useState(() => typeof document !== "undefined");
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -59,7 +59,7 @@ export default function SnapCommentsSheet({
       setError(null);
       try {
         const response = await fetch(`/api/snaps/${snapId}/comments`, {
-          credentials: 'include',
+          credentials: "include",
         });
         const result = (await response.json()) as {
           error?: string;
@@ -67,7 +67,7 @@ export default function SnapCommentsSheet({
         };
         if (cancelled) return;
         if (!response.ok) {
-          throw new Error(result.error ?? 'Failed to load comments');
+          throw new Error(result.error ?? "Failed to load comments");
         }
         setComments(result.comments ?? []);
       } catch (loadError) {
@@ -75,7 +75,7 @@ export default function SnapCommentsSheet({
         setError(
           loadError instanceof Error
             ? loadError.message
-            : 'Failed to load comments',
+            : "Failed to load comments",
         );
       } finally {
         if (!cancelled) setLoading(false);
@@ -91,13 +91,13 @@ export default function SnapCommentsSheet({
   useEffect(() => {
     if (!open) return;
     const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === "Escape") onClose();
     };
-    document.addEventListener('keydown', handleEscape);
-    document.body.style.overflow = 'hidden';
+    document.addEventListener("keydown", handleEscape);
+    document.body.style.overflow = "hidden";
     return () => {
-      document.removeEventListener('keydown', handleEscape);
-      document.body.style.overflow = '';
+      document.removeEventListener("keydown", handleEscape);
+      document.body.style.overflow = "";
     };
   }, [open, onClose]);
 
@@ -109,9 +109,9 @@ export default function SnapCommentsSheet({
     setError(null);
     try {
       const response = await fetch(`/api/snaps/${snapId}/comments`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ content }),
       });
       const result = (await response.json()) as {
@@ -119,17 +119,17 @@ export default function SnapCommentsSheet({
         comment?: SnapCommentItem;
       };
       if (!response.ok || !result.comment) {
-        throw new Error(result.error ?? 'Failed to post comment');
+        throw new Error(result.error ?? "Failed to post comment");
       }
       setComments((current) => [result.comment!, ...current]);
-      setDraft('');
+      setDraft("");
       onCommentAdded();
       inputRef.current?.focus();
     } catch (sendError) {
       setError(
         sendError instanceof Error
           ? sendError.message
-          : 'Failed to post comment',
+          : "Failed to post comment",
       );
     } finally {
       setSending(false);
@@ -143,7 +143,12 @@ export default function SnapCommentsSheet({
   return createPortal(
     <AnimatePresence>
       {open ? (
-        <div className="fixed inset-0 z-[9999]" role="dialog" aria-modal="true" aria-label="Comments">
+        <div
+          className="fixed inset-0 z-[9999]"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Comments"
+        >
           <motion.button
             type="button"
             initial={{ opacity: 0 }}
@@ -154,15 +159,17 @@ export default function SnapCommentsSheet({
             onClick={onClose}
           />
           <motion.div
-            initial={{ y: '100%' }}
+            initial={{ y: "100%" }}
             animate={{ y: 0 }}
-            exit={{ y: '100%' }}
-            transition={{ type: 'spring', stiffness: 420, damping: 36 }}
+            exit={{ y: "100%" }}
+            transition={{ type: "spring", stiffness: 420, damping: 36 }}
             className="absolute inset-x-0 bottom-0 flex max-h-[85dvh] flex-col overflow-hidden rounded-t-2xl border border-border bg-card shadow-xl sm:inset-x-auto sm:left-1/2 sm:w-full sm:max-w-lg sm:-translate-x-1/2"
           >
             <div className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-muted" />
             <div className="flex items-center justify-between border-b border-border px-4 py-3">
-              <h2 className="text-sm font-semibold text-foreground">Comments</h2>
+              <h2 className="text-sm font-semibold text-foreground">
+                Comments
+              </h2>
               <button
                 type="button"
                 onClick={onClose}
@@ -203,11 +210,11 @@ export default function SnapCommentsSheet({
                         alt={comment.user.name}
                         width={32}
                         height={32}
-                        className="h-8 w-8 shrink-0 overflow-hidden rounded-full object-cover"
+                        className="!h-8 !w-8 shrink-0 overflow-hidden rounded-full object-cover"
                       />
                       <div className="min-w-0">
                         <p className="text-xs font-medium text-foreground">
-                          @{comment.user.name}
+                          {comment.user.name}
                           <span className="ml-2 font-normal text-muted-foreground">
                             {formatCommentDate(comment.createdAt)}
                           </span>
@@ -235,7 +242,7 @@ export default function SnapCommentsSheet({
               className="flex items-center gap-2 border-t border-border bg-card p-3"
               style={{
                 paddingBottom:
-                  'calc(0.75rem + env(safe-area-inset-bottom, 0px))',
+                  "calc(0.75rem + env(safe-area-inset-bottom, 0px))",
               }}
               onSubmit={(event) => {
                 event.preventDefault();
@@ -262,7 +269,7 @@ export default function SnapCommentsSheet({
                 disabled={sending || draft.trim().length === 0}
                 className="min-h-[44px] shrink-0 cursor-pointer rounded-full bg-primary px-4 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {sending ? 'Sending…' : 'Send'}
+                {sending ? "Sending…" : "Send"}
               </button>
             </form>
           </motion.div>

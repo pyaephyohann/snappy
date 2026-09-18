@@ -1,14 +1,14 @@
-'use client';
+"use client";
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
-import Image from 'next/image';
-import { AnimatePresence, motion } from 'framer-motion';
+import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import Image from "next/image";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   REACTION_EMOJIS,
   REACTION_TYPES,
   type SnapReactionType,
-} from '@/lib/snap-reactions';
+} from "@/lib/snap-reactions";
 
 interface ReactorItem {
   id: string;
@@ -31,17 +31,17 @@ export default function SnapReactionsSheet({
   open,
   onClose,
 }: SnapReactionsSheetProps) {
-  const [activeTab, setActiveTab] = useState<'ALL' | SnapReactionType>('ALL');
+  const [activeTab, setActiveTab] = useState<"ALL" | SnapReactionType>("ALL");
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [reactors, setReactors] = useState<ReactorItem[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [mounted] = useState(() => typeof document !== 'undefined');
+  const [mounted] = useState(() => typeof document !== "undefined");
 
   const loadReactors = useCallback(
-    async (tab: 'ALL' | SnapReactionType, cursor?: string) => {
+    async (tab: "ALL" | SnapReactionType, cursor?: string) => {
       const isLoadMore = Boolean(cursor);
       if (isLoadMore) {
         setLoadingMore(true);
@@ -52,12 +52,12 @@ export default function SnapReactionsSheet({
 
       try {
         const params = new URLSearchParams();
-        if (tab !== 'ALL') params.set('type', tab);
-        if (cursor) params.set('cursor', cursor);
+        if (tab !== "ALL") params.set("type", tab);
+        if (cursor) params.set("cursor", cursor);
 
         const response = await fetch(
           `/api/snaps/${snapId}/reactions?${params.toString()}`,
-          { credentials: 'include' },
+          { credentials: "include" },
         );
         const result = (await response.json()) as {
           error?: string;
@@ -66,7 +66,7 @@ export default function SnapReactionsSheet({
           nextCursor?: string | null;
         };
         if (!response.ok) {
-          throw new Error(result.error ?? 'Failed to load reactions');
+          throw new Error(result.error ?? "Failed to load reactions");
         }
         setCounts(result.counts ?? {});
         setNextCursor(result.nextCursor ?? null);
@@ -79,7 +79,7 @@ export default function SnapReactionsSheet({
         setError(
           loadError instanceof Error
             ? loadError.message
-            : 'Failed to load reactions',
+            : "Failed to load reactions",
         );
       } finally {
         setLoading(false);
@@ -99,28 +99,28 @@ export default function SnapReactionsSheet({
     if (wasOpenRef.current) return;
     wasOpenRef.current = true;
     queueMicrotask(() => {
-      setActiveTab('ALL');
+      setActiveTab("ALL");
       setReactors([]);
       setNextCursor(null);
-      void loadReactors('ALL');
+      void loadReactors("ALL");
     });
   }, [open, loadReactors]);
 
   useEffect(() => {
     if (!open) return;
     const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === "Escape") onClose();
     };
-    document.addEventListener('keydown', handleEscape);
-    document.body.style.overflow = 'hidden';
+    document.addEventListener("keydown", handleEscape);
+    document.body.style.overflow = "hidden";
     return () => {
-      document.removeEventListener('keydown', handleEscape);
-      document.body.style.overflow = '';
+      document.removeEventListener("keydown", handleEscape);
+      document.body.style.overflow = "";
     };
   }, [open, onClose]);
 
   const handleTabChange = useCallback(
-    (tab: 'ALL' | SnapReactionType) => {
+    (tab: "ALL" | SnapReactionType) => {
       if (tab === activeTab) return;
       setActiveTab(tab);
       setReactors([]);
@@ -132,7 +132,7 @@ export default function SnapReactionsSheet({
 
   if (!mounted) return null;
 
-  const tabs: Array<'ALL' | SnapReactionType> = ['ALL', ...REACTION_TYPES];
+  const tabs: Array<"ALL" | SnapReactionType> = ["ALL", ...REACTION_TYPES];
 
   // Portaled to document.body so no ancestor transform/overflow/stacking
   // context (Snap card, viewer, bottom nav) can paint above this sheet.
@@ -155,10 +155,10 @@ export default function SnapReactionsSheet({
             onClick={onClose}
           />
           <motion.div
-            initial={{ y: '100%' }}
+            initial={{ y: "100%" }}
             animate={{ y: 0 }}
-            exit={{ y: '100%' }}
-            transition={{ type: 'spring', stiffness: 420, damping: 36 }}
+            exit={{ y: "100%" }}
+            transition={{ type: "spring", stiffness: 420, damping: 36 }}
             className="absolute inset-x-0 bottom-0 flex max-h-[85dvh] flex-col overflow-hidden rounded-t-2xl border border-border bg-card shadow-xl sm:inset-x-auto sm:left-1/2 sm:top-1/2 sm:bottom-auto sm:w-full sm:max-w-md sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl"
           >
             <div className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-muted sm:hidden" />
@@ -196,8 +196,8 @@ export default function SnapReactionsSheet({
             >
               {tabs.map((tab) => {
                 const count =
-                  tab === 'ALL' ? (counts.all ?? 0) : (counts[tab] ?? 0);
-                if (tab !== 'ALL' && count === 0) return null;
+                  tab === "ALL" ? (counts.all ?? 0) : (counts[tab] ?? 0);
+                if (tab !== "ALL" && count === 0) return null;
                 const selected = activeTab === tab;
                 return (
                   <button
@@ -208,12 +208,12 @@ export default function SnapReactionsSheet({
                     onClick={() => handleTabChange(tab)}
                     className={`inline-flex min-h-[36px] shrink-0 cursor-pointer items-center gap-1 rounded-full px-3 text-xs font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-ring ${
                       selected
-                        ? 'bg-primary/10 text-primary'
-                        : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                        ? "bg-primary/10 text-primary"
+                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
                     }`}
                   >
                     <span aria-hidden>
-                      {tab === 'ALL' ? 'All' : REACTION_EMOJIS[tab]}
+                      {tab === "ALL" ? "All" : REACTION_EMOJIS[tab]}
                     </span>
                     {count > 0 ? <span>{count}</span> : null}
                   </button>
@@ -250,17 +250,17 @@ export default function SnapReactionsSheet({
                         alt={reactor.user.name}
                         width={40}
                         height={40}
-                        className="h-10 w-10 shrink-0 overflow-hidden rounded-full object-cover"
+                        className="!h-10 !w-10 shrink-0 overflow-hidden rounded-full object-cover"
                       />
                       <p className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
-                        @{reactor.user.name}
+                        {reactor.user.name}
                       </p>
                       <span
                         className="text-lg leading-none"
                         aria-label={`Reacted with ${reactor.type.toLowerCase()}`}
                       >
                         {REACTION_EMOJIS[reactor.type as SnapReactionType] ??
-                          '👍'}
+                          "👍"}
                       </span>
                     </li>
                   ))}
@@ -277,7 +277,7 @@ export default function SnapReactionsSheet({
                     }
                     className="min-h-[40px] w-full cursor-pointer rounded-xl border border-border text-sm font-medium text-foreground hover:bg-muted disabled:opacity-50"
                   >
-                    {loadingMore ? 'Loading…' : 'Load more'}
+                    {loadingMore ? "Loading…" : "Load more"}
                   </button>
                 </div>
               ) : null}
@@ -286,7 +286,7 @@ export default function SnapReactionsSheet({
             <div
               className="shrink-0"
               style={{
-                paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+                paddingBottom: "env(safe-area-inset-bottom, 0px)",
               }}
             />
           </motion.div>
