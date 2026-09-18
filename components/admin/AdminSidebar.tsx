@@ -90,12 +90,12 @@ export default function AdminSidebar({
 
       <div className="space-y-1 border-t border-border px-3 py-4">
         <Link
-          href="/home"
+          href="/login"
           onClick={onNavigate}
           className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
         >
           <BackIcon />
-          Back to Snappy
+          Go to Snappy User App
         </Link>
       </div>
     </aside>
