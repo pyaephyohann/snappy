@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { requireSession } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { resolveUserFromSession } from '@/lib/session-user';
+import { notifySnapInteraction } from '@/lib/notifications/notification-service';
 
 const MAX_COMMENT_LENGTH = 500;
 
@@ -85,6 +86,17 @@ export async function POST(
     // Get like count
     const likeCount = await prisma.commentLike.count({
       where: { commentId: comment.id },
+    });
+
+    // Notify the Snap owner (no-op for self-comments). Fire-and-forget so a
+    // notification failure never breaks the comment response.
+    void notifySnapInteraction({
+      snapId,
+      actorId: user.id,
+      type: 'COMMENT',
+      body: comment.content,
+    }).catch((notifyError) => {
+      console.error('[Notification] Comment notify error:', notifyError);
     });
 
     return NextResponse.json({

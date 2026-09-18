@@ -7,6 +7,7 @@ export const pushSubscriptionSchema = z.object({
     p256dh: z.string().min(1),
     auth: z.string().min(1),
   }),
+  userId: z.string().min(1).optional(),
 });
 
 export const unsubscribeSchema = z.object({

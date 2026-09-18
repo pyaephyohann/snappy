@@ -45,6 +45,9 @@ model User {
   telegramAccount              TelegramAccount?
   profilePhotoGalleryPayments  ProfilePhotoGalleryPayment[]
   uploadedSnaps                Snap[]              @relation("SnapUploadedBy")
+  notifications                Notification[]      @relation("NotificationRecipient")
+  sentNotifications            Notification[]      @relation("NotificationActor")
+  pushSubscriptions            PushSubscription[]
 
   @@map("users")
 }
@@ -75,6 +78,7 @@ model Snap {
   user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
   uploadedBy        User?              @relation("SnapUploadedBy", fields: [uploadedById], references: [id], onDelete: SetNull)
   profileImageUser  User?              @relation("UserProfileImage")
+  notifications     Notification[]
 
   @@index([userId])
   @@index([uploadedById])
@@ -157,11 +161,36 @@ model PushSubscription {
   p256dh    String
   auth      String
   deviceId  String
+  userId    String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([deviceId])
+  @@index([userId])
   @@map("push_subscriptions")
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  type      NotificationType
+  userId    String
+  actorId   String
+  snapId    String?
+  body      String?
+  createdAt DateTime         @default(now())
+  user      User             @relation("NotificationRecipient", fields: [userId], references: [id], onDelete: Cascade)
+  actor     User             @relation("NotificationActor", fields: [actorId], references: [id], onDelete: Cascade)
+  snap      Snap?            @relation(fields: [snapId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("notifications")
+}
+
+enum NotificationType {
+  NEW_SNAP
+  REACTION
+  COMMENT
 }
 
 /// Serverless-safe Telegram conversation flags (e.g. /find-friends, /upload).

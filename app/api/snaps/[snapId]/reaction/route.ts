@@ -3,6 +3,8 @@ import { z } from 'zod';
 import { requireSession } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { resolveUserFromSession } from '@/lib/session-user';
+import { notifySnapInteraction } from '@/lib/notifications/notification-service';
+import { REACTION_EMOJIS } from '@/lib/snap-reactions';
 
 const REACTION_TYPES = ['LIKE', 'LOVE', 'HAHA', 'WOW', 'SAD', 'ANGRY'] as const;
 
@@ -99,6 +101,17 @@ export async function POST(
         userId: user.id,
         snapId,
       },
+    });
+
+    // Notify the Snap owner (no-op for self-reactions). Fire-and-forget so a
+    // notification failure never breaks the reaction response.
+    void notifySnapInteraction({
+      snapId,
+      actorId: user.id,
+      type: 'REACTION',
+      body: REACTION_EMOJIS[type] ?? null,
+    }).catch((notifyError) => {
+      console.error('[Notification] Reaction notify error:', notifyError);
     });
 
     return NextResponse.json({ 

@@ -12,7 +12,7 @@ export interface PushPayload {
   body: string;
   url: string;
   notificationId: string;
-  type: "NEW_SNAP";
+  type: "NEW_SNAP" | "REACTION" | "COMMENT";
   createdAt: string;
   icon?: string;
   badge?: string;
@@ -148,5 +148,103 @@ export async function broadcastNewSnap({
 
   console.log(
     `[Web Push] Broadcast completed: ${succeeded} succeeded, ${failed} failed`,
+  );
+}
+
+/** Notifies a Snap owner when another user reacts or comments on their Snap. */
+export async function notifySnapInteraction({
+  snapId,
+  actorId,
+  type,
+  body,
+}: {
+  snapId: string;
+  /** Authenticated user who reacted/commented. */
+  actorId: string;
+  type: "REACTION" | "COMMENT";
+  /** Comment preview for COMMENT; reaction label for REACTION. */
+  body?: string | null;
+}): Promise<void> {
+  const snap = await prisma.snap.findUnique({
+    where: { id: snapId },
+    select: { userId: true },
+  });
+
+  if (!snap) {
+    console.warn("[Notification] Snap not found:", snapId);
+    return;
+  }
+
+  // Never notify a user about their own reaction/comment.
+  if (snap.userId === actorId) {
+    return;
+  }
+
+  const actor = await prisma.user.findUnique({
+    where: { id: actorId },
+    select: { name: true },
+  });
+
+  if (!actor) {
+    console.warn("[Notification] Actor not found:", actorId);
+    return;
+  }
+
+  const title =
+    type === "REACTION"
+      ? `${actor.name} reacted to your Snap`
+      : `${actor.name} commented on your Snap`;
+
+  const notificationBody =
+    type === "COMMENT" && body?.trim()
+      ? body.trim()
+      : type === "REACTION" && body?.trim()
+        ? body.trim()
+        : null;
+
+  const notification = await prisma.notification.create({
+    data: {
+      type,
+      userId: snap.userId,
+      actorId,
+      snapId,
+      body: notificationBody,
+    },
+  });
+
+  if (!isWebPushConfigured()) {
+    return;
+  }
+
+  ensureWebPushConfigured();
+
+  const targetPath = `/notifications`;
+  const targetUrl = sanitizeNotificationUrl(targetPath);
+  if (!targetUrl) {
+    console.error("[Web Push] Invalid target URL for notification:", notification.id);
+    return;
+  }
+
+  const payload: PushPayload = {
+    title,
+    body: notificationBody ?? "",
+    url: targetUrl,
+    notificationId: notification.id,
+    type,
+    createdAt: notification.createdAt.toISOString(),
+  };
+
+  const subscriptions = await prisma.pushSubscription.findMany({
+    where: { userId: snap.userId },
+  });
+
+  if (subscriptions.length === 0) {
+    return;
+  }
+
+  await Promise.all(
+    subscriptions.map((subscription, index) =>
+      sendPushToSubscription(subscription, payload, index),
+    ),
   );
 }

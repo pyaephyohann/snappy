@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid subscription" }, { status: 400 });
   }
 
-  const { endpoint, keys, deviceId } = parsed.data;
+  const { endpoint, keys, deviceId, userId } = parsed.data;
 
   await prisma.pushSubscription.upsert({
     where: { endpoint },
@@ -27,11 +27,13 @@ export async function POST(request: NextRequest) {
       endpoint,
       p256dh: keys.p256dh,
       auth: keys.auth,
+      userId: userId ?? null,
     },
     update: {
       deviceId,
       p256dh: keys.p256dh,
       auth: keys.auth,
+      userId: userId ?? null,
     },
   });
 
