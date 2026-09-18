@@ -126,6 +126,7 @@ export default function ProfilePageClient({
     createdAt: snap.createdAt,
     // The Snap may live on a friend's profile — keep owner-based copy/share.
     friendName: snap.ownerName,
+    uploaderName: initial.name,
   }));
 
   return (
@@ -243,7 +244,7 @@ export default function ProfilePageClient({
                           value={name}
                           onChange={(event) => setName(event.target.value)}
                           autoComplete="name"
-                          className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:max-w-xs"
+                          className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:max-w-xs"
                         />
                       </dd>
                     ) : (
@@ -300,7 +301,7 @@ export default function ProfilePageClient({
                           onChange={(event) => setPasscode(event.target.value)}
                           autoComplete="new-password"
                           placeholder="New passcode"
-                          className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:max-w-xs"
+                          className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:max-w-xs"
                         />
                         <p className="text-xs text-muted-foreground">
                           At least 4 characters. Your current passcode is never

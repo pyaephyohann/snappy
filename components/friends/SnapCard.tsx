@@ -151,7 +151,7 @@ export default function SnapCard({
                   disabled={isDownloading}
                   radius="full"
                   glowClassName="inline-block"
-                  className="p-2 sm:p-2.5 rounded-full bg-background/80 backdrop-blur-sm border border-border/60 text-primary hover:bg-background/95 hover:text-primary transition-colors focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+                  className="flex items-center justify-center p-2 sm:p-2.5 rounded-full bg-background/80 backdrop-blur-sm border border-border/60 text-primary hover:bg-background/95 hover:text-primary transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
                   aria-label={`Download snap ${snapIndex + 1}`}
                 >
                   {isDownloading ? (

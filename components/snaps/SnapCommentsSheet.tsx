@@ -262,7 +262,7 @@ export default function SnapCommentsSheet({
                 placeholder="Write a comment..."
                 disabled={sending}
                 autoComplete="off"
-                className="min-h-[44px] min-w-0 flex-1 rounded-full border border-border bg-background px-4 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
+                className="min-h-[44px] min-w-0 flex-1 rounded-full border border-border bg-background px-4 text-base text-foreground placeholder:text-muted-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
               />
               <button
                 type="submit"

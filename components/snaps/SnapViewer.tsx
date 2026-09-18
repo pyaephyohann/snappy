@@ -72,7 +72,7 @@ export default function SnapViewer({
   canEditCaption = false,
   onCaptionSaved,
 }: SnapViewerProps) {
-  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const closeButtonRef = useRef<HTMLDivElement>(null);
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);
   const [showAdModal, setShowAdModal] = useState(false);
@@ -255,7 +255,7 @@ export default function SnapViewer({
                       disabled={isDownloading}
                       radius="full"
                       glowClassName="inline-block"
-                      className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-card/90 text-foreground backdrop-blur-sm transition-colors hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-card/90 text-foreground backdrop-blur-sm transition-colors hover:bg-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 disabled:cursor-not-allowed"
                       aria-label="Download snap"
                       title="Download snap"
                     >
@@ -299,28 +299,31 @@ export default function SnapViewer({
                       )}
                     </GlowButton>
                   </motion.div>
-                  <button
-                    ref={closeButtonRef}
-                    onClick={onClose}
-                    className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-card/90 text-foreground backdrop-blur-sm transition-colors hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring"
-                    aria-label="Close snap viewer"
-                    title="Close"
-                  >
-                    <svg
-                      className="h-5 w-5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                      aria-hidden="true"
+                  <motion.div whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.94 }} ref={closeButtonRef}>
+                    <GlowButton
+                      onClick={onClose}
+                      radius="full"
+                      glowClassName="inline-block"
+                      className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-card/90 text-foreground backdrop-blur-sm transition-colors hover:bg-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      aria-label="Close snap viewer"
+                      title="Close"
                     >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M6 18L18 6M6 6l12 12"
-                      />
-                    </svg>
-                  </button>
+                      <svg
+                        className="h-5 w-5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                        aria-hidden="true"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M6 18L18 6M6 6l12 12"
+                        />
+                      </svg>
+                    </GlowButton>
+                  </motion.div>
                 </div>
               </div>
 
@@ -377,7 +380,7 @@ export default function SnapViewer({
                         maxLength={SNAP_MAX_CAPTION_LENGTH}
                         placeholder="Write a caption..."
                         disabled={savingCaption}
-                        className="w-full resize-none rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
+                        className="w-full resize-none rounded-lg border border-border bg-background px-3 py-2 text-base text-foreground placeholder:text-muted-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
                       />
                       <div className="flex items-center justify-between gap-3">
                         <span className="text-xs text-muted-foreground">
