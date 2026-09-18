@@ -9,6 +9,7 @@ import GlowingBorder from '@/components/ui/glowing-border';
 import { GlowButton } from '@/components/ui/glow-button';
 import { buildSnapFilename, downloadImage } from '@/lib/download-image';
 import { shouldShowAd, incrementDownloadCount, resetDownloadCount } from '@/lib/download-ad';
+import { SNAP_MAX_CAPTION_LENGTH } from '@/lib/snap-media';
 import AdModal from '@/components/ui/AdModal';
 
 interface SnapViewerProps {
@@ -19,6 +20,13 @@ interface SnapViewerProps {
   friendName: string;
   snapIndex?: number;
   snapId?: string;
+  /**
+   * Show inline caption editing. Only pass true for snaps the viewer uploaded;
+   * the caption API independently verifies uploader ownership server-side.
+   */
+  canEditCaption?: boolean;
+  /** Called with the saved caption after a successful update. */
+  onCaptionSaved?: (caption: string | null) => void;
 }
 
 // Temporarily disabled for production: Comments interface
@@ -61,6 +69,8 @@ export default function SnapViewer({
   friendName,
   snapIndex = 0,
   snapId,
+  canEditCaption = false,
+  onCaptionSaved,
 }: SnapViewerProps) {
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const [isDownloading, setIsDownloading] = useState(false);
@@ -68,6 +78,62 @@ export default function SnapViewer({
   const [showAdModal, setShowAdModal] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const pendingDownloadRef = useRef<{ imageUrl: string; filename: string } | null>(null);
+
+  // Caption editing (profile "My Snaps" only). The viewer is keyed by snap id,
+  // so this state starts fresh for each opened Snap.
+  const [captionValue, setCaptionValue] = useState<string | null>(caption ?? null);
+  const [editingCaption, setEditingCaption] = useState(false);
+  const [captionDraft, setCaptionDraft] = useState(caption ?? '');
+  const [savingCaption, setSavingCaption] = useState(false);
+  const [captionError, setCaptionError] = useState<string | null>(null);
+  const canEdit = canEditCaption && Boolean(snapId);
+
+  const handleStartCaptionEdit = () => {
+    setCaptionDraft(captionValue ?? '');
+    setCaptionError(null);
+    setEditingCaption(true);
+  };
+
+  const handleCancelCaptionEdit = () => {
+    setEditingCaption(false);
+    setCaptionError(null);
+  };
+
+  const handleSaveCaption = async () => {
+    if (!snapId || savingCaption) return;
+
+    setSavingCaption(true);
+    setCaptionError(null);
+
+    try {
+      const response = await fetch(`/api/snaps/${snapId}/caption`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ caption: captionDraft }),
+      });
+
+      const result = (await response.json()) as {
+        error?: string;
+        snap?: { caption: string | null };
+      };
+
+      if (!response.ok) {
+        throw new Error(result.error ?? 'Failed to update caption');
+      }
+
+      const nextCaption = result.snap?.caption ?? null;
+      setCaptionValue(nextCaption);
+      setEditingCaption(false);
+      onCaptionSaved?.(nextCaption);
+    } catch (error) {
+      setCaptionError(
+        error instanceof Error ? error.message : 'Failed to update caption',
+      );
+    } finally {
+      setSavingCaption(false);
+    }
+  };
 
   
 
@@ -139,7 +205,7 @@ export default function SnapViewer({
   };
 
   const getShareTitle = () => {
-    return caption || `Check out ${friendName}'s Snap on Snappy!`;
+    return captionValue || `Check out ${friendName}'s Snap on Snappy!`;
   };
 
 
@@ -284,14 +350,99 @@ export default function SnapViewer({
                 </div>
               </GlowingBorder>
 
-              {caption && (
+              {(captionValue || canEdit) && (
                 <motion.div
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.1 }}
                   className="mt-3 sm:mt-4 p-3 sm:p-4 bg-card border border-border rounded-xl"
                 >
-                  <p className="text-foreground text-xs sm:text-sm">{caption}</p>
+                  {editingCaption ? (
+                    <div className="space-y-3">
+                      <label
+                        htmlFor="snap-viewer-caption"
+                        className="block text-xs font-medium text-muted-foreground"
+                      >
+                        Caption
+                      </label>
+                      <textarea
+                        id="snap-viewer-caption"
+                        value={captionDraft}
+                        onChange={(event) => {
+                          if (event.target.value.length <= SNAP_MAX_CAPTION_LENGTH) {
+                            setCaptionDraft(event.target.value);
+                          }
+                        }}
+                        rows={3}
+                        maxLength={SNAP_MAX_CAPTION_LENGTH}
+                        placeholder="Write a caption..."
+                        disabled={savingCaption}
+                        className="w-full resize-none rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
+                      />
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-xs text-muted-foreground">
+                          {captionDraft.length}/{SNAP_MAX_CAPTION_LENGTH}
+                        </span>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={handleCancelCaptionEdit}
+                            disabled={savingCaption}
+                            className="min-h-[40px] rounded-lg border border-border px-3 py-2 text-xs font-medium text-foreground transition-colors hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void handleSaveCaption()}
+                            disabled={savingCaption}
+                            className="min-h-[40px] rounded-lg bg-primary px-3 py-2 text-xs font-medium text-primary-foreground transition-opacity hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            {savingCaption ? "Saving…" : "Save"}
+                          </button>
+                        </div>
+                      </div>
+                      {captionError ? (
+                        <p className="text-xs text-destructive" role="alert">
+                          {captionError}
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <p className="text-foreground text-xs sm:text-sm">
+                        {captionValue ?? (
+                          <span className="text-muted-foreground">
+                            No caption yet.
+                          </span>
+                        )}
+                      </p>
+                      {canEdit ? (
+                        <button
+                          type="button"
+                          onClick={handleStartCaptionEdit}
+                          className="inline-flex min-h-[40px] items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring"
+                          aria-label="Edit caption"
+                        >
+                          <svg
+                            className="h-3.5 w-3.5"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth={2}
+                            viewBox="0 0 24 24"
+                            aria-hidden="true"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897l12.682-12.68z"
+                            />
+                          </svg>
+                          Edit caption
+                        </button>
+                      ) : null}
+                    </div>
+                  )}
                 </motion.div>
               )}
 

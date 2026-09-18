@@ -2,12 +2,15 @@
 
 import { useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import ProfileSnapPicker from "@/components/profile/ProfileSnapPicker";
 import ProfileLogoutButton from "@/components/profile/ProfileLogoutButton";
 import TelegramDisconnectButton from "@/components/profile/TelegramDisconnectButton";
 import TelegramConnectButton from "@/components/telegram/TelegramConnectButton";
+import SnapGallery from "@/components/friends/SnapGallery";
+import type { ProfileUploadedSnap } from "@/lib/profile-snaps";
 import { formatAdminDate } from "@/lib/admin-types";
 
 export type ProfilePageInitialData = {
@@ -21,6 +24,8 @@ export type ProfilePageInitialData = {
   telegramConnected: boolean;
   telegramUsername: string | null;
   profilePhotoGalleryUnlocked: boolean;
+  /** Snaps uploaded by this user (Snap.uploadedById), newest first. */
+  uploadedSnaps: ProfileUploadedSnap[];
 };
 
 type EditField = "none" | "name" | "passcode";
@@ -44,6 +49,7 @@ export default function ProfilePageClient({
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [formSuccess, setFormSuccess] = useState<string | null>(null);
+  const [uploadedSnaps, setUploadedSnaps] = useState(initial.uploadedSnaps);
 
   const savedName = name.trim() !== initial.name ? name.trim() : undefined;
   const trimmedPasscode = passcode.trim();
@@ -102,6 +108,26 @@ export default function ProfilePageClient({
     }
   };
 
+  const handleCaptionUpdated = (snapId: string, caption: string | null) => {
+    setUploadedSnaps((current) =>
+      current.map((snap) =>
+        snap.id === snapId ? { ...snap, caption } : snap,
+      ),
+    );
+    setFormError(null);
+    setFormSuccess("Caption updated.");
+    router.refresh();
+  };
+
+  const gallerySnaps = uploadedSnaps.map((snap) => ({
+    id: snap.id,
+    imageUrl: snap.imageUrl,
+    caption: snap.caption,
+    createdAt: snap.createdAt,
+    // The Snap may live on a friend's profile — keep owner-based copy/share.
+    friendName: snap.ownerName,
+  }));
+
   return (
     <>
       <div className="mx-auto max-w-5xl">
@@ -156,6 +182,50 @@ export default function ProfilePageClient({
                 {formError}
               </p>
             ) : null}
+
+            <section className="rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-6">
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                  My Snaps
+                </h3>
+                {uploadedSnaps.length > 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    {uploadedSnaps.length}{" "}
+                    {uploadedSnaps.length === 1 ? "snap" : "snaps"} uploaded
+                  </p>
+                ) : null}
+              </div>
+
+              {uploadedSnaps.length === 0 ? (
+                <div className="mt-4 rounded-xl border border-border bg-muted/30 px-4 py-10 text-center">
+                  <p className="text-sm font-medium text-foreground">
+                    You haven&apos;t uploaded any Snaps yet.
+                  </p>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Snaps you upload will show up here, and you can edit their
+                    captions.
+                  </p>
+                  <Link
+                    href="/home"
+                    className="mt-4 inline-flex min-h-[44px] items-center justify-center rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
+                  >
+                    Go to Home
+                  </Link>
+                </div>
+              ) : (
+                <div className="mt-4">
+                  <p className="mb-3 text-xs text-muted-foreground">
+                    Snaps you uploaded, including ones you posted on a friend&apos;s
+                    profile. Open a Snap to view or edit its caption.
+                  </p>
+                  <SnapGallery
+                    snaps={gallerySnaps}
+                    canEditCaptions
+                    onCaptionUpdated={handleCaptionUpdated}
+                  />
+                </div>
+              )}
+            </section>
 
             <section className="rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-6">
               <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">

@@ -3,6 +3,7 @@ import Navbar from "@/components/layout/Navbar";
 import ProfilePageClient from "@/components/profile/ProfilePageClient";
 import { getAuthenticatedAppUser } from "@/lib/auth";
 import { getLinkedAccountByUserId } from "@/lib/telegram/account";
+import { listUploadedSnapsForUser } from "@/lib/profile-snaps";
 import { resolveProfileImageUrl } from "@/lib/user-profile";
 import { prisma } from "@/lib/prisma";
 
@@ -19,17 +20,19 @@ export default async function ProfilePage({
   const params = await searchParams;
   const openPhotoPicker = params.openPhotoPicker === "1";
 
-  const [telegramLink, snapCountRow, galleryUnlock] = await Promise.all([
-    getLinkedAccountByUserId(user.id),
-    prisma.user.findUnique({
-      where: { id: user.id },
-      select: { _count: { select: { snaps: true } } },
-    }),
-    prisma.user.findUnique({
-      where: { id: user.id },
-      select: { profilePhotoGalleryUnlockedAt: true },
-    }),
-  ]);
+  const [telegramLink, snapCountRow, galleryUnlock, uploadedSnaps] =
+    await Promise.all([
+      getLinkedAccountByUserId(user.id),
+      prisma.user.findUnique({
+        where: { id: user.id },
+        select: { _count: { select: { snaps: true } } },
+      }),
+      prisma.user.findUnique({
+        where: { id: user.id },
+        select: { profilePhotoGalleryUnlockedAt: true },
+      }),
+      listUploadedSnapsForUser(user.id),
+    ]);
 
   const profileImage = resolveProfileImageUrl(
     user.profileImage,
@@ -57,6 +60,7 @@ export default async function ProfilePage({
             profilePhotoGalleryUnlocked: Boolean(
               galleryUnlock?.profilePhotoGalleryUnlockedAt,
             ),
+            uploadedSnaps,
           }}
           openPhotoPicker={openPhotoPicker}
         />

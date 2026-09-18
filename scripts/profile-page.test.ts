@@ -93,6 +93,53 @@ test("telegram connect button is shared on profile and connect page", () => {
   assert.match(profile, /TelegramConnectButton/);
 });
 
+test("profile uploads loader scopes snaps to the uploader", () => {
+  const loader = read("lib/profile-snaps.ts");
+  assert.match(loader, /where: \{ uploadedById: userId \}/);
+  assert.match(loader, /orderBy: \{ createdAt: "desc" \}/);
+});
+
+test("profile page lists the session user's uploaded snaps", () => {
+  const page = read("app/profile/page.tsx");
+  assert.match(page, /listUploadedSnapsForUser/);
+  assert.match(page, /uploadedSnaps/);
+});
+
+test("caption API authenticates and enforces uploader ownership", () => {
+  const route = read("app/api/snaps/[snapId]/caption/route.ts");
+  assert.match(route, /getAuthenticatedAppUser/);
+  assert.match(route, /Unauthorized/);
+  assert.match(route, /status: 401/);
+  assert.match(route, /snap\.uploadedById !== user\.id/);
+  assert.match(route, /status: 403/);
+  // Caption-only update: the zod schema accepts caption alone, and the update
+  // payload writes no media or ownership fields.
+  assert.match(route, /const updateSnapCaptionSchema = z\.object\(\{/);
+  assert.match(route, /\.max\(/);
+  assert.match(route, /SNAP_MAX_CAPTION_LENGTH/);
+  assert.match(route, /data: \{ caption \}/);
+  assert.doesNotMatch(
+    route,
+    /data: \{[\s\S]{0,80}(imageUrl|publicId|userId|uploadedById):/,
+  );
+});
+
+test("profile snap gallery enables caption editing only for own uploads", () => {
+  const ui = read("components/profile/ProfilePageClient.tsx");
+  assert.match(ui, /SnapGallery/);
+  assert.match(ui, /canEditCaptions/);
+  const gallery = read("components/friends/SnapGallery.tsx");
+  assert.match(gallery, /canEditCaptions = false/);
+  assert.match(gallery, /canEditCaption=\{canEditCaptions\}/);
+  const viewer = read("components/snaps/SnapViewer.tsx");
+  assert.match(viewer, /canEditCaption = false/);
+  assert.match(viewer, /\/api\/snaps\/\$\{snapId\}\/caption/);
+  assert.match(viewer, /method: 'PATCH'/);
+  // Friend profiles must never offer caption editing.
+  const friend = read("components/friends/FriendProfileClient.tsx");
+  assert.doesNotMatch(friend, /canEditCaption/);
+});
+
 test("payment page lists KPay AYA Pay UAB Pay and syncs carousel", () => {
   const payment = read("lib/premium-profile-photo-payment.ts");
   assert.match(payment, /KPay/);
