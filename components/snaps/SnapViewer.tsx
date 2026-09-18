@@ -177,7 +177,7 @@ export default function SnapViewer({
                 >
                   {friendName}&apos;s Snap
                 </h2>
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex items-center gap-2.5 shrink-0">
                   {downloadError && (
                     <p className="text-xs text-destructive hidden sm:block" role="alert">
                       {downloadError}
@@ -189,12 +189,13 @@ export default function SnapViewer({
                       disabled={isDownloading}
                       radius="full"
                       glowClassName="inline-block"
-                      className="p-2 sm:p-2.5 rounded-full bg-card border border-border text-foreground hover:bg-muted transition-colors focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-card/90 text-foreground backdrop-blur-sm transition-colors hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 disabled:cursor-not-allowed"
                       aria-label="Download snap"
+                      title="Download snap"
                     >
                       {isDownloading ? (
                         <svg
-                          className="w-5 h-5 animate-spin"
+                          className="h-5 w-5 animate-spin"
                           xmlns="http://www.w3.org/2000/svg"
                           fill="none"
                           viewBox="0 0 24 24"
@@ -216,7 +217,7 @@ export default function SnapViewer({
                         </svg>
                       ) : (
                         <svg
-                          className="w-5 h-5"
+                          className="h-5 w-5"
                           fill="none"
                           stroke="currentColor"
                           viewBox="0 0 24 24"
@@ -235,14 +236,16 @@ export default function SnapViewer({
                   <button
                     ref={closeButtonRef}
                     onClick={onClose}
-                    className="p-2 sm:p-2 rounded-full hover:bg-muted transition-colors focus:outline-none focus:ring-2 focus:ring-ring"
+                    className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-card/90 text-foreground backdrop-blur-sm transition-colors hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring"
                     aria-label="Close snap viewer"
+                    title="Close"
                   >
                     <svg
-                      className="w-5 h-5 sm:w-6 sm:h-6 text-foreground"
+                      className="h-5 w-5"
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
+                      aria-hidden="true"
                     >
                       <path
                         strokeLinecap="round"
