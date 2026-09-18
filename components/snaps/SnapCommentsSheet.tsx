@@ -203,7 +203,7 @@ export default function SnapCommentsSheet({
                         alt={comment.user.name}
                         width={32}
                         height={32}
-                        className="h-8 w-8 shrink-0 rounded-full object-cover"
+                        className="h-8 w-8 shrink-0 overflow-hidden rounded-full object-cover"
                       />
                       <div className="min-w-0">
                         <p className="text-xs font-medium text-foreground">

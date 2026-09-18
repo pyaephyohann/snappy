@@ -250,7 +250,7 @@ export default function SnapReactionsSheet({
                         alt={reactor.user.name}
                         width={40}
                         height={40}
-                        className="h-10 w-10 shrink-0 rounded-full object-cover"
+                        className="h-10 w-10 shrink-0 overflow-hidden rounded-full object-cover"
                       />
                       <p className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
                         @{reactor.user.name}
