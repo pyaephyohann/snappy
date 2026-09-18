@@ -175,7 +175,7 @@ No automatic matching by Telegram username. No bot token in URLs. Expired or reu
 1. Linked user sends `/upload`.
 2. Bot sets `telegram_chat_states.awaitingMode = upload_snap` (15-minute TTL).
 3. User sends a **photo** (largest Telegram size), optionally with a **Telegram caption** on the same message.
-4. Server downloads via **Telegram Bot API** (`getFile` + official file URL), validates bytes (max **10 MB**, JPEG/PNG/WebP/GIF — same as web uploader), uploads through **`lib/cloudinary-server-upload`**, creates a Snap via **`lib/snap-create-service`** owned by the linked user.
+4. Server downloads via **Telegram Bot API** (`getFile` + official file URL), validates bytes (max **10 MB**, JPEG/PNG/WebP/GIF — same as web uploader), runs the shared `lib/image-optimization.ts` pipeline (EXIF auto-orientation, proportional max 4096px resize, WebP quality 82), uploads the resulting WebP through **`lib/cloudinary-server-upload`**, and creates a Snap via **`lib/snap-create-service`** owned by the linked user.
 5. If the photo message includes a caption, that text becomes the **Snappy Snap caption** (same max length rules as web; over-length captions are rejected with a friendly bot message).
 6. Success message with **View Snap** (friend profile URL) and **Upload Another**.
 
@@ -187,7 +187,9 @@ Telegram:  [photo] + caption "Beautiful sunset 🌅"
 Snappy:    same image, caption "Beautiful sunset 🌅"
 ```
 
-**Not supported on Telegram yet:** video and documents (web uploader is images only).
+**Not supported on Telegram yet:** video and documents (web uploader is images only). GIF inputs are accepted as raster images and stored as static WebP output.
+
+The Telegram Mini App uses the same browser upload bridge as the web app: the original image goes to the authenticated `/api/cloudinary/optimize` endpoint, then the optimized WebP continues through the existing signed Cloudinary upload flow.
 
 **Rate limit:** max **10 Telegram uploads per hour** per `telegramUserId` (`telegram_upload_logs`). Web uploads are unaffected.
 

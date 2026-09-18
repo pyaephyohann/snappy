@@ -1,3 +1,4 @@
+import { optimizeRasterImage } from "@/lib/image-optimization";
 import { CLOUDINARY_SNAP_FOLDER_RAW } from "@/lib/snap-validation";
 
 export type CloudinaryUploadResult = {
@@ -9,6 +10,7 @@ export async function uploadSnapImageBuffer(
   buffer: Buffer,
   mimeType: string,
 ): Promise<CloudinaryUploadResult> {
+  const optimized = await optimizeRasterImage(buffer, mimeType);
   const { v2: cloudinary } = await import("cloudinary");
 
   const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
@@ -26,14 +28,13 @@ export async function uploadSnapImageBuffer(
     secure: true,
   });
 
-  const extension = mimeTypeToExtension(mimeType);
   const result = await new Promise<{ secure_url: string; public_id: string }>(
     (resolve, reject) => {
       const upload = cloudinary.uploader.upload_stream(
         {
           folder: CLOUDINARY_SNAP_FOLDER_RAW,
           resource_type: "image",
-          format: extension,
+          format: "webp",
         },
         (error, uploadResult) => {
           if (error || !uploadResult?.secure_url || !uploadResult.public_id) {
@@ -46,7 +47,7 @@ export async function uploadSnapImageBuffer(
           });
         },
       );
-      upload.end(buffer);
+      upload.end(optimized.buffer);
     },
   );
 
@@ -56,17 +57,3 @@ export async function uploadSnapImageBuffer(
   };
 }
 
-function mimeTypeToExtension(mimeType: string): string | undefined {
-  switch (mimeType) {
-    case "image/jpeg":
-      return "jpg";
-    case "image/png":
-      return "png";
-    case "image/webp":
-      return "webp";
-    case "image/gif":
-      return "gif";
-    default:
-      return undefined;
-  }
-}

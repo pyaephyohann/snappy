@@ -2,6 +2,16 @@
 
 A simple private space for friends to share and discover snaps.
 
+## Image upload and optimization
+
+Snappy accepts JPEG, PNG, WebP, and GIF image selections up to 10 MB. New raster uploads are validated from their actual bytes, auto-oriented from EXIF data, resized proportionally to a maximum dimension of 4096 pixels, and encoded as WebP at quality 82 before Cloudinary receives them. Animated GIFs are treated as static image uploads and are converted to WebP.
+
+Browser Snap and Telegram Mini App uploads use the authenticated `/api/cloudinary/optimize` bridge before continuing through Snappy's existing signed Cloudinary upload flow. Telegram bot photos are optimized by the same shared server utility before the server-side Cloudinary upload. Cloudinary continues to use the `snappy/snaps` folder and existing database URL/public ID behavior.
+
+Profile photo changes and Admin/Hero Carousel profile/image selection reuse existing Snap URLs; they do not upload new raster bytes and therefore do not invoke the optimizer. Existing Cloudinary images are not migrated and remain supported.
+
+The shared implementation is in `lib/image-optimization.ts`; the server bridge is `app/api/cloudinary/optimize/route.ts`. PDFs and other non-image files are not sent through this pipeline.
+
 ## Snap creation
 
 Snaps are created from a friend profile page. You can:

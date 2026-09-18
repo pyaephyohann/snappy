@@ -38,6 +38,38 @@ export class SnapUploadClientError extends Error {
 export async function uploadImageFileToCloudinary(
   file: File,
 ): Promise<UploadedCloudinaryImage> {
+  const optimizationForm = new FormData();
+  optimizationForm.append("file", file);
+  const optimizationResponse = await fetch("/api/cloudinary/optimize", {
+    method: "POST",
+    body: optimizationForm,
+    credentials: "include",
+  });
+
+  if (optimizationResponse.status === 401) {
+    throw new SnapUploadClientError(
+      "session_expired",
+      "Your Snappy session has expired.",
+    );
+  }
+
+  if (!optimizationResponse.ok) {
+    const result = (await optimizationResponse.json().catch(() => null)) as {
+      error?: string;
+    } | null;
+    throw new SnapUploadClientError(
+      "sign_failed",
+      result?.error ?? "Unable to optimize image. Please try again.",
+    );
+  }
+
+  const optimizedBlob = await optimizationResponse.blob();
+  const optimizedFile = new File(
+    [optimizedBlob],
+    `${file.name.replace(/\.[^.]+$/, "") || "snappy-image"}.webp`,
+    { type: "image/webp" },
+  );
+
   const timestamp = Math.floor(Date.now() / 1000);
   const signatureResponse = await fetch("/api/cloudinary/sign", {
     method: "POST",
@@ -63,7 +95,7 @@ export async function uploadImageFileToCloudinary(
   const signatureData = await signatureResponse.json();
 
   const formData = new FormData();
-  formData.append("file", file);
+  formData.append("file", optimizedFile);
   formData.append("api_key", signatureData.api_key);
   formData.append("timestamp", signatureData.timestamp.toString());
   formData.append("signature", signatureData.signature);
