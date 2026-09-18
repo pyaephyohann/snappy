@@ -34,6 +34,25 @@ export async function getUserProfileImageUrl(userId: string): Promise<string> {
   );
 }
 
+export async function getCurrentUserProfileImage(userId: string): Promise<string> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      profileImage: true,
+      profileImageSnap: { select: { imageUrl: true } },
+    },
+  });
+
+  if (!user) {
+    return DEFAULT_AVATAR;
+  }
+
+  return resolveProfileImageUrl(
+    user.profileImage,
+    user.profileImageSnap?.imageUrl,
+  );
+}
+
 export async function syncUserProfileImageFromSnap(userId: string): Promise<void> {
   const user = await prisma.user.findUnique({
     where: { id: userId },

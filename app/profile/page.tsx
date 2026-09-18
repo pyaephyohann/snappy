@@ -41,7 +41,7 @@ export default async function ProfilePage({
 
   return (
     <div className="min-h-screen bg-background">
-      <Navbar username={user.name} />
+      <Navbar username={user.name} profileImage={profileImage} />
       <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
         <h1 className="mb-6 text-xl font-semibold text-foreground sm:text-2xl">
           Profile

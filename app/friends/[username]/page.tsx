@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma';
 import FriendProfileClient from '@/components/friends/FriendProfileClient';
 import Navbar from '@/components/layout/Navbar';
 import { Metadata } from 'next';
+import { getCurrentUserProfileImage } from '@/lib/user-profile';
 
 interface FriendWithSnaps {
   id: string;
@@ -78,10 +79,14 @@ export default async function FriendProfilePage({
     notFound();
   }
 
+  const profileImage = session.userId
+    ? await getCurrentUserProfileImage(session.userId)
+    : '/anya.jpeg';
+
   return (
     <div className="min-h-screen bg-background">
       {/* Navbar */}
-      <Navbar username={session.username} />
+      <Navbar username={session.username} profileImage={profileImage} />
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-12">

@@ -2,12 +2,15 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import Image from "next/image";
 import NavbarDesktopFriendSearch from "@/components/layout/NavbarDesktopFriendSearch";
 import SnappyLogo from "@/components/ui/SnappyLogo";
 import ThemeSwitcher from "@/components/theme/ThemeSwitcher";
+import GlowingBorder from "@/components/ui/glowing-border";
 
 interface NavbarProps {
   username: string;
+  profileImage?: string;
 }
 
 type DesktopNavItem = {
@@ -35,7 +38,7 @@ const DESKTOP_NAV: DesktopNavItem[] = [
   },
 ];
 
-export default function Navbar({ username }: NavbarProps) {
+export default function Navbar({ username, profileImage }: NavbarProps) {
   const pathname = usePathname();
 
   return (
@@ -77,9 +80,23 @@ export default function Navbar({ username }: NavbarProps) {
           </div>
 
           <div className="flex shrink-0 items-center gap-3 sm:gap-4">
-            <span className="caveat-font max-w-[8rem] truncate text-lg text-muted-foreground sm:max-w-none sm:text-xl lg:text-2xl">
-              {username}
-            </span>
+            <Link
+              href="/profile"
+              className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-full"
+              aria-label="Go to profile"
+            >
+              <GlowingBorder radius="full" featured className="inline-block">
+                <div className="relative h-9 w-9 overflow-hidden rounded-full ring-2 ring-border sm:h-10 sm:w-10">
+                  <Image
+                    src={profileImage ?? "/anya.jpeg"}
+                    alt={`${username}'s profile`}
+                    fill
+                    className="object-cover"
+                    sizes="40px"
+                  />
+                </div>
+              </GlowingBorder>
+            </Link>
             <ThemeSwitcher />
           </div>
         </div>

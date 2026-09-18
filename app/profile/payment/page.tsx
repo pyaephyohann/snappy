@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import Navbar from "@/components/layout/Navbar";
 import PremiumFeaturePaymentClient from "@/components/payment/PremiumFeaturePaymentClient";
 import { getAuthenticatedAppUser } from "@/lib/auth";
+import { getCurrentUserProfileImage } from "@/lib/user-profile";
 
 export default async function ProfilePaymentPage({
   searchParams,
@@ -20,9 +21,11 @@ export default async function ProfilePaymentPage({
     redirect("/profile/payment?feature=profile-photo");
   }
 
+  const profileImage = await getCurrentUserProfileImage(user.id);
+
   return (
     <div className="min-h-screen bg-background">
-      <Navbar username={user.name} />
+      <Navbar username={user.name} profileImage={profileImage} />
       <main className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
         <Link
           href="/profile"

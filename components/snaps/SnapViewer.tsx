@@ -299,7 +299,7 @@ export default function SnapViewer({
                       )}
                     </GlowButton>
                   </motion.div>
-                  <motion.div whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.94 }} ref={closeButtonRef} tabIndex={-1} className="focus-visible:outline-none">
+                  <motion.div whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.94 }} ref={closeButtonRef} tabIndex={-1} className="focus:outline-none">
                     <GlowButton
                       onClick={onClose}
                       radius="full"

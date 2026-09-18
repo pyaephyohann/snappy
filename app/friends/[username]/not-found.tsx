@@ -1,6 +1,7 @@
 import { getSession } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import Navbar from '@/components/layout/Navbar';
+import { getCurrentUserProfileImage } from '@/lib/user-profile';
 import { GlowLink } from '@/components/ui/glow-link';
 
 export default async function NotFound() {
@@ -10,10 +11,14 @@ export default async function NotFound() {
     redirect('/');
   }
 
+  const profileImage = session.userId
+    ? await getCurrentUserProfileImage(session.userId)
+    : '/anya.jpeg';
+
   return (
     <div className="min-h-screen bg-background">
       {/* Navbar */}
-      <Navbar username={session.username} />
+      <Navbar username={session.username} profileImage={profileImage} />
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">

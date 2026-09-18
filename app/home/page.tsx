@@ -9,6 +9,7 @@ import RecentSnapsSkeleton from "@/components/home/RecentSnapsSkeleton";
 import Navbar from "@/components/layout/Navbar";
 import GlowingBorder from "@/components/ui/glowing-border";
 import { getHeroCarouselData } from "@/lib/hero-carousel";
+import { getCurrentUserProfileImage } from "@/lib/user-profile";
 
 export default async function HomePage() {
   const session = await getSession();
@@ -17,7 +18,7 @@ export default async function HomePage() {
     redirect("/");
   }
 
-  const [heroCarousel, friends] = await Promise.all([
+  const [heroCarousel, friends, profileImage] = await Promise.all([
     getHeroCarouselData(),
     prisma.user.findMany({
       select: {
@@ -29,12 +30,13 @@ export default async function HomePage() {
         name: "asc",
       },
     }),
+    session.userId ? getCurrentUserProfileImage(session.userId) : "/anya.jpeg",
   ]);
 
   return (
     <div className="min-h-screen bg-background">
       {/* Navbar */}
-      <Navbar username={session.username} />
+      <Navbar username={session.username} profileImage={profileImage} />
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
