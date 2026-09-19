@@ -52,6 +52,10 @@ model User {
   pushSubscriptions            PushSubscription[]
   following                    UserFollow[]        @relation("UserFollows")
   followers                    UserFollow[]        @relation("UserFollowers")
+  conversationsAsLow           Conversation[]      @relation("ConversationUserLow")
+  conversationsAsHigh          Conversation[]      @relation("ConversationUserHigh")
+  conversationParticipants     ConversationParticipant[]
+  sentMessages                 Message[]           @relation("MessageSender")
 
   @@map("users")
 }
@@ -69,6 +73,51 @@ model UserFollow {
   @@index([followerId, createdAt])
   @@index([followingId, createdAt])
   @@map("user_follows")
+}
+
+model Conversation {
+  id             String                    @id @default(cuid())
+  userLowId      String
+  userHighId     String
+  lastMessageAt  DateTime?
+  createdAt      DateTime                  @default(now())
+  updatedAt      DateTime                  @updatedAt
+  userLow        User                      @relation("ConversationUserLow", fields: [userLowId], references: [id], onDelete: Cascade)
+  userHigh       User                      @relation("ConversationUserHigh", fields: [userHighId], references: [id], onDelete: Cascade)
+  participants   ConversationParticipant[]
+  messages       Message[]
+
+  @@unique([userLowId, userHighId])
+  @@index([lastMessageAt])
+  @@map("conversations")
+}
+
+model ConversationParticipant {
+  id             String       @id @default(cuid())
+  conversationId String
+  userId         String
+  lastReadAt     DateTime?
+  createdAt      DateTime     @default(now())
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, userId])
+  @@index([userId, conversationId])
+  @@map("conversation_participants")
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  senderId       String
+  content        String
+  createdAt      DateTime     @default(now())
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender         User         @relation("MessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt, id])
+  @@index([conversationId, senderId, createdAt, id])
+  @@map("messages")
 }
 
 model ProfilePhotoGalleryPayment {

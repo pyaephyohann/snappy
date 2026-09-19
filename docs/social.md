@@ -94,9 +94,179 @@ The implementation uses the existing navigation and surfaces. Relationship state
 
 The current web `/search`, `/friends/[username]`, profile, and Telegram friend-profile routes are the main integration points. Existing Snap upload targeting and bot find-friends semantics must not silently change in S1; they need an explicit product decision about whether they mean mutual friends or any active user.
 
-## S2 — Chat Backend (planned)
+## S2 — Chat Backend — Implemented
 
-Not implemented. Add a 1-to-1 conversation/message model authorized only for mutual friends. Messages must be text-only, length-limited, server-validated, and must not accept file or media fields. Design for cursor pagination and indexes on conversation participants and message creation time.
+S2 backend is implemented. Chat UI, realtime delivery, message notifications, message reactions, and user status remain intentionally unimplemented for later milestones.
+
+Implemented migration: `20260920120000_social_chat_backend`
+
+Implemented APIs:
+
+- `GET /api/chats`
+- `POST /api/chats`
+- `GET /api/chats/:conversationId/messages`
+- `POST /api/chats/:conversationId/messages`
+- `PATCH /api/chats/:conversationId/read`
+
+### Scope and product rules
+
+- Private 1-to-1 text chat only.
+- A conversation is usable only while both users are active mutual followers.
+- Friendship is always derived from `UserFollow`: `A → B` and `B → A`.
+- Unfollowing either direction blocks new messages but preserves the conversation and existing messages.
+- If mutual friendship is restored, the existing conversation becomes usable again.
+- Images, videos, files, voice messages, attachments, message reactions, chat notifications, and user status are outside S2.
+
+### Implemented data model
+
+Prefer a `Conversation` plus `ConversationParticipant` model over storing two user columns directly on `Conversation`:
+
+```prisma
+model Conversation {
+  id             String                    @id @default(cuid())
+  userLowId      String
+  userHighId     String
+  lastMessageAt  DateTime?
+  createdAt      DateTime                  @default(now())
+  updatedAt      DateTime                  @updatedAt
+  userLow        User                      @relation("ConversationUserLow", fields: [userLowId], references: [id], onDelete: Cascade)
+  userHigh       User                      @relation("ConversationUserHigh", fields: [userHighId], references: [id], onDelete: Cascade)
+  participants   ConversationParticipant[]
+  messages       Message[]
+
+  @@unique([userLowId, userHighId])
+  @@index([lastMessageAt])
+  @@map("conversations")
+}
+
+model ConversationParticipant {
+  id             String       @id @default(cuid())
+  conversationId String
+  userId         String
+  lastReadAt     DateTime?
+  createdAt      DateTime     @default(now())
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, userId])
+  @@index([userId, conversationId])
+  @@map("conversation_participants")
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  senderId       String
+  content        String
+  createdAt      DateTime     @default(now())
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender         User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt, id])
+  @@index([conversationId, senderId, createdAt, id])
+  @@map("messages")
+}
+```
+
+The exact Prisma relation names and whether `lastReadAt` is later replaced by a message cursor should be finalized during implementation. The participant table is recommended because it gives server-side membership checks and a natural per-user read cursor without adding `userAReadAt`/`userBReadAt` fields. The application must create exactly two participants in the same transaction as the conversation.
+
+### Conversation uniqueness
+
+Normalize the pair before every lookup/create: lexicographically smaller active user ID becomes `userLowId`, and the larger becomes `userHighId`. The database `@@unique([userLowId, userHighId])` is the authoritative duplicate guard. Conversation creation should use `upsert` or catch Prisma `P2002` and then read the existing row, so concurrent requests cannot create duplicate A↔B conversations. The API must reject self-pairs before normalization.
+
+### Friendship authorization
+
+Reuse `getRelationshipState` / the canonical S1 relationship query rather than duplicating follow logic. A conversation create, conversation read/list, message history, message send, and read-state mutation must resolve the authenticated active Snappy user server-side and verify participant membership. Message sends must additionally verify that the other participant is still active and that both directed `UserFollow` rows still exist. Client-supplied `isFriend`, `senderId`, recipient IDs, or participant lists must never authorize an operation.
+
+### Friendship removal
+
+Unfollowing does not delete a conversation, participants, or messages. It only makes the friendship check fail, so new conversation creation/opening and message sends are rejected while existing history remains preserved. Re-following in both directions makes the same canonical pair usable again. A future privacy/blocking policy may add stronger restrictions, but S2 should not invent one.
+
+### Messages, ordering, and read state
+
+S2 should store only bounded plain text and omit all attachment/media columns. `editedAt`, `deletedAt`, soft-delete state, and message-level reactions should be deferred unless product requirements change. `ConversationParticipant.lastReadAt` is the recommended initial read cursor: marking a conversation read updates only the authenticated participant row, and unread count is the number of messages newer than that timestamp sent by the other participant. This avoids updating every message when a mobile user opens a chat. If strict ordering under equal timestamps becomes important, replace it with a participant `lastReadMessageId` cursor plus a `(createdAt, id)` ordering tuple.
+
+History should use keyset pagination ordered by `createdAt DESC, id DESC`, with a cursor containing both values (or an opaque encoded cursor). The `(conversationId, createdAt, id)` index supports this query. Reverse the returned page for chronological rendering. Do not use offset pagination or load an entire conversation.
+
+### Validation and abuse controls
+
+Validate on the server with the existing Zod convention:
+
+- trim surrounding whitespace and reject empty/whitespace-only content;
+- enforce a documented maximum, recommended initially 2,000 Unicode code points;
+- preserve normal Unicode and newlines;
+- reject malformed JSON and invalid types;
+- reject control characters other than tab/newline/carriage return;
+- do not accept URLs as a special trusted type or any attachment fields;
+- apply a shared/distributed rate limit to conversation creation and message sends when available, retaining a small per-instance fallback only if no shared limiter exists.
+
+Store text as text, escape it through the normal React rendering path, and do not add broad content filtering in S2.
+
+### Implemented API
+
+- `GET /api/chats` — authenticated active user only; return paginated conversations the viewer participates in, including the other active participant, last message preview/time, and unread count. Order by `lastMessageAt DESC, id DESC`.
+- `POST /api/chats` — authenticated active user; body contains only the target user ID. Reject self, missing/inactive target, and non-friends. Normalize the pair and return the existing or newly-created conversation.
+- `GET /api/chats/:conversationId/messages` — authenticated active participant and currently active friend; return cursor-paginated text messages with sender metadata. Never authorize from the ID alone.
+- `POST /api/chats/:conversationId/messages` — authenticated active participant and currently active friend; body contains only `content`. Derive `senderId` from the session, validate text, create the message, and update `lastMessageAt` transactionally.
+- `PATCH /api/chats/:conversationId/read` — authenticated participant only; update only that participant's read cursor. Friendship should not be required merely to mark preserved history read, but access and active-account checks remain mandatory.
+
+Use stable JSON error categories such as `401` unauthenticated, `403` inactive/non-member/not-friends, `404` missing conversation or target, `409` invalid/self/duplicate state where applicable, `413` oversized content, `429` rate limited, and `400` malformed input. Exact response envelopes should follow existing route conventions.
+
+### Conversation list and unread counts
+
+Do not add message notifications or per-conversation counters in S2. Use `lastMessageAt` as a small, transactionally maintained activity field so the list can be ordered without an N+1 latest-message query. Return the latest message through a bounded relation query or a follow-up batched query. Compute unread counts from `lastReadAt` and messages authored by the other participant; measure query cost before adding a denormalized counter. A later scale milestone can introduce a read-model counter only with reconciliation guarantees.
+
+### Realtime recommendation
+
+Do not add realtime infrastructure in S2. Start with cursor-based polling or refresh-on-focus, which works in Web, PWA, and Telegram Mini App and fits the current serverless/Vercel deployment. Server-Sent Events are a possible later improvement but require long-lived connection handling and platform review. WebSockets or a managed realtime provider should be considered only after usage and delivery requirements justify the operational cost. The backend should expose ordinary HTTP reads/writes so any later transport can reuse it.
+
+### Platform compatibility
+
+Web, PWA, and Telegram Mini App must use the same Conversation, Participant, Message, friendship authorization, and API layers. Telegram authentication already creates the normal signed Snappy session for the linked `User.id`; future Telegram routes should be thin presentation/navigation adapters. No TelegramConversation, TelegramMessage, Telegram-specific relationship state, or bot chat database should be introduced. Telegram BackButton, safe-area, and reconnect behavior belong to the later UI milestone.
+
+### Security model
+
+Every chat request must resolve an active user from the signed session, not from request data. Conversation queries must constrain participant membership in the database query itself. Message queries and mutations must verify both conversation membership and the current mutual-follow state. The server derives sender and recipient identities, rejects self-conversations, checks target/account activity, uses the database pair uniqueness constraint, and applies rate limits. Unfollowing must not grant history access to a non-participant, and a stale client cannot bypass the server friendship check by retaining an old conversation ID.
+
+### Editing and deletion policy
+
+Defer editing, message deletion, conversation deletion, blocking, reporting, and moderation controls from the first S2 implementation. Preserve immutable text history initially. If deletion becomes necessary later, define retention/audit semantics before adding soft-delete fields; do not let a client erase a conversation or another user's messages.
+
+### Future notifications integration
+
+Do not modify notification models in S2. The later notification milestone can add a `NEW_MESSAGE` notification type to the existing `Notification` enum, create a recipient row with `userId` as the other participant and `actorId` as the sender, link to a conversation route through a safe body/URL convention, and target only the recipient's `PushSubscription.userId` rows. It should deduplicate or suppress notifications while the recipient is actively reading, respect unread/read state, and define a Telegram delivery strategy separately.
+
+### S2 migration implementation
+
+Create one additive migration only after the schema is approved. Add `conversations`, `conversation_participants`, and `messages` with `cuid` IDs, non-null foreign keys, pair uniqueness, participant uniqueness, pagination/activity indexes, and cascade deletion from a user/conversation to dependent rows. Do not alter `UserFollow`, `Notification`, `PushSubscription`, existing Snap tables, or existing migration history. Apply through the existing direct Neon migration path; never reset or use `db push` in production.
+
+### S2 testing plan
+
+Cover schema and API behavior with focused tests for:
+
+- authenticated friend conversation creation and concurrent duplicate creation;
+- non-friend, self, inactive-target, inactive-viewer, and unauthenticated rejection;
+- conversation IDOR and participant membership enforcement;
+- text-only validation, whitespace/empty/oversized/control-character rejection;
+- sender identity derived from the session and client `senderId` ignored/rejected;
+- friend message send, non-friend send rejection, and correct conversation ownership;
+- unfollow preserving conversation/history while blocking new messages;
+- mutual refollow restoring message ability;
+- read cursor and unread count behavior;
+- stable cursor pagination without duplicates across pages;
+- rate-limit responses and concurrent race safety;
+- Web/PWA and Telegram authentication compatibility without Telegram-specific storage.
+
+Run Prisma validation/generation, typecheck, lint, build, S2 tests, S1 tests, and the existing auth/profile/home/Telegram regression suites before migration deployment.
+
+### S2 implementation sequence — Completed
+
+1. Added the approved participant-based conversation, message, and read-cursor models.
+2. Added one additive migration with pair uniqueness, participant uniqueness, indexes, and cascade foreign keys.
+3. Added shared conversation normalization, friendship authorization, membership, cursor, and message-validation helpers.
+4. Implemented transactional conversation open/create and secured conversation-list/history/send/read APIs.
+5. Added race-safety, IDOR, friendship-removal, validation, pagination, and rate-limit coverage.
+6. Kept chat UI, realtime delivery, reactions, notifications, and status for their designated later milestones.
 
 ## S3 — Chat UI (planned)
 
@@ -141,7 +311,7 @@ Current notifications are persisted in `Notification`, addressed by `userId`, at
 
 The Mini App validates Telegram `initData`, resolves the linked `TelegramAccount`, and creates the normal signed Snappy session with the linked `User.id`. Mini App APIs already use the same authenticated app-user helpers and do not accept a client-supplied Snappy identity.
 
-Later relationship/chat/status work should therefore:
+Later relationship UI, chat UI, and status work should therefore:
 
 - Reuse the same `UserFollow` data and `/api` authorization rules.
 - Use Telegram-local routes/components only for presentation and navigation.
@@ -164,7 +334,7 @@ The S1 implementation includes:
 - Telegram Search/Profile integration files and focused Telegram tests
 - S1 unit/API/security tests
 
-Chat, message reactions, chat notifications, and status remain unimplemented and are reserved for later milestones.
+Chat backend is implemented in S2. Chat UI, message reactions, chat notifications, and status remain reserved for later milestones.
 
 ## S1 testing plan
 

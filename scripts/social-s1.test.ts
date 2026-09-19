@@ -79,9 +79,10 @@ test("web and Telegram profile surfaces use shared relationship state", () => {
   assert.match(read("components/telegram/TelegramMiniAppSearch.tsx"), /api\/users\/list/);
 });
 
-test("S1 leaves chat, message reactions, message notifications, and status planned", () => {
+test("S1 leaves later social milestones scoped", () => {
   const docs = read("docs/social.md");
-  assert.match(docs, /S2 — Chat Backend \(planned\)/);
+  assert.match(docs, /S2 — Chat Backend — Implemented/);
+  assert.match(docs, /S3 — Chat UI \(planned\)/);
   assert.match(docs, /S4 — Message Reactions \(planned\)/);
   assert.match(docs, /S5 — Notifications \(planned\)/);
   assert.match(docs, /S6 — User Status \(planned\)/);
