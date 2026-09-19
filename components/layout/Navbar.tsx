@@ -26,6 +26,11 @@ const DESKTOP_NAV: DesktopNavItem[] = [
     match: (path) => path === "/home" || path.startsWith("/home/"),
   },
   {
+    href: "/chats",
+    label: "Chats",
+    match: (path) => path === "/chats" || path.startsWith("/chats/"),
+  },
+  {
     href: "/notifications",
     label: "Alerts",
     match: (path) =>
@@ -80,6 +85,15 @@ export default function Navbar({ username, profileImage }: NavbarProps) {
           </div>
 
           <div className="flex shrink-0 items-center gap-3 sm:gap-4">
+            <Link
+              href="/chats"
+              className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              aria-label="Open chats"
+            >
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M8 10h8M8 14h5m7-2a8 8 0 11-16 0c0 1.35.335 2.622.926 3.736L4 20l4.264-1.926A8 8 0 0020 12z" />
+              </svg>
+            </Link>
             <Link
               href="/profile"
               className="flex items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"

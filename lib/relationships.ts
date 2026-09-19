@@ -147,6 +147,53 @@ export async function listFriendsForUser({
   };
 }
 
+export async function getMutualFriendshipMap(
+  viewerId: string,
+  targetUserIds: string[],
+): Promise<Map<string, boolean>> {
+  const uniqueTargetIds = [...new Set(targetUserIds)].filter(
+    (targetUserId) => targetUserId !== viewerId,
+  );
+  const result = new Map(uniqueTargetIds.map((targetUserId) => [targetUserId, false]));
+  if (uniqueTargetIds.length === 0) return result;
+
+  const follows = await prisma.userFollow.findMany({
+    where: {
+      OR: [
+        {
+          followerId: viewerId,
+          followingId: { in: uniqueTargetIds },
+        },
+        {
+          followerId: { in: uniqueTargetIds },
+          followingId: viewerId,
+        },
+      ],
+    },
+    select: { followerId: true, followingId: true },
+  });
+
+  const outgoing = new Set(
+    follows
+      .filter((follow) => follow.followerId === viewerId)
+      .map((follow) => follow.followingId),
+  );
+  const incoming = new Set(
+    follows
+      .filter((follow) => follow.followingId === viewerId)
+      .map((follow) => follow.followerId),
+  );
+
+  for (const targetUserId of uniqueTargetIds) {
+    result.set(
+      targetUserId,
+      outgoing.has(targetUserId) && incoming.has(targetUserId),
+    );
+  }
+
+  return result;
+}
+
 export async function targetUserExists(targetUserId: string): Promise<boolean> {
   const user = await prisma.user.findFirst({
     where: { id: targetUserId, isActive: true },

@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import FriendHeader from './FriendHeader';
@@ -27,11 +28,13 @@ interface FriendWithSnaps {
 interface FriendProfileClientProps {
   friend: FriendWithSnaps;
   relationship?: RelationshipState;
+  chatHref?: string;
 }
 
 export default function FriendProfileClient({
   friend,
   relationship,
+  chatHref = "/chats",
 }: FriendProfileClientProps) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
@@ -65,6 +68,14 @@ export default function FriendProfileClient({
                 userId={friend.id}
                 initialRelationship={relationship}
               />
+            ) : null}
+            {relationship?.isFriend ? (
+              <Link
+                href={chatHref}
+                className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-border bg-background px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                Open chats
+              </Link>
             ) : null}
             <SnapUploader onUpload={handleUpload} />
           </div>

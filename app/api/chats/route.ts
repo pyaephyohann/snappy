@@ -10,6 +10,7 @@ import {
   areUsersFriends,
 } from "@/lib/chat";
 import { prisma } from "@/lib/prisma";
+import { getMutualFriendshipMap } from "@/lib/relationships";
 import { isSocialMutationRateLimited } from "@/lib/social-rate-limit";
 
 const createConversationSchema = z
@@ -117,6 +118,14 @@ export async function GET(request: NextRequest) {
     return Boolean(other?.user.isActive);
   });
 
+  const otherUserIds = visiblePage.flatMap((conversation) => {
+    const other = conversation.participants.find(
+      (participant) => participant.userId !== viewer.id,
+    );
+    return other ? [other.userId] : [];
+  });
+  const friendshipMap = await getMutualFriendshipMap(viewer.id, otherUserIds);
+
   const result = await Promise.all(
     visiblePage.map(async (conversation) => {
       const other = conversation.participants.find(
@@ -140,6 +149,7 @@ export async function GET(request: NextRequest) {
       return {
         conversationId: conversation.id,
         otherParticipant: other ? serializeParticipant(other) : null,
+        canMessage: other ? friendshipMap.get(other.userId) === true : false,
         lastMessage: conversation.messages[0]
           ? {
               id: conversation.messages[0].id,

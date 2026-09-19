@@ -3,9 +3,11 @@ import { getAuthenticatedAppUser } from "@/lib/auth";
 import {
   canUseConversation,
   decodeMessageCursor,
+  getConversationAccess,
   encodeMessageCursor,
   isValidChatId,
   validateMessageContent,
+  areUsersFriends,
 } from "@/lib/chat";
 import { prisma } from "@/lib/prisma";
 import { isSocialMutationRateLimited } from "@/lib/social-rate-limit";
@@ -28,14 +30,15 @@ export async function GET(
     return NextResponse.json({ error: "Invalid conversation ID" }, { status: 400 });
   }
 
-  const access = await canUseConversation(viewer.id, conversationId);
-  if (!access) {
+  const access = await getConversationAccess(viewer.id, conversationId);
+  if (!access || !access.otherParticipant.user.isActive) {
     return NextResponse.json(
       { error: "Conversation not available" },
       { status: 403 },
     );
   }
 
+  const canMessage = await areUsersFriends(viewer.id, access.otherParticipant.userId);
   const rawCursor = request.nextUrl.searchParams.get("cursor");
   const cursor = decodeMessageCursor(rawCursor);
   if (rawCursor && !cursor) {
@@ -91,6 +94,12 @@ export async function GET(
             createdAt: oldest.createdAt.toISOString(),
           })
         : null,
+    canMessage,
+    otherParticipant: {
+      id: access.otherParticipant.user.id,
+      name: access.otherParticipant.user.name,
+      profileImage: access.otherParticipant.user.profileImage,
+    },
   });
 }
 

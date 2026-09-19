@@ -29,11 +29,18 @@ export default function TelegramMiniAppShell({
   const isCameraRoute = pathname.startsWith(TELEGRAM_MINI_APP_ROUTES.camera);
   const isUploadRoute = pathname.startsWith(TELEGRAM_MINI_APP_ROUTES.upload);
   const isAlertsRoute = pathname.startsWith(TELEGRAM_MINI_APP_ROUTES.alerts);
+  const isChatsRoute = pathname.startsWith(TELEGRAM_MINI_APP_ROUTES.chats);
+  const isChatConversationRoute =
+    isChatsRoute && pathname !== TELEGRAM_MINI_APP_ROUTES.chats;
   const isProfileRoute = pathname.startsWith(TELEGRAM_MINI_APP_ROUTES.profile);
 
   const handleShellBack = useCallback(() => {
-    router.push(TELEGRAM_MINI_APP_ROUTES.home);
-  }, [router]);
+    router.push(
+      isChatConversationRoute
+        ? TELEGRAM_MINI_APP_ROUTES.chats
+        : TELEGRAM_MINI_APP_ROUTES.home,
+    );
+  }, [isChatConversationRoute, router]);
 
   useTelegramBackButton({
     enabled:
@@ -43,7 +50,8 @@ export default function TelegramMiniAppShell({
       !isCameraRoute &&
       !isUploadRoute &&
       !isAlertsRoute &&
-      !isProfileRoute,
+      !isProfileRoute &&
+      !isChatsRoute,
     onBack: handleShellBack,
   });
 
@@ -69,7 +77,7 @@ export default function TelegramMiniAppShell({
       >
         {children}
       </div>
-      <TelegramBottomNav />
+      {!isChatConversationRoute ? <TelegramBottomNav /> : null}
     </div>
   );
 }

@@ -42,7 +42,11 @@ export default async function TelegramMiniAppFriendPage({
 
   return (
     <div className="px-4 pb-6 pt-4">
-      <FriendProfileClient friend={friend} relationship={relationship} />
+      <FriendProfileClient
+        friend={friend}
+        relationship={relationship}
+        chatHref="/telegram/app/chats"
+      />
     </div>
   );
 }
