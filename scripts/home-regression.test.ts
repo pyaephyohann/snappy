@@ -28,6 +28,15 @@ test("automatic carousel contains birthday and latest-snap fallback branches", (
   assert.match(carousel, /take: 5/);
 });
 
+test("shared Snap home feed is vertical and preserves card interactions", () => {
+  const feed = read("../components/home/RecentSnaps.tsx");
+  assert.match(feed, /SnapCard/);
+  assert.match(feed, /flex-col/);
+  assert.match(feed, /IntersectionObserver/);
+  assert.doesNotMatch(feed, /overflow-x-auto/);
+  assert.doesNotMatch(feed, /snap-x/);
+});
+
 test("the birthday migration and Vercel migration hook are wired", () => {
   const migration = read(
     "../prisma/migrations/20260919100000_user_birthday_and_hero_carousel/migration.sql",

@@ -125,23 +125,13 @@ export default function TelegramMiniAppHome() {
       ) : null}
 
       {state.status === "ready" && state.snaps.length > 0 ? (
-        <>
-          <RecentSnaps snaps={state.snaps} showViewAllLink={false} />
-          <div className="mt-4 text-center">
-            {state.nextCursor ? (
-              <GlowButton
-                type="button"
-                disabled={loadingMore}
-                className="rounded-xl border border-border bg-card px-5 py-3 text-sm font-medium text-foreground disabled:opacity-50"
-                onClick={() => void loadMore()}
-              >
-                {loadingMore ? "Loading more…" : "Load more Snaps"}
-              </GlowButton>
-            ) : (
-              <p className="text-xs text-muted-foreground">You&apos;ve reached the end.</p>
-            )}
-          </div>
-        </>
+        <RecentSnaps
+          snaps={state.snaps}
+          showViewAllLink={false}
+          nextCursor={state.nextCursor}
+          loadingMore={loadingMore}
+          onLoadMore={loadMore}
+        />
       ) : null}
     </div>
   );

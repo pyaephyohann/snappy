@@ -1,24 +1,55 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
-import { motion } from "framer-motion";
+import SnapCard from "@/components/friends/SnapCard";
 import SnapViewer from "@/components/snaps/SnapViewer";
 import type { PublicRecentSnap } from "@/lib/recent-snaps";
 
 interface RecentSnapsProps {
   snaps: PublicRecentSnap[];
   showViewAllLink?: boolean;
+  nextCursor?: string | null;
+  loadingMore?: boolean;
+  onLoadMore?: () => Promise<void> | void;
 }
 
 export default function RecentSnaps({
   snaps,
   showViewAllLink = true,
+  nextCursor = null,
+  loadingMore = false,
+  onLoadMore,
 }: RecentSnapsProps) {
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
-
+  const loadMoreRef = useRef<HTMLDivElement>(null);
+  const loadMoreInFlightRef = useRef(false);
   const viewerSnap = viewerIndex !== null ? snaps[viewerIndex] : null;
+
+  useEffect(() => {
+    if (!onLoadMore || !nextCursor || loadingMore) return;
+
+    const sentinel = loadMoreRef.current;
+    if (!sentinel) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (
+          entries.some((entry) => entry.isIntersecting) &&
+          !loadMoreInFlightRef.current
+        ) {
+          loadMoreInFlightRef.current = true;
+          void Promise.resolve(onLoadMore()).finally(() => {
+            loadMoreInFlightRef.current = false;
+          });
+        }
+      },
+      { rootMargin: "0px 0px 480px 0px" },
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [loadingMore, nextCursor, onLoadMore]);
 
   return (
     <>
@@ -37,37 +68,34 @@ export default function RecentSnaps({
           ) : null}
         </div>
 
-        <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [-ms-overflow-style:none] sm:gap-4 [&::-webkit-scrollbar]:hidden">
+        <div className="mx-auto flex w-full max-w-2xl flex-col gap-6">
           {snaps.map((snap, index) => (
-            <motion.button
+            <SnapCard
               key={snap.id}
-              type="button"
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.04, duration: 0.25 }}
+              id={snap.id}
+              imageUrl={snap.imageUrl}
+              caption={snap.caption}
+              createdAt={snap.createdAt}
+              friendName={snap.user.name}
+              snapIndex={index}
+              uploaderName={snap.uploadedBy?.name ?? null}
+              interactive
               onClick={() => setViewerIndex(index)}
-              className="w-[7.5rem] shrink-0 cursor-pointer text-left sm:w-32"
-            >
-              <div className="relative aspect-[3/4] overflow-hidden rounded-xl border border-border bg-muted shadow-sm">
-                <Image
-                  src={snap.imageUrl}
-                  alt={snap.caption ?? `${snap.user.name}'s snap`}
-                  fill
-                  className="object-cover"
-                  sizes="128px"
-                />
-              </div>
-              <p className="mt-2 truncate text-center text-xs font-medium text-foreground sm:text-sm">
-                {snap.user.name}
-              </p>
-              {snap.uploadedBy ? (
-                <p className="mt-0.5 truncate text-center text-[10px] text-muted-foreground sm:text-xs">
-                  Uploaded by {snap.uploadedBy.name}
-                </p>
-              ) : null}
-            </motion.button>
+            />
           ))}
         </div>
+
+        {onLoadMore ? (
+          <div ref={loadMoreRef} className="mt-6 min-h-10 text-center" aria-live="polite">
+            {loadingMore ? (
+              <p className="text-sm text-muted-foreground">Loading more Snaps…</p>
+            ) : nextCursor ? (
+              <p className="text-xs text-muted-foreground">Scroll for more Snaps</p>
+            ) : snaps.length > 0 ? (
+              <p className="text-xs text-muted-foreground">You&apos;ve reached the end.</p>
+            ) : null}
+          </div>
+        ) : null}
       </section>
 
       {viewerSnap && viewerIndex !== null ? (
