@@ -1,15 +1,20 @@
 import { prisma } from "@/lib/prisma";
 import {
   TELEGRAM_AWAITING_FIND_FRIENDS,
+  TELEGRAM_AWAITING_UPLOAD_TARGET,
   TELEGRAM_AWAITING_UPLOAD,
+  TELEGRAM_UPLOAD_TARGET_MODE_PREFIX,
   TELEGRAM_CHAT_STATE_TTL_MS,
   type TelegramAwaitingMode,
 } from "./chat-state-constants";
 
 export {
   TELEGRAM_AWAITING_FIND_FRIENDS,
+  TELEGRAM_AWAITING_UPLOAD_TARGET,
   TELEGRAM_AWAITING_UPLOAD,
+  TELEGRAM_UPLOAD_TARGET_MODE_PREFIX,
   TELEGRAM_CHAT_STATE_TTL_MS,
+  getTelegramUserStateKey,
 } from "./chat-state-constants";
 
 function isExpired(updatedAt: Date, now = Date.now()): boolean {
@@ -52,11 +57,17 @@ export async function getTelegramAwaitingMode(
     await clearTelegramChatState(chatId);
     return null;
   }
-  if (
-    row.awaitingMode === TELEGRAM_AWAITING_FIND_FRIENDS ||
-    row.awaitingMode === TELEGRAM_AWAITING_UPLOAD
-  ) {
-    return row.awaitingMode;
+  if (row.awaitingMode.startsWith(TELEGRAM_UPLOAD_TARGET_MODE_PREFIX)) {
+    return TELEGRAM_AWAITING_UPLOAD;
+  }
+  if (row.awaitingMode === TELEGRAM_AWAITING_FIND_FRIENDS) {
+    return TELEGRAM_AWAITING_FIND_FRIENDS;
+  }
+  if (row.awaitingMode === TELEGRAM_AWAITING_UPLOAD_TARGET) {
+    return TELEGRAM_AWAITING_UPLOAD_TARGET;
+  }
+  if (row.awaitingMode === TELEGRAM_AWAITING_UPLOAD) {
+    return TELEGRAM_AWAITING_UPLOAD;
   }
   return null;
 }
@@ -126,6 +137,50 @@ export async function setFindFriendsPagination(
       findFriendsOffset: offset,
     },
   });
+}
+
+export async function setAwaitingUploadTarget(chatId: string): Promise<void> {
+  await setTelegramAwaitingMode(chatId, TELEGRAM_AWAITING_UPLOAD_TARGET);
+}
+
+export async function isAwaitingUploadTarget(chatId: string): Promise<boolean> {
+  return (
+    (await getTelegramAwaitingMode(chatId)) === TELEGRAM_AWAITING_UPLOAD_TARGET
+  );
+}
+
+/** Stores the selected target in the existing chat-scoped state row. */
+export async function setAwaitingSnapUploadForTarget(
+  chatId: string,
+  targetUserId: string,
+): Promise<void> {
+  if (!targetUserId || targetUserId.includes(":")) {
+    throw new Error("Invalid Telegram upload target");
+  }
+  await setTelegramAwaitingMode(
+    chatId,
+    `${TELEGRAM_UPLOAD_TARGET_MODE_PREFIX}${targetUserId}`,
+  );
+}
+
+export async function getAwaitingSnapUploadTarget(
+  chatId: string,
+): Promise<string | null> {
+  const row = await prisma.telegramChatState.findUnique({
+    where: { chatId },
+    select: { awaitingMode: true, updatedAt: true },
+  });
+  if (!row || isExpired(row.updatedAt)) {
+    if (row) await clearTelegramChatState(chatId);
+    return null;
+  }
+  if (!row.awaitingMode?.startsWith(TELEGRAM_UPLOAD_TARGET_MODE_PREFIX)) {
+    return null;
+  }
+  const targetUserId = row.awaitingMode.slice(
+    TELEGRAM_UPLOAD_TARGET_MODE_PREFIX.length,
+  );
+  return targetUserId || null;
 }
 
 export async function setAwaitingSnapUpload(chatId: string): Promise<void> {

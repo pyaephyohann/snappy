@@ -15,7 +15,7 @@ Mini App  → /telegram/app → POST /api/telegram/mini-app/session (initData �
 | `/start` | Welcome message plus Find Friends / Upload / Mini App / web buttons |
 | `/help` | Lists commands; clears conversation state |
 | `/find_friends` | View your friends' Snaps (friend list → name search → 3 Snaps per page) |
-| `/upload` | Connect Snappy (if needed), then upload a photo Snap |
+| `/upload` | Choose a friend, then upload a photo Snap to that friend's profile |
 
 Registered bot commands (via `telegram:setup`): `start`, `help`, **`find_friends`**, `upload`. Telegram Bot API command names cannot contain hyphens; users may also type **`/find-friends`** — the bot handles both. The legacy bot command **`/find` (Snap code lookup) has been removed** — it is no longer registered and is not listed in help.
 
@@ -173,9 +173,10 @@ No automatic matching by Telegram username. No bot token in URLs. Expired or reu
 ## Upload flow
 
 1. Linked user sends `/upload`.
-2. Bot sets `telegram_chat_states.awaitingMode = upload_snap` (15-minute TTL).
-3. User sends a **photo** (largest Telegram size), optionally with a **Telegram caption** on the same message.
-4. Server downloads via **Telegram Bot API** (`getFile` + official file URL), validates bytes (max **10 MB**, JPEG/PNG/WebP/GIF — same as web uploader), runs the shared `lib/image-optimization.ts` pipeline (EXIF auto-orientation, proportional max 4096px resize, WebP quality 82), uploads the resulting WebP through **`lib/cloudinary-server-upload`**, and creates a Snap via **`lib/snap-create-service`** owned by the linked user.
+2. Bot loads the linked user's active Snappy friends and shows inline recipient buttons; typed friend names are also supported.
+3. The selected recipient's database user ID is stored in the chat-scoped Telegram state. The bot then waits for a photo.
+4. User sends a **photo** (largest Telegram size), optionally with a **Telegram caption** on the same message.
+5. Server revalidates that the stored recipient is still an allowed friend, downloads via **Telegram Bot API** (`getFile` + official file URL), validates bytes (max **10 MB**, JPEG/PNG/WebP/GIF — same as web uploader), runs the shared `lib/image-optimization.ts` pipeline (EXIF auto-orientation, proportional max 4096px resize, WebP quality 82), uploads the resulting WebP through **`lib/cloudinary-server-upload`**, and creates a Snap with `userId` equal to the selected friend and `uploadedById` equal to the linked Telegram user's Snappy ID.
 5. If the photo message includes a caption, that text becomes the **Snappy Snap caption** (same max length rules as web; over-length captions are rejected with a friendly bot message).
 6. Success message with **View Snap** (friend profile URL) and **Upload Another**.
 
@@ -259,9 +260,10 @@ PostgreSQL table **`telegram_chat_states`**, keyed by Telegram **chat ID**.
 | Mode | Purpose |
 | --- | --- |
 | `find_friends` | Awaiting friend name; stores selected friend + pagination offset for find-friends |
-| `upload_snap` | Awaiting photo for upload |
+| `upload_target` | Choosing the friend who will receive the Snap |
+| `upload_snap_target:<userId>` | Awaiting photo for the validated selected friend |
 
-`/start`, `/help`, and unknown `/` commands **clear** state. `/find_friends` (or `/find-friends`) and `/upload` set their modes. While in find-friends mode, plain text (non-commands) is treated as a friend name search.
+`/start`, `/help`, and unknown `/` commands **clear** state. `/find_friends` (or `/find-friends`) and `/upload` set their modes. While in find-friends mode, plain text (non-command) is treated as a friend name search. While in `upload_target`, plain text is matched only against the linked user's active friends. The selected target is revalidated again when the photo arrives.
 
 States expire after **`TELEGRAM_CHAT_STATE_TTL_MS`** (15 minutes) based on `updatedAt`, same as before.
 

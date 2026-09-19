@@ -2,15 +2,21 @@ import type { Bot, Context } from "grammy";
 import {
   buildMainKeyboard,
   isTelegramCallbackAction,
+  parseUploadTargetCallback,
   TELEGRAM_CALLBACK,
 } from "./keyboards";
 import {
   beginFindFriendsFlow,
   handleFindFriendsNameMessage,
 } from "./find-friends";
-import { clearTelegramChatState } from "./chat-state";
+import {
+  clearTelegramChatState,
+  getTelegramUserStateKey,
+} from "./chat-state";
 import {
   beginUploadSnapFlow,
+  handleUploadTargetNameMessage,
+  handleUploadTargetSelection,
   handleTelegramPhotoMessage,
   handleAwaitingUploadNonPhotoMessage,
 } from "./upload-snap";
@@ -20,6 +26,7 @@ import {
   UNKNOWN_COMMAND_MESSAGE,
 } from "./messages";
 import { registerTelegramBotErrorHandler } from "./bot-error-handler";
+import { getTelegramIdentity } from "./identity";
 
 /**
  * Telegram Bot API command names: lowercase letters, digits, underscores only (no hyphens).
@@ -81,6 +88,12 @@ export function registerTelegramHandlers(bot: Bot): void {
 
   bot.on("callback_query:data", async (ctx) => {
     const data = ctx.callbackQuery.data;
+    const targetUserId = parseUploadTargetCallback(data);
+    if (targetUserId) {
+      await ctx.answerCallbackQuery();
+      await handleUploadTargetSelection(ctx, targetUserId);
+      return;
+    }
     if (isTelegramCallbackAction(data)) {
       return;
     }
@@ -99,6 +112,11 @@ export function registerTelegramHandlers(bot: Bot): void {
   });
 
   bot.on("message:text", async (ctx) => {
+    const handledUploadTarget = await handleUploadTargetNameMessage(ctx);
+    if (handledUploadTarget) {
+      return;
+    }
+
     const handledFindFriends = await handleFindFriendsNameMessage(ctx);
     if (handledFindFriends) {
       return;
@@ -126,8 +144,14 @@ function replyWithMainKeyboard(ctx: Context, text: string) {
 
 async function clearTelegramChatStateForContext(ctx: Context): Promise<void> {
   const chatId = getChatId(ctx);
-  if (chatId) {
-    await clearTelegramChatState(chatId);
+  if (!chatId) return;
+
+  await clearTelegramChatState(chatId);
+  const identity = getTelegramIdentity(ctx);
+  if (identity?.telegramUserId) {
+    await clearTelegramChatState(
+      getTelegramUserStateKey(chatId, identity.telegramUserId),
+    );
   }
 }
 

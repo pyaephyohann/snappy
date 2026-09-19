@@ -3,14 +3,20 @@ import { InlineKeyboard } from "grammy";
 import { uploadSnapImageBuffer } from "@/lib/cloudinary-server-upload";
 import { createSnapForUser } from "@/lib/snap-create-service";
 import { validateSnapImageBuffer } from "@/lib/snap-media";
+import { matchFriendsByNamePartial } from "@/lib/friends-search";
+import { listSnappyFriendsForUser } from "@/lib/snappy-friends";
 import { buildFriendProfileUrl } from "@/lib/notifications/internal-url";
 import { buildAbsoluteSnappyUrl } from "@/lib/snap-telegram";
 import { broadcastNewSnap } from "@/lib/notifications/notification-service";
 import { getLinkedAccountByTelegramUserId } from "./account";
 import {
   clearTelegramChatState,
+  getAwaitingSnapUploadTarget,
+  getTelegramUserStateKey,
   isAwaitingSnapUpload,
-  setAwaitingSnapUpload,
+  isAwaitingUploadTarget,
+  setAwaitingSnapUploadForTarget,
+  setAwaitingUploadTarget,
 } from "./chat-state";
 import { createTelegramLinkChallenge } from "./link-service";
 import { buildTelegramConnectUrl } from "./connect-url";
@@ -18,16 +24,23 @@ import { downloadTelegramFile } from "./download-file";
 import { readTelegramPhotoCaption } from "./photo-caption";
 import { sanitizeTelegramError } from "./errors";
 import { getTelegramIdentity } from "./identity";
-import { TELEGRAM_CALLBACK } from "./keyboards";
+import {
+  buildUploadTargetKeyboard,
+  TELEGRAM_CALLBACK,
+} from "./keyboards";
 import {
   UPLOAD_AWAITING_PHOTO_MESSAGE,
+  UPLOAD_CHOOSE_TARGET_MESSAGE,
   UPLOAD_CAPTION_TOO_LONG_MESSAGE,
   UPLOAD_LINK_REQUIRED_MESSAGE,
   UPLOAD_LOOKUP_ERROR_MESSAGE,
   UPLOAD_MEDIA_INVALID_MESSAGE,
   UPLOAD_MEDIA_TOO_LARGE_MESSAGE,
   UPLOAD_NOT_LINKED_MESSAGE,
-  UPLOAD_PROMPT_MESSAGE,
+  UPLOAD_NO_FRIENDS_MESSAGE,
+  UPLOAD_TARGET_NOT_FOUND_MESSAGE,
+  UPLOAD_TARGET_STALE_MESSAGE,
+  formatUploadTargetSelected,
   UPLOAD_RATE_LIMIT_MESSAGE,
   UPLOAD_SUCCESS_MESSAGE,
   UPLOAD_UNSUPPORTED_MEDIA_MESSAGE,
@@ -67,10 +80,138 @@ export async function beginUploadSnapFlow(ctx: Context): Promise<void> {
     return;
   }
 
-  if (identity.chatId) {
-    await setAwaitingSnapUpload(identity.chatId);
+  if (!identity.chatId) {
+    await ctx.reply(UPLOAD_LOOKUP_ERROR_MESSAGE);
+    return;
   }
-  await ctx.reply(UPLOAD_PROMPT_MESSAGE);
+
+  let friends;
+  try {
+    friends = await listSnappyFriendsForUser(linked.userId);
+  } catch (error) {
+    console.error(
+      "[TELEGRAM] Upload recipient list failed:",
+      sanitizeTelegramError(error),
+    );
+    await ctx.reply(UPLOAD_LOOKUP_ERROR_MESSAGE);
+    return;
+  }
+
+  if (friends.length === 0) {
+    await ctx.reply(UPLOAD_NO_FRIENDS_MESSAGE);
+    return;
+  }
+
+  const stateKey = getTelegramUserStateKey(
+    identity.chatId,
+    identity.telegramUserId,
+  );
+  await setAwaitingUploadTarget(stateKey);
+  await ctx.reply(UPLOAD_CHOOSE_TARGET_MESSAGE, {
+    reply_markup: buildUploadTargetKeyboard(friends),
+  });
+}
+
+async function listUploadRecipients(telegramUserId: string) {
+  const linked = await getLinkedAccountByTelegramUserId(telegramUserId);
+  if (!linked) return null;
+  return {
+    linked,
+    friends: await listSnappyFriendsForUser(linked.userId),
+  };
+}
+
+export async function handleUploadTargetSelection(
+  ctx: Context,
+  targetUserId: string,
+): Promise<boolean> {
+  const identity = getTelegramIdentity(ctx);
+  if (!identity?.chatId) return false;
+  const stateKey = getTelegramUserStateKey(
+    identity.chatId,
+    identity.telegramUserId,
+  );
+
+  if (!(await isAwaitingUploadTarget(stateKey))) return false;
+
+  try {
+    const recipientData = await listUploadRecipients(identity.telegramUserId);
+    const friend = recipientData?.friends.find(
+      (candidate) => candidate.id === targetUserId,
+    );
+    if (!recipientData || !friend) {
+      await ctx.reply(UPLOAD_TARGET_STALE_MESSAGE);
+      await clearTelegramChatState(stateKey);
+      return true;
+    }
+
+    await setAwaitingSnapUploadForTarget(stateKey, friend.id);
+    await ctx.reply(formatUploadTargetSelected(friend.name));
+    return true;
+  } catch (error) {
+    console.error(
+      "[TELEGRAM] Upload recipient selection failed:",
+      sanitizeTelegramError(error),
+    );
+    await ctx.reply(UPLOAD_LOOKUP_ERROR_MESSAGE);
+    return true;
+  }
+}
+
+export async function handleUploadTargetNameMessage(
+  ctx: Context,
+): Promise<boolean> {
+  const identity = getTelegramIdentity(ctx);
+  const text = ctx.message?.text;
+  if (!identity?.chatId || !text || text.startsWith("/")) return false;
+  const stateKey = getTelegramUserStateKey(
+    identity.chatId,
+    identity.telegramUserId,
+  );
+  if (!(await isAwaitingUploadTarget(stateKey))) return false;
+
+  try {
+    const recipientData = await listUploadRecipients(identity.telegramUserId);
+    if (!recipientData) {
+      await ctx.reply(UPLOAD_LINK_REQUIRED_MESSAGE);
+      return true;
+    }
+
+    const matches = matchFriendsByNamePartial(recipientData.friends, text);
+    if (matches.length === 0) {
+      await ctx.reply(UPLOAD_TARGET_NOT_FOUND_MESSAGE, {
+        reply_markup: buildUploadTargetKeyboard(recipientData.friends),
+      });
+      return true;
+    }
+    if (matches.length > 1) {
+      await ctx.reply(formatUploadTargetMultipleMatches(matches), {
+        reply_markup: buildUploadTargetKeyboard(matches),
+      });
+      return true;
+    }
+
+    return handleUploadTargetSelection(ctx, matches[0].id);
+  } catch (error) {
+    console.error(
+      "[TELEGRAM] Upload recipient name lookup failed:",
+      sanitizeTelegramError(error),
+    );
+    await ctx.reply(UPLOAD_LOOKUP_ERROR_MESSAGE);
+    return true;
+  }
+}
+
+function formatUploadTargetMultipleMatches(
+  friends: { name: string }[],
+): string {
+  return [
+    "I found multiple friends:",
+    "",
+    ...friends.map((friend, index) => `${index + 1}. ${friend.name}`),
+    "",
+    "Choose one below or type the friend's full name.",
+  ].join("\n");
 }
 
 export async function handleTelegramPhotoMessage(ctx: Context): Promise<boolean> {
@@ -79,18 +220,42 @@ export async function handleTelegramPhotoMessage(ctx: Context): Promise<boolean>
     return false;
   }
 
-  const awaiting = await isAwaitingSnapUpload(identity.chatId);
-  if (!awaiting) {
+  const stateKey = getTelegramUserStateKey(
+    identity.chatId,
+    identity.telegramUserId,
+  );
+  const targetUserId = await getAwaitingSnapUploadTarget(stateKey);
+  if (!targetUserId || !(await isAwaitingSnapUpload(stateKey))) {
     return false;
   }
 
-  await clearTelegramChatState(identity.chatId);
-
   const linked = await getLinkedAccountByTelegramUserId(identity.telegramUserId);
   if (!linked) {
+    await clearTelegramChatState(stateKey);
     await ctx.reply(UPLOAD_LINK_REQUIRED_MESSAGE);
     return true;
   }
+
+  let allowedRecipients;
+  try {
+    allowedRecipients = await listSnappyFriendsForUser(linked.userId);
+  } catch (error) {
+    console.error(
+      "[TELEGRAM] Upload recipient validation failed:",
+      sanitizeTelegramError(error),
+    );
+    await ctx.reply(UPLOAD_LOOKUP_ERROR_MESSAGE);
+    await setAwaitingSnapUploadForTarget(stateKey, targetUserId);
+    return true;
+  }
+
+  if (!allowedRecipients.some((friend) => friend.id === targetUserId)) {
+    await clearTelegramChatState(stateKey);
+    await ctx.reply(UPLOAD_TARGET_STALE_MESSAGE);
+    return true;
+  }
+
+  await clearTelegramChatState(stateKey);
 
   if (await isTelegramUploadRateLimited(identity.telegramUserId)) {
     await ctx.reply(UPLOAD_RATE_LIMIT_MESSAGE);
@@ -100,7 +265,7 @@ export async function handleTelegramPhotoMessage(ctx: Context): Promise<boolean>
   const photos = ctx.message?.photo;
   if (!photos?.length) {
     await ctx.reply(UPLOAD_UNSUPPORTED_MEDIA_MESSAGE);
-    await setAwaitingSnapUpload(identity.chatId);
+    await setAwaitingSnapUploadForTarget(stateKey, targetUserId);
     return true;
   }
 
@@ -115,13 +280,13 @@ export async function handleTelegramPhotoMessage(ctx: Context): Promise<boolean>
       sanitizeTelegramError(error),
     );
     await ctx.reply(UPLOAD_LOOKUP_ERROR_MESSAGE);
-    await setAwaitingSnapUpload(identity.chatId);
+    await setAwaitingSnapUploadForTarget(stateKey, targetUserId);
     return true;
   }
 
   if (!filePath) {
     await ctx.reply(UPLOAD_LOOKUP_ERROR_MESSAGE);
-    await setAwaitingSnapUpload(identity.chatId);
+    await setAwaitingSnapUploadForTarget(stateKey, targetUserId);
     return true;
   }
 
@@ -132,7 +297,7 @@ export async function handleTelegramPhotoMessage(ctx: Context): Promise<boolean>
     } else {
       await ctx.reply(UPLOAD_LOOKUP_ERROR_MESSAGE);
     }
-    await setAwaitingSnapUpload(identity.chatId);
+    await setAwaitingSnapUploadForTarget(stateKey, targetUserId);
     return true;
   }
 
@@ -146,7 +311,7 @@ export async function handleTelegramPhotoMessage(ctx: Context): Promise<boolean>
     } else {
       await ctx.reply(UPLOAD_MEDIA_INVALID_MESSAGE);
     }
-    await setAwaitingSnapUpload(identity.chatId);
+    await setAwaitingSnapUploadForTarget(stateKey, targetUserId);
     return true;
   }
 
@@ -162,7 +327,7 @@ export async function handleTelegramPhotoMessage(ctx: Context): Promise<boolean>
       sanitizeTelegramError(error),
     );
     await ctx.reply(UPLOAD_LOOKUP_ERROR_MESSAGE);
-    await setAwaitingSnapUpload(identity.chatId);
+    await setAwaitingSnapUploadForTarget(stateKey, targetUserId);
     return true;
   }
 
@@ -171,7 +336,7 @@ export async function handleTelegramPhotoMessage(ctx: Context): Promise<boolean>
   let created;
   try {
     created = await createSnapForUser({
-      targetUserId: linked.userId,
+      targetUserId,
       uploadedById: linked.userId,
       imageUrl: cloudinaryResult.secureUrl,
       publicId: cloudinaryResult.publicId,
@@ -183,7 +348,7 @@ export async function handleTelegramPhotoMessage(ctx: Context): Promise<boolean>
       sanitizeTelegramError(error),
     );
     await ctx.reply(UPLOAD_LOOKUP_ERROR_MESSAGE);
-    await setAwaitingSnapUpload(identity.chatId);
+    await setAwaitingSnapUploadForTarget(stateKey, targetUserId);
     return true;
   }
 
@@ -193,7 +358,7 @@ export async function handleTelegramPhotoMessage(ctx: Context): Promise<boolean>
     } else {
       await ctx.reply(UPLOAD_LOOKUP_ERROR_MESSAGE);
     }
-    await setAwaitingSnapUpload(identity.chatId);
+    await setAwaitingSnapUploadForTarget(stateKey, targetUserId);
     return true;
   }
 
@@ -241,7 +406,11 @@ export async function handleAwaitingUploadNonPhotoMessage(
   if (!identity?.chatId) {
     return false;
   }
-  const awaiting = await isAwaitingSnapUpload(identity.chatId);
+  const stateKey = getTelegramUserStateKey(
+    identity.chatId,
+    identity.telegramUserId,
+  );
+  const awaiting = await isAwaitingSnapUpload(stateKey);
   if (!awaiting) {
     return false;
   }

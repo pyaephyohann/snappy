@@ -125,6 +125,32 @@ export const UPLOAD_NOT_LINKED_MESSAGE = [
 export const UPLOAD_LINK_REQUIRED_MESSAGE =
   "Your Telegram account is not connected to Snappy. Send /upload to connect.";
 
+export const UPLOAD_CHOOSE_TARGET_MESSAGE =
+  "Choose who this Snap is for";
+
+export const UPLOAD_NO_FRIENDS_MESSAGE =
+  "You don't have any friends available to receive a Snap yet.";
+
+export const UPLOAD_TARGET_NOT_FOUND_MESSAGE = [
+  "I couldn't find that friend.",
+  "",
+  "Please choose a friend from the list or try their name again.",
+].join("\n");
+
+export const UPLOAD_TARGET_STALE_MESSAGE = [
+  "That friend is no longer available for this Snap.",
+  "",
+  "Please send /upload to choose a friend again.",
+].join("\n");
+
+export function formatUploadTargetSelected(friendName: string): string {
+  return [
+    `✓ Snap recipient: ${friendName}`,
+    "",
+    "Send me the photo you want to upload.",
+  ].join("\n");
+}
+
 export const UPLOAD_PROMPT_MESSAGE = [
   "📤 Upload a Snap",
   "",

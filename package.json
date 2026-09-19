@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",
+    "vercel-build": "prisma migrate deploy && npm run build",
     "start": "next start",
     "lint": "eslint",
     "test:auth": "node --import tsx --test scripts/auth-logic.test.ts",
@@ -15,6 +16,7 @@
     "test:telegram-find": "node --import tsx --test scripts/telegram-find-snap.test.ts",
     "test:telegram-find-friends": "node --import tsx --test scripts/telegram-find-friends.test.ts",
     "test:telegram-upload": "node --import tsx --test scripts/telegram-account-upload.test.ts",
+    "test:telegram-upload-target": "node --import tsx --test scripts/telegram-upload-target.test.ts",
     "test:telegram-mini-app": "node --import tsx --test scripts/telegram-mini-app.test.ts",
     "test:telegram-mini-app-home": "node --import tsx --test scripts/telegram-mini-app-home.test.ts",
     "test:telegram-mini-app-find": "node --import tsx --test scripts/telegram-mini-app-find.test.ts",
@@ -23,6 +25,7 @@
     "test:telegram-mini-app-integration": "node --import tsx --test scripts/telegram-mini-app-integration.test.ts",
     "test:telegram-hardening": "node --import tsx --test scripts/telegram-hardening.test.ts",
     "test:profile": "node --import tsx --test scripts/profile-page.test.ts",
+    "test:home-regression": "node --import tsx --test scripts/home-regression.test.ts",
     "test:image-optimization": "node --import tsx --test scripts/image-optimization.test.ts"
   },
   "dependencies": {
