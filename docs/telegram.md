@@ -42,7 +42,7 @@ Route: **`/telegram/app`** (full URL: `{SNAPPY_PUBLIC_URL}/telegram/app`).
 
 | Route | Purpose |
 | --- | --- |
-| `/telegram/app` | Home — paginated Snap feed using the shared Snap card/viewer data shape |
+| `/telegram/app` | Home — shared Web Home experience inside the Telegram shell |
 | `/telegram/app/search` | Web-equivalent friend search using the shared friend picker |
 | `/telegram/app/camera` | Shared web camera, friend targeting, composer, and upload flow |
 | `/telegram/app/upload` | Same shared upload flow as Camera, including **who this Snap is for** |
@@ -52,7 +52,7 @@ Route: **`/telegram/app`** (full URL: `{SNAPPY_PUBLIC_URL}/telegram/app`).
 
 The bottom navigation mirrors the web structure: Home, Search, center Camera, Alerts, and Profile. It is fixed above `env(safe-area-inset-bottom)` and uses the shared web camera/friend-picker/upload pipeline. Nested routes retain Telegram **BackButton** behavior.
 
-Home loads 12 Snaps per request with an authenticated cursor and exposes a mobile-friendly Load more control. Empty, retry, session-expired, loading-more, and end-of-feed states are rendered in the Mini App.
+Telegram Mini App Home reuses the shared Web Home experience, including the header, automatic hero carousel, horizontal Recent Snaps, Snap viewer, friends grid, loading behavior, and empty states. Only the surrounding Telegram shell, authentication, safe-area handling, and bottom navigation remain Telegram-specific.
 
 PWA install prompt and service worker registration are skipped under `/telegram/app/*`.
 

@@ -2,7 +2,7 @@
  * Telegram Mini App home + navigation (Node test runner).
  * Run: npm run test:telegram-mini-app-home
  */
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -41,74 +41,65 @@ test("resolveTelegramMiniAppScreenPath maps screen query param", () => {
   );
 });
 
-test("home API reuses shared loadRecentSnapsForHome", () => {
+test("Telegram Home API returns shared Home data", () => {
   const homeRoute = readFileSync(
     resolve(import.meta.dirname, "../app/api/telegram/mini-app/home/route.ts"),
     "utf8",
   );
-  const recentSnapsLib = readFileSync(
-    resolve(import.meta.dirname, "../lib/recent-snaps.ts"),
+  const homeData = readFileSync(
+    resolve(import.meta.dirname, "../lib/home-data.ts"),
     "utf8",
   );
-  const section = readFileSync(
-    resolve(import.meta.dirname, "../components/home/RecentSnapsSection.tsx"),
-    "utf8",
-  );
-
-  assert.match(homeRoute, /loadRecentSnapsForHome/);
-  assert.match(recentSnapsLib, /export async function loadRecentSnapsForHome/);
-  assert.match(section, /loadRecentSnapsForHome/);
-  assert.doesNotMatch(section, /getRecentSnaps\(/);
-});
-
-test("Telegram home uses a vertical feed with manual cursor pagination", () => {
   const home = readFileSync(
     resolve(import.meta.dirname, "../components/telegram/TelegramMiniAppHome.tsx"),
     "utf8",
   );
-  const feed = readFileSync(
-    resolve(import.meta.dirname, "../components/telegram/TelegramSnapFeed.tsx"),
-    "utf8",
-  );
 
-  assert.match(home, /TelegramSnapFeed/);
-  assert.match(home, /nextCursor/);
-  assert.match(home, /onLoadMore/);
-  assert.match(feed, /Load more/);
-  assert.match(feed, /loadingMore/);
-  assert.match(feed, /No more Snaps/);
-  assert.match(feed, /Could not load more Snaps/);
-  assert.match(feed, /flex-col/);
-  assert.match(feed, /SnapCard/);
-  assert.doesNotMatch(feed, /IntersectionObserver/);
-  assert.doesNotMatch(feed, /overflow-x-auto/);
-  assert.doesNotMatch(feed, /snap-x/);
+  assert.match(homeRoute, /getHomeDataForUser/);
+  assert.match(homeData, /getAutomaticHeroCarousel/);
+  assert.match(homeData, /listFriendsForUser/);
+  assert.match(homeData, /loadRecentSnapsForHome/);
+  assert.match(home, /HomeContent/);
+  assert.doesNotMatch(homeRoute, /getPaginatedSnapsForMiniApp/);
 });
 
-test("Telegram pagination appends pages without navigation or reload", () => {
-  const home = readFileSync(
+test("Telegram Home uses the same content components as Web Home", () => {
+  const shared = readFileSync(
+    resolve(import.meta.dirname, "../components/home/HomeContent.tsx"),
+    "utf8",
+  );
+  const web = readFileSync(
+    resolve(import.meta.dirname, "../app/home/page.tsx"),
+    "utf8",
+  );
+  const telegram = readFileSync(
     resolve(import.meta.dirname, "../components/telegram/TelegramMiniAppHome.tsx"),
     "utf8",
   );
-  const feed = readFileSync(
-    resolve(import.meta.dirname, "../components/telegram/TelegramSnapFeed.tsx"),
+
+  assert.match(web, /HomeContent/);
+  assert.match(shared, /HeroCarousel/);
+  assert.match(shared, /RecentSnaps/);
+  assert.match(shared, /FriendCard/);
+  assert.match(shared, /Snap/);
+  assert.match(telegram, /HomeContent/);
+  assert.doesNotMatch(telegram, /TelegramSnapFeed/);
+  assert.doesNotMatch(telegram, /nextCursor/);
+});
+
+test("Telegram Home has no duplicate Snap feed or pagination implementation", () => {
+  const telegramHome = readFileSync(
+    resolve(import.meta.dirname, "../components/telegram/TelegramMiniAppHome.tsx"),
     "utf8",
   );
-  const homeRoute = readFileSync(
-    resolve(import.meta.dirname, "../app/api/telegram/mini-app/home/route.ts"),
-    "utf8",
+  const telegramFeedPath = resolve(
+    import.meta.dirname,
+    "../components/telegram/TelegramSnapFeed.tsx",
   );
 
-  assert.match(home, /loadHome\(state\.nextCursor\)/);
-  assert.match(home, /snaps: \[\.\.\.current\.snaps, \.\.\.body\.snaps\]/);
-  assert.match(home, /nextCursor: body\.nextCursor/);
-  assert.match(feed, /disabled=\{loadingMore\}/);
-  assert.match(feed, /handleLoadMore/);
-  assert.doesNotMatch(home, /window\.location\.reload/);
-  assert.doesNotMatch(home, /router\.refresh/);
-  assert.doesNotMatch(feed, /window\.location\.reload/);
-  assert.doesNotMatch(feed, /href=/);
-  assert.match(homeRoute, /getPaginatedSnapsForMiniApp\(\{ cursor \}\)/);
+  assert.doesNotMatch(telegramHome, /IntersectionObserver/);
+  assert.doesNotMatch(telegramHome, /Load more/);
+  assert.equal(existsSync(telegramFeedPath), false);
 });
 
 test("bottom nav uses safe-area inset on shell", () => {

@@ -8,14 +8,19 @@ import GlowingBorder from '@/components/ui/glowing-border';
 interface FriendCardProps {
   name: string;
   profileImage: string;
+  profilePathPrefix?: string;
 }
 
-export default function FriendCard({ name, profileImage }: FriendCardProps) {
+export default function FriendCard({
+  name,
+  profileImage,
+  profilePathPrefix = "/friends",
+}: FriendCardProps) {
   const router = useRouter();
 
   const handleClick = () => {
     const encodedName = encodeURIComponent(name);
-    router.push(`/friends/${encodedName}`);
+    router.push(`${profilePathPrefix}/${encodedName}`);
   };
 
   return (

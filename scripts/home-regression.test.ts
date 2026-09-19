@@ -15,7 +15,7 @@ test("normal user login still creates a user session and redirects to home", () 
 
 test("home uses the automatic carousel and keeps birthday notification fire-and-forget", () => {
   const homePage = read("../app/home/page.tsx");
-  assert.match(homePage, /getAutomaticHeroCarousel/);
+  assert.match(homePage, /getHomeDataForUser/);
   assert.match(homePage, /triggerBirthdayNotifications/);
   assert.match(homePage, /void triggerBirthdayNotifications\(\)/);
 });
@@ -37,18 +37,16 @@ test("shared Web/PWA Snap home feed remains horizontal", () => {
   assert.doesNotMatch(feed, /flex-col/);
 });
 
-test("Telegram home uses its own vertical paginated Snap feed", () => {
-  const home = read("../components/telegram/TelegramMiniAppHome.tsx");
-  const feed = read("../components/telegram/TelegramSnapFeed.tsx");
-  assert.match(home, /TelegramSnapFeed/);
-  assert.match(home, /nextCursor/);
-  assert.match(feed, /flex-col/);
-  assert.match(feed, /Load more/);
-  assert.match(feed, /SnapCard/);
-  assert.match(feed, /SnapViewer/);
-  assert.doesNotMatch(feed, /IntersectionObserver/);
-  assert.doesNotMatch(feed, /overflow-x-auto/);
-  assert.doesNotMatch(feed, /snap-x/);
+test("Telegram Home reuses the shared Web Home content", () => {
+  const shared = read("../components/home/HomeContent.tsx");
+  const telegram = read("../components/telegram/TelegramMiniAppHome.tsx");
+  assert.match(shared, /HeroCarousel/);
+  assert.match(shared, /RecentSnaps/);
+  assert.match(shared, /FriendCard/);
+  assert.match(shared, /Snap/);
+  assert.match(telegram, /HomeContent/);
+  assert.doesNotMatch(telegram, /TelegramSnapFeed/);
+  assert.doesNotMatch(telegram, /nextCursor/);
 });
 
 test("the birthday migration and Vercel migration hook are wired", () => {

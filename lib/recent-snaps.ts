@@ -65,27 +65,6 @@ export async function getRecentSnaps(
   });
 }
 
-export const MINI_APP_SNAPS_PAGE_SIZE = 12;
-
-export async function getPaginatedSnapsForMiniApp(options?: {
-  cursor?: string | null;
-  limit?: number;
-}): Promise<{ snaps: PublicRecentSnap[]; nextCursor: string | null }> {
-  const limit = options?.limit ?? MINI_APP_SNAPS_PAGE_SIZE;
-  const rows = await prisma.snap.findMany({
-    take: limit + 1,
-    ...(options?.cursor ? { cursor: { id: options.cursor }, skip: 1 } : {}),
-    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-    select: snapWithOwnerSelect,
-  });
-  const hasMore = rows.length > limit;
-  const page = hasMore ? rows.slice(0, limit) : rows;
-  return {
-    snaps: serializeRecentSnaps(page),
-    nextCursor: hasMore ? page[page.length - 1]?.id ?? null : null,
-  };
-}
-
 export async function getAllSnaps(): Promise<RecentSnapWithUser[]> {
   return prisma.snap.findMany({
     orderBy: { createdAt: "desc" },
