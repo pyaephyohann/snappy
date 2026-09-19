@@ -148,7 +148,7 @@ function NavLinkItem({
   return (
     <Link
       href={item.href}
-      className={`group flex min-h-[44px] min-w-[52px] flex-1 translate-y-2 flex-col items-center justify-end gap-0.5 pb-0 pt-1 text-[10px] font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-lg ${
+      className={`group flex min-h-[44px] min-w-[52px] flex-1 translate-y-3 flex-col items-center justify-end gap-0.5 pb-0 pt-1 text-[10px] font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-lg ${
         active
           ? "text-primary"
           : "text-muted-foreground hover:text-foreground"

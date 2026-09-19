@@ -111,7 +111,7 @@ export default function TelegramBottomNav() {
 
 function NavLinkItem({ item, active, badgeCount = 0 }: { item: NavItem; active: boolean; badgeCount?: number }) {
   return (
-    <Link href={item.href} aria-current={active ? "page" : undefined} className={`group flex min-h-[44px] min-w-[52px] flex-1 translate-y-2 flex-col items-center justify-end gap-0.5 rounded-lg pb-0 pt-1 text-[10px] font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${active ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}>
+    <Link href={item.href} aria-current={active ? "page" : undefined} className={`group flex min-h-[44px] min-w-[52px] flex-1 translate-y-1 flex-col items-center justify-end gap-0.5 rounded-lg pb-0 pt-1 text-[10px] font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${active ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}>
       <span className="relative inline-flex">{item.icon(active)}{badgeCount > 0 ? <span className="absolute -right-2 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold leading-none text-primary-foreground">{badgeCount > 9 ? "9+" : badgeCount}</span> : null}</span>
       <span className="leading-none">{item.label}</span>
     </Link>
