@@ -1,7 +1,7 @@
 import { getAutomaticHeroCarousel, type PublicHeroCarouselData } from "@/lib/hero-carousel";
 import { getCurrentUserProfileImage } from "@/lib/user-profile";
 import {
-  listFriendsForUser,
+  listUsersForViewer,
   type RelationshipUser,
 } from "@/lib/relationships";
 import {
@@ -17,16 +17,16 @@ export type HomeData = {
 };
 
 export async function getHomeDataForUser(userId: string): Promise<HomeData> {
-  const [heroCarousel, friendsPage, profileImage, snaps] = await Promise.all([
+  const [heroCarousel, allUsers, profileImage, snaps] = await Promise.all([
     getAutomaticHeroCarousel(),
-    listFriendsForUser({ viewerId: userId, limit: 50 }),
+    listUsersForViewer(userId),
     getCurrentUserProfileImage(userId),
     loadRecentSnapsForHome(),
   ]);
 
   return {
     heroCarousel,
-    friends: friendsPage.users,
+    friends: allUsers.filter((u) => u.id !== userId).slice(0, 50),
     profileImage,
     snaps,
   };

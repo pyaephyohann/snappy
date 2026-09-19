@@ -57,7 +57,7 @@ test("Telegram Home API returns shared Home data", () => {
 
   assert.match(homeRoute, /getHomeDataForUser/);
   assert.match(homeData, /getAutomaticHeroCarousel/);
-  assert.match(homeData, /listFriendsForUser/);
+  assert.match(homeData, /listUsersForViewer/);
   assert.match(homeData, /loadRecentSnapsForHome/);
   assert.match(home, /HomeContent/);
   assert.doesNotMatch(homeRoute, /getPaginatedSnapsForMiniApp/);
