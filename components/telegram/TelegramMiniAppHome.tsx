@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import RecentSnaps from "@/components/home/RecentSnaps";
 import RecentSnapsSkeleton from "@/components/home/RecentSnapsSkeleton";
+import TelegramSnapFeed from "@/components/telegram/TelegramSnapFeed";
 import TelegramMiniAppReconnect from "@/components/telegram/TelegramMiniAppReconnect";
 import { useTelegramMiniAppAuth } from "@/components/telegram/TelegramMiniAppAuthProvider";
 import { GlowButton } from "@/components/ui/glow-button";
@@ -125,9 +125,8 @@ export default function TelegramMiniAppHome() {
       ) : null}
 
       {state.status === "ready" && state.snaps.length > 0 ? (
-        <RecentSnaps
+        <TelegramSnapFeed
           snaps={state.snaps}
-          showViewAllLink={false}
           nextCursor={state.nextCursor}
           loadingMore={loadingMore}
           onLoadMore={loadMore}

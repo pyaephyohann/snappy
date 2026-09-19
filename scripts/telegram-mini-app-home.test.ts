@@ -61,6 +61,26 @@ test("home API reuses shared loadRecentSnapsForHome", () => {
   assert.doesNotMatch(section, /getRecentSnaps\(/);
 });
 
+test("Telegram home uses a vertical feed with automatic cursor pagination", () => {
+  const home = readFileSync(
+    resolve(import.meta.dirname, "../components/telegram/TelegramMiniAppHome.tsx"),
+    "utf8",
+  );
+  const feed = readFileSync(
+    resolve(import.meta.dirname, "../components/telegram/TelegramSnapFeed.tsx"),
+    "utf8",
+  );
+
+  assert.match(home, /TelegramSnapFeed/);
+  assert.match(home, /nextCursor/);
+  assert.match(home, /onLoadMore/);
+  assert.match(feed, /flex-col/);
+  assert.match(feed, /IntersectionObserver/);
+  assert.match(feed, /SnapCard/);
+  assert.doesNotMatch(feed, /overflow-x-auto/);
+  assert.doesNotMatch(feed, /snap-x/);
+});
+
 test("bottom nav uses safe-area inset on shell", () => {
   const nav = readFileSync(
     resolve(import.meta.dirname, "../components/telegram/TelegramBottomNav.tsx"),

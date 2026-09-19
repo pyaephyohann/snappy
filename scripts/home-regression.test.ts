@@ -28,11 +28,24 @@ test("automatic carousel contains birthday and latest-snap fallback branches", (
   assert.match(carousel, /take: 5/);
 });
 
-test("shared Snap home feed is vertical and preserves card interactions", () => {
+test("shared Web/PWA Snap home feed remains horizontal", () => {
   const feed = read("../components/home/RecentSnaps.tsx");
-  assert.match(feed, /SnapCard/);
+  assert.match(feed, /overflow-x-auto/);
+  assert.match(feed, /shrink-0/);
+  assert.match(feed, /SnapViewer/);
+  assert.doesNotMatch(feed, /IntersectionObserver/);
+  assert.doesNotMatch(feed, /flex-col/);
+});
+
+test("Telegram home uses its own vertical paginated Snap feed", () => {
+  const home = read("../components/telegram/TelegramMiniAppHome.tsx");
+  const feed = read("../components/telegram/TelegramSnapFeed.tsx");
+  assert.match(home, /TelegramSnapFeed/);
+  assert.match(home, /nextCursor/);
   assert.match(feed, /flex-col/);
   assert.match(feed, /IntersectionObserver/);
+  assert.match(feed, /SnapCard/);
+  assert.match(feed, /SnapViewer/);
   assert.doesNotMatch(feed, /overflow-x-auto/);
   assert.doesNotMatch(feed, /snap-x/);
 });
