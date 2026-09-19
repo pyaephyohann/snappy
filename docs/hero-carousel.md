@@ -135,6 +135,8 @@ ALTER TABLE "users" ADD COLUMN "birthday" TIMESTAMP(3);
 ALTER TYPE "NotificationType" ADD VALUE 'BIRTHDAY';
 ```
 
+Production deployments must apply migrations before the Next.js build/runtime starts. The repository `vercel.json` build command runs `prisma migrate deploy` and then the normal build. Do not use `prisma migrate reset` against production.
+
 ---
 
 ## Old Manual Hero Carousel

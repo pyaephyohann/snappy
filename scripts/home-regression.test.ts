@@ -1,0 +1,39 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
+function read(relativePath: string): string {
+  return readFileSync(resolve(import.meta.dirname, relativePath), "utf8");
+}
+
+test("normal user login still creates a user session and redirects to home", () => {
+  const loginRoute = read("../app/api/auth/login/route.ts");
+  assert.match(loginRoute, /createSession\(authResult\.username, 'USER', authResult\.userId\)/);
+  assert.match(loginRoute, /redirectTo: '\/home'/);
+});
+
+test("home uses the automatic carousel and keeps birthday notification fire-and-forget", () => {
+  const homePage = read("../app/home/page.tsx");
+  assert.match(homePage, /getAutomaticHeroCarousel/);
+  assert.match(homePage, /triggerBirthdayNotifications/);
+  assert.match(homePage, /void triggerBirthdayNotifications\(\)/);
+});
+
+test("automatic carousel contains birthday and latest-snap fallback branches", () => {
+  const carousel = read("../lib/hero-carousel.ts");
+  assert.match(carousel, /birthday: \{ not: null \}/);
+  assert.match(carousel, /Happy Birthday/);
+  assert.match(carousel, /Latest Snaps/);
+  assert.match(carousel, /take: 5/);
+});
+
+test("the birthday migration and Vercel migration hook are wired", () => {
+  const migration = read(
+    "../prisma/migrations/20260919100000_user_birthday_and_hero_carousel/migration.sql",
+  );
+  const vercelConfig = read("../vercel.json");
+  assert.match(migration, /ADD COLUMN "birthday"/);
+  assert.match(migration, /ADD VALUE 'BIRTHDAY'/);
+  assert.match(vercelConfig, /prisma migrate deploy && npm run build/);
+});

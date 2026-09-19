@@ -82,7 +82,7 @@ export default function Navbar({ username, profileImage }: NavbarProps) {
           <div className="flex shrink-0 items-center gap-3 sm:gap-4">
             <Link
               href="/profile"
-              className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-full"
+              className="flex items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               aria-label="Go to profile"
             >
               <GlowingBorder radius="full" featured className="inline-block">
