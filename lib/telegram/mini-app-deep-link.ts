@@ -66,6 +66,12 @@ export function parseTelegramMiniAppStartParam(
   if (lower === "find") {
     return { screen: "find", code: null };
   }
+  if (lower === "search") {
+    return { screen: "search", code: null };
+  }
+  if (lower === "camera") {
+    return { screen: "camera", code: null };
+  }
   if (lower.startsWith("find_")) {
     const rawCode = trimmed.slice("find_".length);
     const normalized = normalizeSnapLookupCode(rawCode);
@@ -76,6 +82,9 @@ export function parseTelegramMiniAppStartParam(
   }
   if (lower === "upload") {
     return { screen: "upload", code: null };
+  }
+  if (lower === "alerts") {
+    return { screen: "alerts", code: null };
   }
   if (lower === "profile") {
     return { screen: "profile", code: null };
@@ -100,8 +109,17 @@ export function buildTelegramMiniAppStartParam(options: {
     }
     return "find";
   }
+  if (options.screen === "search") {
+    return "search";
+  }
+  if (options.screen === "camera") {
+    return "camera";
+  }
   if (options.screen === "upload") {
     return "upload";
+  }
+  if (options.screen === "alerts") {
+    return "alerts";
   }
   if (options.screen === "profile") {
     return "profile";

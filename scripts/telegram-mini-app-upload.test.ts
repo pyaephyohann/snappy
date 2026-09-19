@@ -64,7 +64,7 @@ test("upload client uses shared Cloudinary sign and mini app create endpoint", (
   assert.match(client, /uploadSnapForUser/);
 });
 
-test("TelegramMiniAppUpload uses SnapViewer and blocks navigation while uploading", () => {
+test("TelegramMiniAppUpload delegates to the shared web camera/upload flow", () => {
   const ui = readFileSync(
     resolve(
       import.meta.dirname,
@@ -72,11 +72,15 @@ test("TelegramMiniAppUpload uses SnapViewer and blocks navigation while uploadin
     ),
     "utf8",
   );
-  assert.match(ui, /uploadSnapForMiniApp/);
-  assert.match(ui, /SnapViewer/);
-  assert.match(ui, /Upload Another/);
-  assert.match(ui, /phase\.kind !== "uploading"/);
-  assert.match(ui, /validateSnapImageFileMeta/);
+  const sharedFlow = readFileSync(
+    resolve(import.meta.dirname, "../components/mobile/BottomNavCameraFlow.tsx"),
+    "utf8",
+  );
+  assert.match(ui, /BottomNavCameraFlow/);
+  assert.match(sharedFlow, /FriendsPickerPanel/);
+  assert.match(sharedFlow, /SnapCameraCapture/);
+  assert.match(sharedFlow, /SnapCreateComposerModal/);
+  assert.match(sharedFlow, /uploadSnapForUser/);
 });
 
 test("shell delegates BackButton on upload route to upload screen", () => {

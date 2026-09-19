@@ -157,7 +157,7 @@ test("mini app APIs do not accept client user identity", () => {
   assert.doesNotMatch(snapsRoute, /body\.userId/);
 });
 
-test("upload duplicate protection uses generation guard", () => {
+test("Telegram upload delegates duplicate-safe state to shared web flow", () => {
   const upload = readFileSync(
     resolve(
       import.meta.dirname,
@@ -165,8 +165,13 @@ test("upload duplicate protection uses generation guard", () => {
     ),
     "utf8",
   );
-  assert.match(upload, /uploadGeneration/);
-  assert.match(upload, /phase\.kind === "uploading"/);
+  const sharedComposer = readFileSync(
+    resolve(import.meta.dirname, "../components/snaps/SnapCreateComposerModal.tsx"),
+    "utf8",
+  );
+  assert.match(upload, /BottomNavCameraFlow/);
+  assert.match(sharedComposer, /isUploading/);
+  assert.match(sharedComposer, /uploadPhase/);
 });
 
 test("expired Telegram link challenge is detected", () => {

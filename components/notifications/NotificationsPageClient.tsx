@@ -45,14 +45,19 @@ function notificationBody(item: NotificationItem): string | null {
   return null;
 }
 
-function targetUrl(item: NotificationItem): string {
+function targetUrl(item: NotificationItem, miniAppPrefix?: string): string {
   if (item.snapOwnerName) {
-    return `/friends/${encodeURIComponent(item.snapOwnerName)}`;
+    const path = `/friends/${encodeURIComponent(item.snapOwnerName)}`;
+    return miniAppPrefix ? `${miniAppPrefix}${path}` : path;
   }
-  return "/notifications";
+  return miniAppPrefix ? `${miniAppPrefix}/alerts` : "/notifications";
 }
 
-export default function NotificationsPageClient() {
+export default function NotificationsPageClient({
+  miniAppPrefix,
+}: {
+  miniAppPrefix?: string;
+} = {}) {
   const router = useRouter();
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -98,7 +103,7 @@ export default function NotificationsPageClient() {
         method: "PATCH",
       }).catch(() => undefined);
     }
-    router.push(targetUrl(item));
+    router.push(targetUrl(item, miniAppPrefix));
   };
 
   if (loading) {

@@ -1,18 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
 import RecentSnaps from "@/components/home/RecentSnaps";
 import RecentSnapsSkeleton from "@/components/home/RecentSnapsSkeleton";
-import TelegramOpenBotLink from "@/components/telegram/TelegramOpenBotLink";
 import TelegramMiniAppReconnect from "@/components/telegram/TelegramMiniAppReconnect";
 import { useTelegramMiniAppAuth } from "@/components/telegram/TelegramMiniAppAuthProvider";
 import { GlowButton } from "@/components/ui/glow-button";
 import type { PublicRecentSnap } from "@/lib/recent-snaps";
-import { TELEGRAM_MINI_APP_ROUTES } from "@/lib/telegram/mini-app-routes";
 
 type HomeResponse = {
-  snaps: PublicRecentSnap[] | null;
+  snaps: PublicRecentSnap[];
+  nextCursor: string | null;
   userName: string;
 };
 
@@ -20,102 +18,83 @@ type LoadState =
   | { status: "loading" }
   | { status: "error" }
   | { status: "session_expired" }
-  | { status: "ready"; snaps: PublicRecentSnap[] | null; userName: string };
+  | { status: "ready"; snaps: PublicRecentSnap[]; nextCursor: string | null; userName: string };
 
 export default function TelegramMiniAppHome() {
   const { retryAuth } = useTelegramMiniAppAuth();
   const [state, setState] = useState<LoadState>({ status: "loading" });
+  const [loadingMore, setLoadingMore] = useState(false);
 
-  const loadHome = useCallback(async (options?: { showLoading?: boolean }) => {
-    if (options?.showLoading) {
-      setState({ status: "loading" });
+  const loadHome = useCallback(async (cursor?: string | null) => {
+    const query = cursor ? `?cursor=${encodeURIComponent(cursor)}` : "";
+    const response = await fetch(`/api/telegram/mini-app/home${query}`, {
+      credentials: "include",
+    });
+    if (response.status === 401) {
+      throw new Error("session_expired");
     }
+    if (!response.ok) {
+      throw new Error("request_failed");
+    }
+    return (await response.json()) as HomeResponse;
+  }, []);
+
+  const reload = useCallback(async () => {
+    setState({ status: "loading" });
     try {
-      const response = await fetch("/api/telegram/mini-app/home", {
-        credentials: "include",
-      });
-      if (response.status === 401) {
-        setState({ status: "session_expired" });
-        return;
-      }
-      if (!response.ok) {
-        setState({ status: "error" });
-        return;
-      }
-      const body = (await response.json()) as HomeResponse;
+      const body = await loadHome();
       setState({
         status: "ready",
         snaps: body.snaps,
+        nextCursor: body.nextCursor,
         userName: body.userName,
       });
-    } catch {
-      setState({ status: "error" });
+    } catch (error) {
+      setState({
+        status: error instanceof Error && error.message === "session_expired"
+          ? "session_expired"
+          : "error",
+      });
     }
-  }, []);
+  }, [loadHome]);
 
   useEffect(() => {
-    let cancelled = false;
+    queueMicrotask(() => {
+      void reload();
+    });
+  }, [reload]);
 
-    (async () => {
-      try {
-        const response = await fetch("/api/telegram/mini-app/home", {
-          credentials: "include",
-        });
-        if (cancelled) {
-          return;
-        }
-        if (response.status === 401) {
-          setState({ status: "session_expired" });
-          return;
-        }
-        if (!response.ok) {
-          setState({ status: "error" });
-          return;
-        }
-        const body = (await response.json()) as HomeResponse;
-        setState({
-          status: "ready",
-          snaps: body.snaps,
-          userName: body.userName,
-        });
-      } catch {
-        if (!cancelled) {
-          setState({ status: "error" });
-        }
+  const loadMore = async () => {
+    if (state.status !== "ready" || !state.nextCursor || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const body = await loadHome(state.nextCursor);
+      setState((current) =>
+        current.status !== "ready"
+          ? current
+          : {
+              ...current,
+              snaps: [...current.snaps, ...body.snaps],
+              nextCursor: body.nextCursor,
+            },
+      );
+    } catch (error) {
+      if (error instanceof Error && error.message === "session_expired") {
+        setState({ status: "session_expired" });
       }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   return (
     <div className="px-4 pb-4">
       <header className="mb-6">
-        <p className="text-2xl" aria-hidden>
-          📸
-        </p>
-        <h1 className="mt-1 text-xl font-semibold text-foreground">Snappy</h1>
+        <h1 className="text-xl font-semibold text-foreground">Home</h1>
         {state.status === "ready" ? (
-          <p className="mt-1 text-sm text-muted-foreground">
-            Hi, {state.userName}
-          </p>
+          <p className="mt-1 text-sm text-muted-foreground">Hi, {state.userName}</p>
         ) : null}
       </header>
-
-      <nav
-        className="mb-6 grid grid-cols-3 gap-2"
-        aria-label="Quick actions"
-      >
-        <MiniAppQuickAction href={TELEGRAM_MINI_APP_ROUTES.find} label="Find Snap" emoji="🔍" />
-        <MiniAppQuickAction href={TELEGRAM_MINI_APP_ROUTES.upload} label="Upload" emoji="📤" />
-        <MiniAppQuickAction href={TELEGRAM_MINI_APP_ROUTES.profile} label="Profile" emoji="👤" />
-      </nav>
-
-      <div className="mb-6 text-center">
-        <TelegramOpenBotLink label="Open Snappy Bot" />
-      </div>
 
       {state.status === "loading" ? <RecentSnapsSkeleton /> : null}
 
@@ -125,54 +104,45 @@ export default function TelegramMiniAppHome() {
 
       {state.status === "error" ? (
         <div className="rounded-xl border border-border bg-card p-6 text-center">
-          <p className="text-sm text-foreground">Something went wrong.</p>
+          <p className="text-sm text-foreground">Could not load your Snaps.</p>
           <GlowButton
             type="button"
             className="mt-4 rounded-xl bg-primary px-4 py-2 text-sm text-primary-foreground"
-            onClick={() => void loadHome({ showLoading: true })}
+            onClick={() => void reload()}
           >
             Try Again
           </GlowButton>
         </div>
       ) : null}
 
-      {state.status === "ready" && state.snaps && state.snaps.length > 0 ? (
-        <RecentSnaps snaps={state.snaps} showViewAllLink={false} />
-      ) : null}
-
-      {state.status === "ready" && (!state.snaps || state.snaps.length === 0) ? (
+      {state.status === "ready" && state.snaps.length === 0 ? (
         <div className="rounded-xl border border-border bg-card p-8 text-center">
-          <p className="text-2xl" aria-hidden>
-            📸
-          </p>
-          <p className="mt-3 font-medium text-foreground">No Snaps yet</p>
+          <p className="font-medium text-foreground">No Snaps yet</p>
           <p className="mt-2 text-sm text-muted-foreground">
-            Your Snappy feed will appear here.
+            New Snaps from your Snappy community will appear here.
           </p>
         </div>
       ) : null}
-    </div>
-  );
-}
 
-function MiniAppQuickAction({
-  href,
-  label,
-  emoji,
-}: {
-  href: string;
-  label: string;
-  emoji: string;
-}) {
-  return (
-    <Link
-      href={href}
-      className="flex flex-col items-center rounded-xl border border-border bg-card px-2 py-3 text-center text-xs font-medium text-foreground transition-colors hover:bg-muted"
-    >
-      <span className="text-lg" aria-hidden>
-        {emoji}
-      </span>
-      <span className="mt-1">{label}</span>
-    </Link>
+      {state.status === "ready" && state.snaps.length > 0 ? (
+        <>
+          <RecentSnaps snaps={state.snaps} showViewAllLink={false} />
+          <div className="mt-4 text-center">
+            {state.nextCursor ? (
+              <GlowButton
+                type="button"
+                disabled={loadingMore}
+                className="rounded-xl border border-border bg-card px-5 py-3 text-sm font-medium text-foreground disabled:opacity-50"
+                onClick={() => void loadMore()}
+              >
+                {loadingMore ? "Loading more…" : "Load more Snaps"}
+              </GlowButton>
+            ) : (
+              <p className="text-xs text-muted-foreground">You&apos;ve reached the end.</p>
+            )}
+          </div>
+        </>
+      ) : null}
+    </div>
   );
 }

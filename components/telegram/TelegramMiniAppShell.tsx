@@ -25,7 +25,10 @@ export default function TelegramMiniAppShell({
   const startParam = useTelegramMiniAppStartParam();
   const isRoot = isTelegramMiniAppRootPath(pathname);
   const isFindRoute = pathname.startsWith(TELEGRAM_MINI_APP_ROUTES.find);
+  const isSearchRoute = pathname.startsWith(TELEGRAM_MINI_APP_ROUTES.search);
+  const isCameraRoute = pathname.startsWith(TELEGRAM_MINI_APP_ROUTES.camera);
   const isUploadRoute = pathname.startsWith(TELEGRAM_MINI_APP_ROUTES.upload);
+  const isAlertsRoute = pathname.startsWith(TELEGRAM_MINI_APP_ROUTES.alerts);
   const isProfileRoute = pathname.startsWith(TELEGRAM_MINI_APP_ROUTES.profile);
 
   const handleShellBack = useCallback(() => {
@@ -33,7 +36,14 @@ export default function TelegramMiniAppShell({
   }, [router]);
 
   useTelegramBackButton({
-    enabled: !isRoot && !isFindRoute && !isUploadRoute && !isProfileRoute,
+    enabled:
+      !isRoot &&
+      !isFindRoute &&
+      !isSearchRoute &&
+      !isCameraRoute &&
+      !isUploadRoute &&
+      !isAlertsRoute &&
+      !isProfileRoute,
     onBack: handleShellBack,
   });
 

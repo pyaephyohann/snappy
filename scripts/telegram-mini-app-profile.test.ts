@@ -46,7 +46,7 @@ test("mini app link reuses T3 completeTelegramLink with verified initData", () =
   assert.match(route, /linkAuthenticatedUserFromInitData/);
 });
 
-test("profile UI uses unlink API and disconnect confirmation", () => {
+test("profile UI reuses the complete web profile client", () => {
   const ui = readFileSync(
     resolve(
       import.meta.dirname,
@@ -54,10 +54,15 @@ test("profile UI uses unlink API and disconnect confirmation", () => {
     ),
     "utf8",
   );
-  assert.match(ui, /\/api\/telegram\/unlink/);
-  assert.match(ui, /Disconnect Telegram\?/);
-  assert.match(ui, /\/api\/telegram\/mini-app\/link/);
-  assert.match(ui, /Open Full Profile/);
+  const sharedProfile = readFileSync(
+    resolve(import.meta.dirname, "../components/profile/ProfilePageClient.tsx"),
+    "utf8",
+  );
+  assert.match(ui, /ProfilePageClient/);
+  assert.match(ui, /uploadedSnaps/);
+  assert.match(ui, /homeHref/);
+  assert.match(sharedProfile, /TelegramDisconnectButton/);
+  assert.match(sharedProfile, /ProfileSnapPicker/);
 });
 
 test("shell skips BackButton on profile route", () => {

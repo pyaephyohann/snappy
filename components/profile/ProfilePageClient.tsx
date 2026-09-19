@@ -33,9 +33,12 @@ type EditField = "none" | "name" | "passcode";
 export default function ProfilePageClient({
   initial,
   openPhotoPicker = false,
+  homeHref = "/home",
 }: {
   initial: ProfilePageInitialData;
   openPhotoPicker?: boolean;
+  /** Optional home destination when reused by another app shell. */
+  homeHref?: string;
 }) {
   const router = useRouter();
   const [name, setName] = useState(initial.name);
@@ -207,7 +210,7 @@ export default function ProfilePageClient({
                     captions.
                   </p>
                   <Link
-                    href="/home"
+                    href={homeHref}
                     className="mt-4 inline-flex min-h-[44px] items-center justify-center rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
                   >
                     Go to Home

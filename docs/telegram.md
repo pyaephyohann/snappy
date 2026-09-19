@@ -38,16 +38,21 @@ Snap-code lookup is **not** available through the Telegram bot anymore. The Mini
 
 Route: **`/telegram/app`** (full URL: `{SNAPPY_PUBLIC_URL}/telegram/app`).
 
-### Navigation (T4.2)
+### Navigation and shared web experience
 
 | Route | Purpose |
 | --- | --- |
-| `/telegram/app` | Home — recent Snaps (same data as web home via `loadRecentSnapsForHome`) |
-| `/telegram/app/find` | Native Find Snap (T2 lookup + in-app `SnapViewer`) |
-| `/telegram/app/upload` | Native image upload (Cloudinary sign + session-owned Snap create) |
-| `/telegram/app/profile` | Account info, Snap count, Telegram connect/disconnect, **Open Full Profile** |
+| `/telegram/app` | Home — paginated Snap feed using the shared Snap card/viewer data shape |
+| `/telegram/app/search` | Web-equivalent friend search using the shared friend picker |
+| `/telegram/app/camera` | Shared web camera, friend targeting, composer, and upload flow |
+| `/telegram/app/upload` | Same shared upload flow as Camera, including **who this Snap is for** |
+| `/telegram/app/alerts` | Shared web notifications client with Telegram-local friend targets |
+| `/telegram/app/profile` | Shared web profile client, including profile photo picker, My Snaps, edits, and Telegram controls |
+| `/telegram/app/find` | Legacy Snap-code lookup deep-link route |
 
-Bottom navigation is fixed with `env(safe-area-inset-bottom)`. Nested routes show Telegram **BackButton** (returns to home).
+The bottom navigation mirrors the web structure: Home, Search, center Camera, Alerts, and Profile. It is fixed above `env(safe-area-inset-bottom)` and uses the shared web camera/friend-picker/upload pipeline. Nested routes retain Telegram **BackButton** behavior.
+
+Home loads 12 Snaps per request with an authenticated cursor and exposes a mobile-friendly Load more control. Empty, retry, session-expired, loading-more, and end-of-feed states are rendered in the Mini App.
 
 PWA install prompt and service worker registration are skipped under `/telegram/app/*`.
 
@@ -190,7 +195,7 @@ Snappy:    same image, caption "Beautiful sunset 🌅"
 
 **Not supported on Telegram yet:** video and documents (web uploader is images only). GIF inputs are accepted as raster images and stored as static WebP output.
 
-The Telegram Mini App uses the same browser upload bridge as the web app: the original image goes to the authenticated `/api/cloudinary/optimize` endpoint, then the optimized WebP continues through the existing signed Cloudinary upload flow.
+The Telegram Mini App uses the same browser upload bridge as the web app: the original image goes to the authenticated `/api/cloudinary/optimize` endpoint, then the optimized WebP continues through the existing signed Cloudinary upload flow. Target selection uses the shared `FriendsPickerPanel` and the existing `/api/snaps` target-user model; no Telegram-specific Snap model or upload pipeline is created.
 
 **Rate limit:** max **10 Telegram uploads per hour** per `telegramUserId` (`telegram_upload_logs`). Web uploads are unaffected.
 
@@ -317,6 +322,10 @@ npm run test:telegram-mini-app-profile
 npm run test:telegram-mini-app-integration
 npm run test:telegram-hardening
 ```
+
+## Shared components and APIs
+
+The Mini App reuses `RecentSnaps`, `SnapGallery`, `SnapViewer`, `SnapCameraCapture`, `SnapCreateComposerModal`, `BottomNavCameraFlow`, `FriendsPickerPanel`, `NotificationsPageClient`, `ProfilePageClient`, `snap-upload-client`, `/api/snaps`, `/api/users/list`, `/api/notifications`, `/api/cloudinary/optimize`, and `/api/cloudinary/sign`. No database migrations or new dependencies are required for parity.
 
 ## Deferred (post T6)
 
