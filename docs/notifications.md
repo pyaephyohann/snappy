@@ -1,9 +1,10 @@
 # Notifications
 
-Snappy notifications cover two categories:
+Snappy notifications cover three categories:
 
 1. **New Snap broadcast** — pushed to every subscribed device when any Snap is uploaded.
 2. **Snap interaction alerts** — targeted to the Snap owner when another user reacts or comments.
+3. **Birthday notifications** — pushed to every subscribed device when a user's birthday is detected (once per day per user).
 
 ---
 
@@ -38,6 +39,20 @@ When **User A comments on User B's Snap**, User B is notified.
 
 ---
 
+## Birthday Notifications
+
+When a user's birthday is detected (day 1 of the 3-day window), a notification is sent:
+
+- **Title:** `Happy Birthday`
+- **Body:** `Happy Birthday <username>`
+- **Deduplication:** One notification per user per day (tracked via `BIRTHDAY` notification type)
+- **Delivery:** Broadcast to all subscribed devices
+- **Trigger:** Automatic on home page load (server-side)
+
+See [Hero Carousel documentation](./hero-carousel.md) for full birthday mode details.
+
+---
+
 ## Notification Architecture
 
 ### Server-side
@@ -46,11 +61,11 @@ When **User A comments on User B's Snap**, User B is notified.
 
 | Field | Meaning |
 |-------|---------|
-| `userId` | recipient (Snap owner) |
-| `actorId` | user who reacted/commented |
+| `userId` | recipient (Snap owner / birthday user) |
+| `actorId` | user who reacted/commented (self for birthday) |
 | `snapId` | related Snap |
-| `type` | `NEW_SNAP` \| `REACTION` \| `COMMENT` |
-| `body` | comment preview / reaction emoji |
+| `type` | `NEW_SNAP` \| `REACTION` \| `COMMENT` \| `BIRTHDAY` |
+| `body` | comment preview / reaction emoji / birthday message |
 | `createdAt` | timestamp |
 
 ### Push
@@ -76,4 +91,6 @@ Requires:
 prisma migrate deploy
 ```
 
-(migration `20260918121542_snap_interaction_notifications`).
+Migrations:
+- `20260918121542_snap_interaction_notifications` — Snap interaction notifications
+- `20260919100000_user_birthday_and_hero_carousel` — User birthday field + BIRTHDAY notification type

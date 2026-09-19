@@ -5,6 +5,7 @@ export interface AdminUser {
   profileImage: string;
   isActive: boolean;
   lastLoginAt: string | null;
+  birthday: string | null;
   hasPasscode: boolean;
   snapCount: number;
   createdAt: string;

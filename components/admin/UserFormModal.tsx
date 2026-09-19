@@ -21,12 +21,14 @@ const baseUserFormSchema = z.object({
     .max(128, "Passcode must be less than 128 characters")
     .optional(),
   isActive: z.boolean(),
+  birthday: z.string().nullable().optional(),
 });
 
 type UserFormData = z.infer<typeof baseUserFormSchema>;
 
 export type UserFormSubmitData = UserFormData & {
   profileImageSnapId?: string | null;
+  birthday?: string | null;
 };
 
 interface UserFormModalProps {
@@ -53,6 +55,10 @@ function UserFormModalBody({
   );
   const [profileImageTouched, setProfileImageTouched] = useState(false);
 
+  const birthdayDefault: string | null = user?.birthday
+    ? new Date(user.birthday).toISOString().split("T")[0]
+    : null;
+
   const {
     register,
     handleSubmit,
@@ -64,8 +70,11 @@ function UserFormModalBody({
       role: user?.role ?? "USER",
       passcode: "",
       isActive: user?.isActive ?? true,
+      birthday: birthdayDefault,
     },
   });
+
+
 
   return (
     <form
@@ -82,13 +91,18 @@ function UserFormModalBody({
           return;
         }
 
-        await onSubmit({
-          ...data,
+        const birthdayVal = data.birthday?.trim() ?? "";
+        const submitData: UserFormSubmitData = {
+          name: data.name,
+          role: data.role,
+          isActive: data.isActive,
           passcode: trimmedPasscode.length > 0 ? trimmedPasscode : undefined,
-          ...(mode === "create" || profileImageTouched
-            ? { profileImageSnapId: selectedSnapId }
-            : {}),
-        });
+          birthday: birthdayVal.length > 0 ? birthdayVal : null,
+        };
+        if (mode === "create" || profileImageTouched) {
+          submitData.profileImageSnapId = selectedSnapId;
+        }
+        await onSubmit(submitData);
       })}
       className="space-y-4"
     >
@@ -141,6 +155,22 @@ function UserFormModalBody({
         {errors.name && (
           <p className="mt-1 text-sm text-destructive">{errors.name.message}</p>
         )}
+      </div>
+
+      <div>
+        <label htmlFor="birthday" className="mb-2 block text-sm font-medium">
+          Birthday
+        </label>
+        <input
+          id="birthday"
+          type="date"
+          disabled={loading}
+          {...register("birthday")}
+          className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+        />
+        <p className="mt-1 text-xs text-muted-foreground">
+          Optional. Used for the automatic birthday Hero Carousel.
+        </p>
       </div>
 
       <div>

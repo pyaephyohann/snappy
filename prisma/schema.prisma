@@ -32,6 +32,7 @@ model User {
   profileImageSnapId            String?            @unique
   profilePhotoGalleryUnlockedAt DateTime?
   passcodeHash                  String?
+  birthday                      DateTime?
   isActive           Boolean            @default(true)
   lastLoginAt        DateTime?
   role               UserRole           @default(USER)
@@ -193,6 +194,7 @@ enum NotificationType {
   NEW_SNAP
   REACTION
   COMMENT
+  BIRTHDAY
 }
 
 /// Serverless-safe Telegram conversation flags (e.g. /find-friends, /upload).

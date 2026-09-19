@@ -8,8 +8,9 @@ import RecentSnapsSection from "@/components/home/RecentSnapsSection";
 import RecentSnapsSkeleton from "@/components/home/RecentSnapsSkeleton";
 import Navbar from "@/components/layout/Navbar";
 import GlowingBorder from "@/components/ui/glowing-border";
-import { getHeroCarouselData } from "@/lib/hero-carousel";
+import { getAutomaticHeroCarousel } from "@/lib/hero-carousel";
 import { getCurrentUserProfileImage } from "@/lib/user-profile";
+import { triggerBirthdayNotifications } from "@/lib/birthday-notifications";
 
 export default async function HomePage() {
   const session = await getSession();
@@ -19,7 +20,7 @@ export default async function HomePage() {
   }
 
   const [heroCarousel, friends, profileImage] = await Promise.all([
-    getHeroCarouselData(),
+    getAutomaticHeroCarousel(),
     prisma.user.findMany({
       select: {
         id: true,
@@ -32,6 +33,9 @@ export default async function HomePage() {
     }),
     session.userId ? getCurrentUserProfileImage(session.userId) : "/anya.jpeg",
   ]);
+
+  // Trigger birthday notifications (deduplicated — sends at most once per user per day)
+  void triggerBirthdayNotifications();
 
   return (
     <div className="min-h-screen bg-background">

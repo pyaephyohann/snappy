@@ -37,7 +37,7 @@ export default function AdminSidebar({
     { href: `/admin/${uuid}/snaps`, label: "Snaps", icon: SnapsIcon, exact: false },
     {
       href: `/admin/${uuid}/hero-carousel`,
-      label: "Hero Carousel",
+      label: "Carousel (Auto)",
       icon: HeroCarouselIcon,
       exact: false,
     },

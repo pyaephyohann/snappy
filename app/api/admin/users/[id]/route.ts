@@ -27,6 +27,7 @@ const updateUserSchema = z.object({
     .max(128, "Passcode must be less than 128 characters")
     .optional(),
   isActive: z.boolean().optional(),
+  birthday: z.string().nullable().optional(),
 });
 
 export async function GET(
@@ -92,7 +93,7 @@ export async function PATCH(
       );
     }
 
-    const { name, role, profileImageSnapId, passcode, isActive } =
+    const { name, role, profileImageSnapId, passcode, isActive, birthday } =
       validation.data;
 
     if (role === "USER" && existingUser.role === "ADMIN") {
@@ -142,6 +143,9 @@ export async function PATCH(
                 ? { profileImage: profilePatch.profileImage }
                 : {}),
             }
+          : {}),
+        ...(birthday !== undefined
+          ? { birthday: birthday ? new Date(birthday) : null }
           : {}),
       },
       include: {

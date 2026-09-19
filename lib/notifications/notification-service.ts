@@ -248,3 +248,104 @@ export async function notifySnapInteraction({
     ),
   );
 }
+
+/**
+ * Send a birthday notification for the given user, but only once per day.
+ * Deduplicates by checking for an existing BIRTHDAY notification for this
+ * user created today (in Asia/Yangon timezone).
+ */
+export async function sendBirthdayNotificationIfDue({
+  userId,
+  username,
+}: {
+  userId: string;
+  username: string;
+}): Promise<void> {
+  // Determine today's start/end in Asia/Yangon timezone for dedup query
+  const now = new Date();
+  const yangonToday = new Date(
+    now.toLocaleString("en-US", { timeZone: "Asia/Yangon" }),
+  );
+  const year = yangonToday.getFullYear();
+  const month = yangonToday.getMonth();
+  const day = yangonToday.getDate();
+
+  // Build UTC boundaries that correspond to midnight Yangon time
+  // Yangon is UTC+6:30, so midnight Yangon = 17:30 UTC previous day
+  const yangonMidnight = new Date(Date.UTC(year, month, day, 0, 0, 0));
+  const utcMidnight = new Date(yangonMidnight.getTime() - 6.5 * 60 * 60 * 1000);
+  const utcNextMidnight = new Date(utcMidnight.getTime() + 24 * 60 * 60 * 1000);
+
+  // Check if a BIRTHDAY notification was already sent today for this user
+  const existing = await prisma.notification.findFirst({
+    where: {
+      userId,
+      type: "BIRTHDAY",
+      createdAt: {
+        gte: utcMidnight,
+        lt: utcNextMidnight,
+      },
+    },
+    select: { id: true },
+  });
+
+  if (existing) {
+    return; // Already sent today
+  }
+
+  // Create the notification record
+  const notification = await prisma.notification.create({
+    data: {
+      type: "BIRTHDAY",
+      userId,
+      actorId: userId, // Self-referencing for birthday
+      body: `Happy Birthday ${username}`,
+    },
+  });
+
+  // Send push notification to all subscriptions (broadcast)
+  if (!isWebPushConfigured()) {
+    return;
+  }
+
+  ensureWebPushConfigured();
+
+  const targetPath = "/home";
+  const targetUrl = sanitizeNotificationUrl(targetPath);
+  if (!targetUrl) {
+    console.error("[Web Push] Invalid target URL for birthday notification");
+    return;
+  }
+
+  const payload: PushPayload = {
+    title: "Happy Birthday",
+    body: `Happy Birthday ${username}`,
+    url: targetUrl,
+    notificationId: notification.id,
+    type: "NEW_SNAP", // Use NEW_SNAP type for push delivery compatibility
+    createdAt: notification.createdAt.toISOString(),
+  };
+
+  const subscriptions = await prisma.pushSubscription.findMany();
+
+  if (subscriptions.length === 0) {
+    return;
+  }
+
+  console.log(
+    `[Web Push] Broadcasting birthday notification for ${username} to ${subscriptions.length} subscriptions`,
+  );
+
+  const results = await Promise.all(
+    subscriptions.map((subscription, index) =>
+      sendPushToSubscription(subscription, payload, index),
+    ),
+  );
+
+  const succeeded = results.filter(Boolean).length;
+  const failed = results.length - succeeded;
+
+  console.log(
+    `[Web Push] Birthday notification completed: ${succeeded} succeeded, ${failed} failed`,
+  );
+}

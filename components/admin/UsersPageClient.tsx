@@ -242,6 +242,9 @@ export default function UsersPageClient() {
                     Last login
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    Birthday
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
                     Created
                   </th>
                   <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground">
@@ -284,6 +287,11 @@ export default function UsersPageClient() {
                     </td>
                     <td className="px-4 py-4 text-sm text-muted-foreground">
                       {formatAdminDateTime(user.lastLoginAt)}
+                    </td>
+                    <td className="px-4 py-4 text-sm text-muted-foreground">
+                      {user.birthday
+                        ? new Date(user.birthday).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+                        : "—"}
                     </td>
                     <td className="px-4 py-4 text-sm text-muted-foreground">
                       {formatAdminDate(user.createdAt)}

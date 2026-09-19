@@ -266,9 +266,25 @@ export default function HeroCarouselPageClient() {
       <div>
         <h1 className="text-2xl font-semibold">Hero Carousel</h1>
         <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-          Control the title and images displayed in the user app HeroCarousel.
+          The Hero Carousel is now <strong>fully automatic</strong>. It switches between
+          birthday mode and latest snaps based on user birthdays and snap uploads.
+          No manual slide management is needed.
         </p>
       </div>
+
+      <section className="rounded-2xl border border-primary/20 bg-primary/5 p-5 sm:p-6">
+        <h2 className="text-sm font-medium text-primary">Automatic Mode Active</h2>
+        <p className="mt-2 text-sm text-muted-foreground">
+          The user app Hero Carousel automatically shows:
+        </p>
+        <ul className="mt-2 list-inside list-disc space-y-1 text-sm text-muted-foreground">
+          <li><strong>Birthday mode:</strong> Happy Birthday &lt;username&gt; with all snaps from the birthday user (3-day window)</li>
+          <li><strong>Normal mode:</strong> Latest Snaps with the 5 most recent snaps</li>
+        </ul>
+        <p className="mt-3 text-sm text-muted-foreground">
+          Set user birthdays in <strong>Users → Edit User → Birthday</strong>.
+        </p>
+      </section>
 
       <section className="rounded-2xl border border-border bg-card p-5 sm:p-6">
         <h2 className="text-sm font-medium">Carousel Title</h2>

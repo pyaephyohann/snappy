@@ -36,6 +36,7 @@ export function serializeAdminUser(
     profileImage: string;
     isActive: boolean;
     lastLoginAt: Date | null;
+    birthday?: Date | null;
     createdAt: Date;
     updatedAt: Date;
     passcodeHash: string | null;
@@ -49,6 +50,7 @@ export function serializeAdminUser(
     profileImage: user.profileImage,
     isActive: user.isActive,
     lastLoginAt: user.lastLoginAt,
+    birthday: user.birthday ?? null,
     hasPasscode: Boolean(user.passcodeHash),
     snapCount: user._count.snaps,
     createdAt: user.createdAt,
