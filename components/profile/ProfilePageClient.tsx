@@ -372,7 +372,7 @@ export default function ProfilePageClient({
                     : "Connected"
                   : "Not connected"}
               </p>
-              <div className="mt-4">
+              <div className="mt-4 flex justify-center">
                 {initial.telegramConnected ? (
                   <TelegramDisconnectButton />
                 ) : (
