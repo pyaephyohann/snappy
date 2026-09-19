@@ -81,7 +81,9 @@ export default function TelegramMiniAppHome() {
     } catch (error) {
       if (error instanceof Error && error.message === "session_expired") {
         setState({ status: "session_expired" });
+        return;
       }
+      throw error;
     } finally {
       setLoadingMore(false);
     }

@@ -61,7 +61,7 @@ test("home API reuses shared loadRecentSnapsForHome", () => {
   assert.doesNotMatch(section, /getRecentSnaps\(/);
 });
 
-test("Telegram home uses a vertical feed with automatic cursor pagination", () => {
+test("Telegram home uses a vertical feed with manual cursor pagination", () => {
   const home = readFileSync(
     resolve(import.meta.dirname, "../components/telegram/TelegramMiniAppHome.tsx"),
     "utf8",
@@ -74,11 +74,41 @@ test("Telegram home uses a vertical feed with automatic cursor pagination", () =
   assert.match(home, /TelegramSnapFeed/);
   assert.match(home, /nextCursor/);
   assert.match(home, /onLoadMore/);
+  assert.match(feed, /Load more/);
+  assert.match(feed, /loadingMore/);
+  assert.match(feed, /No more Snaps/);
+  assert.match(feed, /Could not load more Snaps/);
   assert.match(feed, /flex-col/);
-  assert.match(feed, /IntersectionObserver/);
   assert.match(feed, /SnapCard/);
+  assert.doesNotMatch(feed, /IntersectionObserver/);
   assert.doesNotMatch(feed, /overflow-x-auto/);
   assert.doesNotMatch(feed, /snap-x/);
+});
+
+test("Telegram pagination appends pages without navigation or reload", () => {
+  const home = readFileSync(
+    resolve(import.meta.dirname, "../components/telegram/TelegramMiniAppHome.tsx"),
+    "utf8",
+  );
+  const feed = readFileSync(
+    resolve(import.meta.dirname, "../components/telegram/TelegramSnapFeed.tsx"),
+    "utf8",
+  );
+  const homeRoute = readFileSync(
+    resolve(import.meta.dirname, "../app/api/telegram/mini-app/home/route.ts"),
+    "utf8",
+  );
+
+  assert.match(home, /loadHome\(state\.nextCursor\)/);
+  assert.match(home, /snaps: \[\.\.\.current\.snaps, \.\.\.body\.snaps\]/);
+  assert.match(home, /nextCursor: body\.nextCursor/);
+  assert.match(feed, /disabled=\{loadingMore\}/);
+  assert.match(feed, /handleLoadMore/);
+  assert.doesNotMatch(home, /window\.location\.reload/);
+  assert.doesNotMatch(home, /router\.refresh/);
+  assert.doesNotMatch(feed, /window\.location\.reload/);
+  assert.doesNotMatch(feed, /href=/);
+  assert.match(homeRoute, /getPaginatedSnapsForMiniApp\(\{ cursor \}\)/);
 });
 
 test("bottom nav uses safe-area inset on shell", () => {

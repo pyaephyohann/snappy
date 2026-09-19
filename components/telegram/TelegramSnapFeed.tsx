@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import SnapCard from "@/components/friends/SnapCard";
 import SnapViewer from "@/components/snaps/SnapViewer";
+import { GlowButton } from "@/components/ui/glow-button";
 import type { PublicRecentSnap } from "@/lib/recent-snaps";
 
 interface TelegramSnapFeedProps {
@@ -19,34 +20,19 @@ export default function TelegramSnapFeed({
   onLoadMore,
 }: TelegramSnapFeedProps) {
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
-  const loadMoreRef = useRef<HTMLDivElement>(null);
-  const loadMoreInFlightRef = useRef(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const viewerSnap = viewerIndex !== null ? snaps[viewerIndex] : null;
 
-  useEffect(() => {
-    if (!onLoadMore || !nextCursor || loadingMore) return;
+  const handleLoadMore = async () => {
+    if (!onLoadMore || loadingMore || !nextCursor) return;
 
-    const sentinel = loadMoreRef.current;
-    if (!sentinel) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (
-          entries.some((entry) => entry.isIntersecting) &&
-          !loadMoreInFlightRef.current
-        ) {
-          loadMoreInFlightRef.current = true;
-          void Promise.resolve(onLoadMore()).finally(() => {
-            loadMoreInFlightRef.current = false;
-          });
-        }
-      },
-      { rootMargin: "0px 0px 480px 0px" },
-    );
-
-    observer.observe(sentinel);
-    return () => observer.disconnect();
-  }, [loadingMore, nextCursor, onLoadMore]);
+    setLoadError(null);
+    try {
+      await onLoadMore();
+    } catch {
+      setLoadError("Could not load more Snaps. Please try again.");
+    }
+  };
 
   return (
     <>
@@ -73,14 +59,24 @@ export default function TelegramSnapFeed({
         </div>
 
         {onLoadMore ? (
-          <div ref={loadMoreRef} className="mt-6 min-h-10 text-center" aria-live="polite">
-            {loadingMore ? (
-              <p className="text-sm text-muted-foreground">Loading more Snaps…</p>
-            ) : nextCursor ? (
-              <p className="text-xs text-muted-foreground">Scroll for more Snaps</p>
-            ) : snaps.length > 0 ? (
-              <p className="text-xs text-muted-foreground">You&apos;ve reached the end.</p>
+          <div className="mt-6 flex min-h-10 flex-col items-center justify-center gap-2 text-center" aria-live="polite">
+            {loadError ? (
+              <p className="text-sm text-destructive" role="alert">
+                {loadError}
+              </p>
             ) : null}
+            {nextCursor ? (
+              <GlowButton
+                type="button"
+                disabled={loadingMore}
+                onClick={() => void handleLoadMore()}
+                className="rounded-xl border border-border bg-card px-5 py-2.5 text-sm font-medium text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {loadingMore ? "Loading…" : "Load more"}
+              </GlowButton>
+            ) : (
+              <p className="text-xs text-muted-foreground">No more Snaps</p>
+            )}
           </div>
         ) : null}
       </section>

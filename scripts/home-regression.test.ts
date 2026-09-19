@@ -43,9 +43,10 @@ test("Telegram home uses its own vertical paginated Snap feed", () => {
   assert.match(home, /TelegramSnapFeed/);
   assert.match(home, /nextCursor/);
   assert.match(feed, /flex-col/);
-  assert.match(feed, /IntersectionObserver/);
+  assert.match(feed, /Load more/);
   assert.match(feed, /SnapCard/);
   assert.match(feed, /SnapViewer/);
+  assert.doesNotMatch(feed, /IntersectionObserver/);
   assert.doesNotMatch(feed, /overflow-x-auto/);
   assert.doesNotMatch(feed, /snap-x/);
 });
