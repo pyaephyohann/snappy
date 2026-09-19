@@ -7,6 +7,8 @@ import SnapGallery from './SnapGallery';
 import SnapUploader from '../snaps/SnapUploader';
 import { GlowButton } from '@/components/ui/glow-button';
 import { uploadSnapForUser } from '@/lib/snap-upload-client';
+import FollowButton from '@/components/social/FollowButton';
+import type { RelationshipState } from '@/lib/relationships';
 
 interface FriendWithSnaps {
   id: string;
@@ -24,9 +26,13 @@ interface FriendWithSnaps {
 
 interface FriendProfileClientProps {
   friend: FriendWithSnaps;
+  relationship?: RelationshipState;
 }
 
-export default function FriendProfileClient({ friend }: FriendProfileClientProps) {
+export default function FriendProfileClient({
+  friend,
+  relationship,
+}: FriendProfileClientProps) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
 
@@ -53,7 +59,15 @@ export default function FriendProfileClient({ friend }: FriendProfileClientProps
           profileImage={friend.profileImage}
           snapCount={friend.snaps.length}
         >
-          <SnapUploader onUpload={handleUpload} />
+          <div className="flex flex-col items-center gap-3 sm:items-end">
+            {relationship ? (
+              <FollowButton
+                userId={friend.id}
+                initialRelationship={relationship}
+              />
+            ) : null}
+            <SnapUploader onUpload={handleUpload} />
+          </div>
         </FriendHeader>
 
         <div className="bg-card border border-border rounded-xl p-8 sm:p-12 text-center">
@@ -78,7 +92,15 @@ export default function FriendProfileClient({ friend }: FriendProfileClientProps
         profileImage={friend.profileImage}
         snapCount={friend.snaps.length}
       >
-        <SnapUploader onUpload={handleUpload} />
+        <div className="flex flex-col items-center gap-3 sm:items-end">
+          {relationship ? (
+            <FollowButton
+              userId={friend.id}
+              initialRelationship={relationship}
+            />
+          ) : null}
+          <SnapUploader onUpload={handleUpload} />
+        </div>
       </FriendHeader>
 
       {!friend.snaps || friend.snaps.length === 0 ? (

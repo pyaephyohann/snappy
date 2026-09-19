@@ -1,31 +1,24 @@
 import { redirect } from "next/navigation";
-import { getSession } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { getAuthenticatedAppUser } from "@/lib/auth";
 import Navbar from "@/components/layout/Navbar";
 import FriendsSearchClient from "@/components/search/FriendsSearchClient";
 import { getCurrentUserProfileImage } from "@/lib/user-profile";
+import { listUsersForViewer } from "@/lib/relationships";
 
 export default async function SearchPage() {
-  const session = await getSession();
-  if (!session) {
+  const user = await getAuthenticatedAppUser();
+  if (!user) {
     redirect("/");
   }
 
   const [friends, profileImage] = await Promise.all([
-    prisma.user.findMany({
-    select: {
-      id: true,
-      name: true,
-      profileImage: true,
-    },
-    orderBy: { name: "asc" },
-    }),
-    session.userId ? getCurrentUserProfileImage(session.userId) : "/anya.jpeg",
+    listUsersForViewer(user.id),
+    getCurrentUserProfileImage(user.id),
   ]);
 
   return (
     <div className="min-h-screen bg-background">
-      <Navbar username={session.username} profileImage={profileImage} />
+      <Navbar username={user.name} profileImage={profileImage} />
       <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
         <h1 className="mb-4 text-xl font-semibold text-foreground sm:text-2xl">
           Search

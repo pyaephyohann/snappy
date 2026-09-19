@@ -1,15 +1,16 @@
 import { notFound, redirect } from "next/navigation";
-import { getSession } from "@/lib/auth";
+import { getAuthenticatedAppUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import FriendProfileClient from "@/components/friends/FriendProfileClient";
+import { getRelationshipState } from "@/lib/relationships";
 
 export default async function TelegramMiniAppFriendPage({
   params,
 }: {
   params: Promise<{ username: string }>;
 }) {
-  const session = await getSession();
-  if (!session) redirect("/telegram/app");
+  const user = await getAuthenticatedAppUser();
+  if (!user) redirect("/telegram/app");
 
   const { username } = await params;
   const friend = await prisma.user.findFirst({
@@ -34,9 +35,14 @@ export default async function TelegramMiniAppFriendPage({
 
   if (!friend) notFound();
 
+  const relationship =
+    friend.id === user.id
+      ? undefined
+      : await getRelationshipState(user.id, friend.id);
+
   return (
     <div className="px-4 pb-6 pt-4">
-      <FriendProfileClient friend={friend} />
+      <FriendProfileClient friend={friend} relationship={relationship} />
     </div>
   );
 }

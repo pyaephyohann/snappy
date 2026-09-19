@@ -1,11 +1,12 @@
 import { redirect, notFound } from 'next/navigation';
 import Link from 'next/link';
-import { getSession } from '@/lib/auth';
+import { getAuthenticatedAppUser } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import FriendProfileClient from '@/components/friends/FriendProfileClient';
 import Navbar from '@/components/layout/Navbar';
 import { Metadata } from 'next';
 import { getCurrentUserProfileImage } from '@/lib/user-profile';
+import { getRelationshipState } from '@/lib/relationships';
 
 interface FriendWithSnaps {
   id: string;
@@ -40,9 +41,9 @@ export default async function FriendProfilePage({
 }: {
   params: Promise<{ username: string }>;
 }) {
-  const session = await getSession();
+  const user = await getAuthenticatedAppUser();
 
-  if (!session) {
+  if (!user) {
     redirect('/');
   }
 
@@ -79,14 +80,17 @@ export default async function FriendProfilePage({
     notFound();
   }
 
-  const profileImage = session.userId
-    ? await getCurrentUserProfileImage(session.userId)
-    : '/anya.jpeg';
+  const [profileImage, relationship] = await Promise.all([
+    getCurrentUserProfileImage(user.id),
+    friend.id === user.id
+      ? Promise.resolve(null)
+      : getRelationshipState(user.id, friend.id),
+  ]);
 
   return (
     <div className="min-h-screen bg-background">
       {/* Navbar */}
-      <Navbar username={session.username} profileImage={profileImage} />
+      <Navbar username={user.name} profileImage={profileImage} />
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-12">
@@ -101,7 +105,7 @@ export default async function FriendProfilePage({
         </div>
 
         {/* Friend Profile Content */}
-        <FriendProfileClient friend={friend} />
+        <FriendProfileClient friend={friend} relationship={relationship ?? undefined} />
       </main>
     </div>
   );

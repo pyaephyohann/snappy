@@ -3,11 +3,13 @@
 import { useMemo, useState } from "react";
 import Image from "next/image";
 import { filterFriendsByQuery } from "@/lib/friends-search";
+import type { RelationshipState } from "@/lib/relationships";
 
 export interface FriendPickerUser {
   id: string;
   name: string;
   profileImage: string;
+  relationship?: RelationshipState;
 }
 
 interface FriendsPickerPanelProps {
@@ -65,7 +67,12 @@ export default function FriendsPickerPanel({
                     sizes="40px"
                   />
                 </div>
-                <span className="font-medium text-foreground">{friend.name}</span>
+                <span className="min-w-0 flex-1 font-medium text-foreground">{friend.name}</span>
+                {friend.relationship?.isFriend ? (
+                  <span className="shrink-0 text-xs font-medium text-primary">Friend</span>
+                ) : friend.relationship?.isFollowing ? (
+                  <span className="shrink-0 text-xs text-muted-foreground">Following</span>
+                ) : null}
               </button>
             </li>
           ))}

@@ -50,8 +50,25 @@ model User {
   notifications                Notification[]      @relation("NotificationRecipient")
   sentNotifications            Notification[]      @relation("NotificationActor")
   pushSubscriptions            PushSubscription[]
+  following                    UserFollow[]        @relation("UserFollows")
+  followers                    UserFollow[]        @relation("UserFollowers")
 
   @@map("users")
+}
+
+model UserFollow {
+  id          String   @id @default(cuid())
+  followerId  String
+  followingId String
+  createdAt   DateTime @default(now())
+
+  follower  User @relation("UserFollows", fields: [followerId], references: [id], onDelete: Cascade)
+  following User @relation("UserFollowers", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@unique([followerId, followingId])
+  @@index([followerId, createdAt])
+  @@index([followingId, createdAt])
+  @@map("user_follows")
 }
 
 model ProfilePhotoGalleryPayment {
