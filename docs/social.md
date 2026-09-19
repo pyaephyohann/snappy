@@ -268,23 +268,118 @@ Run Prisma validation/generation, typecheck, lint, build, S2 tests, S1 tests, an
 5. Added race-safety, IDOR, friendship-removal, validation, pagination, and rate-limit coverage.
 6. Kept chat UI, realtime delivery, reactions, notifications, and status for their designated later milestones.
 
-## S3 — Chat UI (planned)
+## S3 — Chat UI — Implemented
 
-Not implemented. Add a conversation list, friend-only conversation entry point, and responsive web/PWA and Telegram Mini App chat screens. Preserve Telegram BackButton and safe-area behavior.
+S3 adds the chat interface on top of the S2 backend. Chat UI, realtime delivery, message notifications, message reactions, and user status remain intentionally unimplemented for later milestones.
 
-## S4 — Message Reactions (planned)
+Implemented APIs: No new API routes. S3 consumes the S2 backend.
+
+### Implemented pages and components
+
+- `/chats` — conversation list with BottomNav.
+- `/chats/[conversationId]` — active conversation; hides BottomNav; shows back button.
+- `/telegram/app/chats` — Telegram conversation list with TelegramBottomNav.
+- `/telegram/app/chats/[conversationId]` — Telegram active conversation; hides TelegramBottomNav; BackButton navigates to chat list.
+- Shared components: `ChatWorkspace`, `ChatList`, `ChatHeader`, `MessageList`, `MessageComposer`, `FriendshipUnavailableState`, `ChatWebChrome`, `ChatListPageClient`.
+- Shared hooks: `useChatList`, `useConversationMessages`, `useConversationReadState`.
+- Client library: `lib/chat-client.ts` with typed fetch helpers for all S2 API routes.
+
+### Scope and product rules
+
+- Server-authoritative message sending (no optimistic messages).
+- `canMessage` is server-derived; the client never computes friendship.
+- Read state throttled to max once per 2 seconds; fires on focus, visibility, and post-send.
+- Cursor-based pagination with `(createdAt, id)` ordering preserved.
+- Scroll anchoring for older-message pagination.
+- Composer limited to 2,000 Unicode code points; whitespace-only rejected.
+- Enter sends on desktop; Shift+Enter creates newline.
+- Friend profile pages show an "Open chats" link when `isFriend` is true.
+- Navbar includes a Chats icon linking to `/chats`.
+
+### Realtime recommendation
+
+S3 intentionally has no realtime. See S4 for near-realtime synchronization.
+
+## S4 — Near-Realtime Chat Synchronization — Implemented
+
+S4 adds near-realtime synchronization through HTTP polling. No WebSocket, SSE, EventSource, or external realtime service is introduced. No new npm dependencies. No new infrastructure.
+
+### Transport
+
+HTTP polling via existing `fetch`-based API routes.
+
+- Active conversation: polls `GET /api/chats/:conversationId/messages` every **~3 seconds**.
+- Chat list: polls `GET /api/chats` every **~15 seconds**.
+- Polling pauses while the document is hidden.
+- Polling resumes with immediate reconciliation on `visibilitychange → visible`.
+- All poll requests use the authenticated session cookie.
+
+### Missed-message recovery
+
+After disconnection or visibility restoration, the client reconciles missed messages by:
+
+1. Fetching the newest page.
+2. Merging and deduplicating by `message.id`.
+3. If no overlap with locally known messages, walking backward through cursor pagination.. Continuing until overlap is found or pagination is exhausted.
+5. Preserving chronological `(createdAt, id)` ordering.
+
+The database remains the source of truth. No event ID system is introduced.
+
+### Stale-request protection
+
+A generation counter increments on each poll. If a new poll fires before a previous one completes, the stale response is discarded when the generation no longer matches.
+
+### Message deduplication
+
+Duplicate messages are prevented at the state layer by `mergeMessages()` using canonical `message.id` deduplication. `MessageList` renders with `key={message.id}` for stable React reconciliation. Deduplication applies to:
+
+- POST response overlapping with subsequent poll.
+- Poll responses overlapping with local state.
+- Reconciliation pages overlapping with existing messages.
+- Multiple browser tabs polling independently.
+
+### Server-authoritative state
+
+The chat list poll replaces the local conversation array with the server response. The server determines:
+
+- Conversation ordering (`lastMessageAt DESC, id DESC`).
+- Latest message content and timestamp.
+- Unread count (computed from `lastReadAt`).
+- `canMessage` (computed from mutual follow state).
+
+Clients never locally increment or decrement `unreadCount`.
+
+### Read state
+
+Cross-device read synchronization occurs through the server-authoritative `/api/chats` response. The existing `PATCH /api/chats/:conversationId/read` behavior is preserved with its 2-second throttle.
+
+### Friendship lifecycle
+
+- After unfollow: `canMessage` becomes `false` on next poll; composer replaced with `FriendshipUnavailableState`; POST returns 403; history remains readable.
+- After refollow: `canMessage` becomes `true` on next poll; composer reappears; same conversation ID and history.
+- Authorization is never cached client-side.
+
+### Platform compatibility
+
+The same polling hooks (`useChatList`, `useConversationMessages`, `useConversationReadState`) are used by both Web/PWA and Telegram Mini App routes. No Telegram-specific realtime infrastructure is introduced.
+
+### Scope boundary
+
+S4 excludes: WebSocket, SSE, EventSource, typing indicators, reactions, attachments, media messages, delivery receipts, message editing/deletion, richer presence, chat push notifications, global state libraries.
+
+## S5 — Message Reactions (planned)
 
 Not implemented. Add a unique reaction per user/message (or an explicitly defined multi-reaction rule), server authorization, and reaction aggregation. Do not reuse Snap reactions without a separate message relation.
 
-## S5 — Notifications (planned)
+## S6 — Notifications (planned)
 
 Not implemented. Extend the existing `Notification` and `NotificationType` architecture only after message delivery semantics are defined. A message notification should target the recipient, never trust a client-supplied recipient, respect read state, and integrate with `PushSubscription.userId` and the existing notification list/unread badge. Telegram Mini App in-app refresh/polling or Telegram delivery must be designed separately; no notification type is added in S1.
 
-## S6 — User Status (planned)
+## S7 — User Status (planned)
 
 Not implemented. Add a bounded text status to `User` or a separate status history model only after deciding whether status is persistent, expiring, editable, and visible to all users or only friends. Validate and sanitize it server-side and expose it through shared profile/user payloads.
 
-## S7 — Production Polish (planned)
+## S8 — Production Polish (planned)
 
 Not implemented. Add rate limits, abuse reporting/blocking, moderation controls, privacy settings, observability, pagination/load testing, migration rollout checks, push delivery monitoring, and real-device Web/PWA/Telegram QA.
 
