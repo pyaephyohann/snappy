@@ -81,7 +81,7 @@ export default function ChatWorkspace({
     <section className="flex h-[calc(100dvh-4rem)] min-h-0 flex-col overflow-hidden rounded-none border-x border-border bg-background sm:rounded-2xl sm:border lg:h-[calc(100vh-10rem)]">
       <ChatHeader participant={otherParticipant} profilePrefix={profilePrefix} backHref={backHref} />
       {error && messages.length > 0 ? <p className="border-b border-destructive/20 bg-destructive/10 px-4 py-2 text-xs text-destructive" role="alert">{error.message}</p> : null}
-      <MessageList messages={messages} viewerId={viewerId} loading={loading} loadingOlder={loadingOlder} nextCursor={nextCursor} onLoadOlder={loadOlder} />
+      <MessageList messages={messages} viewerId={viewerId} conversationId={conversationId} loading={loading} loadingOlder={loadingOlder} nextCursor={nextCursor} onLoadOlder={loadOlder} onReactionChange={() => void reload()} />
       {sendError ? <p className="shrink-0 bg-destructive/10 px-4 py-2 text-xs text-destructive" role="alert">{sendError}</p> : null}
       {canMessage ? <MessageComposer disabled={false} sending={sending} onSend={handleSend} /> : <FriendshipUnavailableState />}
     </section>

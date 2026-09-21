@@ -367,9 +367,53 @@ The same polling hooks (`useChatList`, `useConversationMessages`, `useConversati
 
 S4 excludes: WebSocket, SSE, EventSource, typing indicators, reactions, attachments, media messages, delivery receipts, message editing/deletion, richer presence, chat push notifications, global state libraries.
 
-## S5 — Message Reactions (planned)
+## S5 — Message Reactions — Implemented
 
-Not implemented. Add a unique reaction per user/message (or an explicitly defined multi-reaction rule), server authorization, and reaction aggregation. Do not reuse Snap reactions without a separate message relation.
+S5 adds per-message reactions to chat. Each user can have exactly one reaction per message. The six supported reaction types are: `❤️`, `😂`, `😮`, `😢`, `👍`, `👎`.
+
+### Product rules
+
+- One reaction per user per message.
+- Selecting the same reaction again removes it (toggle).
+- Selecting a different reaction replaces the existing one.
+- Server enforces the one-reaction invariant.
+- Reaction types are stored as strings, not enums.
+- The existing Snap `Reaction` model is not reused; a separate `MessageReaction` model is used.
+
+### Data model
+
+```prisma
+model MessageReaction {
+  id        String   @id @default(cuid())
+  messageId String
+  userId    String
+  type      String
+  createdAt DateTime @default(now())
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user      User     @relation("MessageReactionUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, messageId])
+  @@index([messageId])
+  @@map("message_reactions")
+}
+```
+
+### API
+
+- `POST /api/chats/:conversationId/messages/:messageId/reactions` — toggle/replace reaction.
+- `DELETE /api/chats/:conversationId/messages/:messageId/reactions` — remove reaction.
+- `GET /api/chats/:conversationId/messages` — returns `reactions` (counts by type) and `myReaction` per message.
+
+### Client
+
+- `toggleMessageReaction()` and `removeMessageReaction()` in `lib/chat-client.ts`.
+- `MessageBubble` renders a reaction bar and compact picker.
+- Optimistic reaction toggle with server confirmation.
+- Reaction updates become visible through the existing S4 3-second polling cycle.
+
+### Telegram compatibility
+
+The same shared `MessageBubble` and reaction API work in both Web/PWA and Telegram Mini App.
 
 ## S6 — Notifications (planned)
 
@@ -400,7 +444,7 @@ Every relationship endpoint must:
 
 ## Notifications architecture integration point
 
-Current notifications are persisted in `Notification`, addressed by `userId`, attributed by `actorId`, and rendered by `/api/notifications` and `NotificationsPageClient`. Existing push delivery is implemented by `lib/notifications/notification-service.ts` and uses user-scoped `PushSubscription` rows for targeted Snap interaction pushes. S1 should not change this system. S5 can add message-specific notification types and URL routing after chat exists.
+Current notifications are persisted in `Notification`, addressed by `userId`, attributed by `actorId`, and rendered by `/api/notifications` and `NotificationsPageClient`. Existing push delivery is implemented by `lib/notifications/notification-service.ts` and uses user-scoped `PushSubscription` rows for targeted Snap interaction pushes. S1 should not change this system. S6 can add message-specific notification types and URL routing after chat exists.
 
 ## Telegram Mini App considerations
 

@@ -30,6 +30,7 @@
     "test:social-s2": "node --import tsx --test scripts/social-s2.test.ts",
     "test:social-s3": "node --import tsx --test scripts/social-s3.test.ts",
     "test:social-s4": "node --import tsx --test scripts/social-s4.test.ts",
+    "test:social-s5": "node --import tsx --test scripts/social-s5.test.ts",
     "test:home-regression": "node --import tsx --test scripts/home-regression.test.ts",
     "test:image-optimization": "node --import tsx --test scripts/image-optimization.test.ts"
   },

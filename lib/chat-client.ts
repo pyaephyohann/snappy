@@ -4,12 +4,22 @@ export type ChatParticipant = {
   profileImage: string;
 };
 
+export const MESSAGE_REACTION_TYPES = ["❤️", "😂", "😮", "😢", "👍", "👎"] as const;
+export type MessageReactionType = (typeof MESSAGE_REACTION_TYPES)[number];
+
+export type MessageReactionSummary = {
+  type: string;
+  count: number;
+};
+
 export type ChatMessage = {
   id: string;
   content: string;
   senderId: string;
   sender: ChatParticipant;
   createdAt: string;
+  reactions: MessageReactionSummary[];
+  myReaction: string | null;
 };
 
 export type ChatConversation = {
@@ -112,4 +122,29 @@ export async function markConversationRead(
   return requestJson(`/api/chats/${encodeURIComponent(conversationId)}/read`, {
     method: "PATCH",
   });
+}
+
+export async function toggleMessageReaction(
+  conversationId: string,
+  messageId: string,
+  reactionType: MessageReactionType,
+): Promise<{ action: "created" | "removed" | "replaced"; myReaction: string | null }> {
+  return requestJson(
+    `/api/chats/${encodeURIComponent(conversationId)}/messages/${encodeURIComponent(messageId)}/reactions`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: reactionType }),
+    },
+  );
+}
+
+export async function removeMessageReaction(
+  conversationId: string,
+  messageId: string,
+): Promise<{ action: "removed"; myReaction: null }> {
+  return requestJson(
+    `/api/chats/${encodeURIComponent(conversationId)}/messages/${encodeURIComponent(messageId)}/reactions`,
+    { method: "DELETE" },
+  );
 }

@@ -11,6 +11,7 @@ import {
 } from "@/lib/chat";
 import { prisma } from "@/lib/prisma";
 import { isSocialMutationRateLimited } from "@/lib/social-rate-limit";
+import { getReactionsForMessages } from "@/lib/message-reactions";
 
 function mutationKey(request: Request, userId: string): string {
   return `chat-message:${userId}:${request.headers.get("x-forwarded-for") ?? "unknown"}`;
@@ -79,14 +80,22 @@ export async function GET(
   const chronological = [...page].reverse();
   const oldest = page[page.length - 1];
 
+  const messageIds = chronological.map((m) => m.id);
+  const reactionMap = await getReactionsForMessages(messageIds, viewer.id);
+
   return NextResponse.json({
-    messages: chronological.map((message) => ({
-      id: message.id,
-      content: message.content,
-      senderId: message.senderId,
-      sender: message.sender,
-      createdAt: message.createdAt.toISOString(),
-    })),
+    messages: chronological.map((message) => {
+      const reactionData = reactionMap.get(message.id) ?? { reactions: [], myReaction: null };
+      return {
+        id: message.id,
+        content: message.content,
+        senderId: message.senderId,
+        sender: message.sender,
+        createdAt: message.createdAt.toISOString(),
+        reactions: reactionData.reactions,
+        myReaction: reactionData.myReaction,
+      };
+    }),
     nextCursor:
       hasMore && oldest
         ? encodeMessageCursor({
@@ -178,6 +187,8 @@ export async function POST(
       senderId: created.senderId,
       sender: created.sender,
       createdAt: created.createdAt.toISOString(),
+      reactions: [],
+      myReaction: null,
     },
   });
 }

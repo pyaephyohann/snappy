@@ -56,6 +56,12 @@ model User {
   conversationsAsHigh          Conversation[]      @relation("ConversationUserHigh")
   conversationParticipants     ConversationParticipant[]
   sentMessages                 Message[]           @relation("MessageSender")
+  messageReactions             MessageReaction[]   @relation("MessageReactionUser")
+  sparkTransactions            SparkTransaction[]
+  uploadUsages                 UploadUsage[]
+  dailyUploadCounters          DailyUploadCounter[]
+  dailySparkEarnCounters       DailySparkEarnCounter[]
+  snapUploadOperations         SnapUploadOperation[]
 
   @@map("users")
 }
@@ -112,8 +118,9 @@ model Message {
   senderId       String
   content        String
   createdAt      DateTime     @default(now())
-  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  sender         User         @relation("MessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+  conversation   Conversation      @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender         User              @relation("MessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+  reactions       MessageReaction[]
 
   @@index([conversationId, createdAt, id])
   @@index([conversationId, senderId, createdAt, id])
@@ -147,6 +154,8 @@ model Snap {
   uploadedBy        User?              @relation("SnapUploadedBy", fields: [uploadedById], references: [id], onDelete: SetNull)
   profileImageUser  User?              @relation("UserProfileImage")
   notifications     Notification[]
+  uploadUsage       UploadUsage?
+  snapUploadOperation SnapUploadOperation?
 
   @@index([userId])
   @@index([uploadedById])
@@ -187,6 +196,20 @@ model Reaction {
   @@unique([userId, snapId])
   @@index([snapId])
   @@map("reactions")
+}
+
+model MessageReaction {
+  id        String   @id @default(cuid())
+  messageId String
+  userId    String
+  type      String
+  createdAt DateTime @default(now())
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user      User     @relation("MessageReactionUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, messageId])
+  @@index([messageId])
+  @@map("message_reactions")
 }
 
 model Comment {
@@ -262,6 +285,151 @@ enum NotificationType {
   REACTION
   COMMENT
   BIRTHDAY
+}
+
+/// Spark transaction types for the Spark economy ledger.
+enum SparkTransactionType {
+  /// Earned from an eligible Snap upload (+1 Spark).
+  UPLOAD_REWARD
+  /// Future subscription monthly Spark grant.
+  SUBSCRIPTION_GRANT
+  /// Sparks spent on an extra Snap upload beyond free daily allowance.
+  EXTRA_SNAP_UPLOAD
+  /// Sparks spent on a caption edit.
+  CAPTION_EDIT
+  /// Expired subscription Sparks removed from available balance.
+  SUBSCRIPTION_EXPIRATION
+  /// Manual adjustment by an administrator.
+  ADMIN_ADJUSTMENT
+  /// Refund of previously spent Sparks.
+  REFUND
+}
+
+/// Source of a Spark transaction, used for idempotency and auditing.
+enum SparkTransactionSource {
+  /// Automatic reward or cost from a Snap action.
+  SNAP
+  /// Subscription billing system.
+  SUBSCRIPTION
+  /// Manual admin operation.
+  ADMIN
+}
+
+/// Ledger entry for the Spark economy. The source of truth for all Spark
+/// balances — never store a mutable balance counter on the User model.
+model SparkTransaction {
+  id             String                @id @default(cuid())
+  userId         String
+  /// Signed amount: positive for credits, negative for debits.
+  amount         Int
+  type           SparkTransactionType
+  source         SparkTransactionSource
+  /// Discriminator: EARNED or SUBSCRIPTION.
+  sparkKind      SparkKind
+  /// Optional expiration (subscription Sparks expire at billing period end).
+  expiresAt      DateTime?
+  /// Stable idempotency key scoped to (user, type). Prevents duplicate
+  /// credits/debits when the same action is retried (e.g. webhook replay).
+  /// Non-nullable: every transaction type must supply a meaningful key.
+  referenceType  String?
+  referenceId    String
+  /// Free-form metadata for auditing (JSON-serializable).
+  metadata       Json?
+  createdAt      DateTime              @default(now())
+  user           User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// Idempotency: at most one transaction per (user, type, referenceId).
+  /// Because referenceId is non-nullable, PostgreSQL enforces NULL-inequality
+  /// correctly for every row.
+  @@unique([userId, type, referenceId])
+  /// Balance queries: sum all non-expired transactions for a user.
+  @@index([userId, expiresAt])
+  /// Type-specific lookups (e.g. daily earning cap, subscription queries).
+  @@index([userId, type, createdAt])
+  /// Transaction history: chronologically ordered per user.
+  @@index([userId, createdAt])
+  /// Source auditing.
+  @@index([source, createdAt])
+  @@map("spark_transactions")
+}
+
+enum SparkKind {
+  EARNED
+  SUBSCRIPTION
+}
+
+/// Atomic daily upload counter per user. The single source of truth for
+/// free daily upload limits. One row per (user, Yangon calendar day).
+/// Updated atomically via SELECT ... FOR UPDATE inside Prisma transactions.
+model DailyUploadCounter {
+  id        String   @id @default(cuid())
+  userId    String
+  /// The Yangon calendar day this counter applies to (date only, no time).
+  day       DateTime
+  /// Number of free uploads consumed on this day.
+  count     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, day])
+  @@map("daily_upload_counters")
+}
+
+/// Authoritative idempotency record for a logical Snap upload operation.
+/// One (user, idempotencyKey) maps to exactly one Snap.
+model SnapUploadOperation {
+  id             String   @id @default(cuid())
+  idempotencyKey String
+  userId         String
+  snapId         String?  @unique
+  isFreeUpload   Boolean?
+  sparkRewardCredited Boolean?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  snap           Snap?    @relation(fields: [snapId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, idempotencyKey])
+  @@index([userId, createdAt])
+  @@map("snap_upload_operations")
+}
+
+/// Atomic daily Spark-earning counter per user. The single source of truth
+/// for the daily earning cap (10 UPLOAD_REWARD Sparks per Yangon calendar day).
+/// One row per (user, Yangon calendar day). Updated atomically via
+/// UPDATE ... WHERE count < limit inside Prisma transactions.
+model DailySparkEarnCounter {
+  id        String   @id @default(cuid())
+  userId    String
+  /// The Yangon calendar day this counter applies to (date only, no time).
+  day       DateTime
+  /// Number of Sparks earned on this day (via UPLOAD_REWARD).
+  count     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, day])
+  @@map("daily_spark_earn_counters")
+}
+
+/// Tracks daily Snap upload usage per uploader. Determines how many
+/// free uploads remain and distinguishes free vs Spark-paid uploads.
+model UploadUsage {
+  id        String   @id @default(cuid())
+  userId    String
+  snapId    String   @unique
+  /// Whether this upload used the free daily allowance (true) or was
+  /// paid with Sparks (false).
+  isFree    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  snap      Snap     @relation(fields: [snapId], references: [id], onDelete: Cascade)
+
+  /// Daily usage queries: count uploads in a date range.
+  @@index([userId, createdAt])
+  @@map("upload_usages")
 }
 
 /// Serverless-safe Telegram conversation flags (e.g. /find-friends, /upload).

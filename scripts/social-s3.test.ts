@@ -88,5 +88,5 @@ test("S3 excludes later realtime and message feature work", () => {
     read("components/chat/MessageComposer.tsx"),
     read("lib/chat-client.ts"),
   ].join("\n");
-  assert.doesNotMatch(chatComponents, /WebSocket|EventSource|setInterval|typing|presence|reaction|attachment|media/i);
+  assert.doesNotMatch(chatComponents, /WebSocket|EventSource|setInterval|typing|presence|attachment|media/i);
 });
