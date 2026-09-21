@@ -124,6 +124,9 @@ test("telegram photo handler passes message caption into snap creation", () => {
   );
   assert.match(uploadSrc, /readTelegramPhotoCaption\(ctx\.message\?\.caption\)/);
   assert.match(uploadSrc, /caption: telegramCaption/);
+  assert.match(uploadSrc, /createSnapWithSparkAccounting/);
+  assert.match(uploadSrc, /ctx\.update\.update_id/);
+  assert.doesNotMatch(uploadSrc, /tg-\$\{identity\.telegramUserId\}-\$\{Date\.now\(\)\}/);
   assert.match(uploadSrc, /invalid_caption/);
 });
 

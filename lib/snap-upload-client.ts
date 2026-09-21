@@ -165,11 +165,31 @@ async function createSnapOnServer(input: {
   };
 }
 
+/** Generate a stable UUID v4 for idempotency. */
+function generateIdempotencyKey(): string {
+  // Use crypto.randomUUID() if available (modern browsers + Node 19+).
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  // Fallback: crypto.getRandomValues (available in all modern browsers).
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  bytes[6] = (bytes[6] & 0x0f) | 0x40; // version 4
+  bytes[8] = (bytes[8] & 0x3f) | 0x80; // variant 10
+  const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
 export async function uploadSnapForUser(
   targetUserId: string,
   file: File,
   caption?: string,
+  idempotencyKey?: string,
 ): Promise<void> {
+  // Generate once per logical operation. Callers can pass the same key when
+  // retrying the operation after a lost response.
+  const stableIdempotencyKey = idempotencyKey ?? generateIdempotencyKey();
+
   const uploaded = await uploadImageFileToCloudinary(file);
   await createSnapOnServer({
     endpoint: "/api/snaps",
@@ -178,6 +198,7 @@ export async function uploadSnapForUser(
       imageUrl: uploaded.imageUrl,
       publicId: uploaded.publicId,
       caption: caption || undefined,
+      idempotencyKey: stableIdempotencyKey,
     },
   });
 }
@@ -186,7 +207,11 @@ export async function uploadSnapForUser(
 export async function uploadSnapForMiniApp(
   file: File,
   caption?: string,
+  idempotencyKey?: string,
 ): Promise<CreatedSnapPayload> {
+  // Generate a stable idempotency key ONCE per logical upload.
+  const stableIdempotencyKey = idempotencyKey ?? generateIdempotencyKey();
+
   const uploaded = await uploadImageFileToCloudinary(file);
   return createSnapOnServer({
     endpoint: "/api/telegram/mini-app/snaps",
@@ -194,6 +219,7 @@ export async function uploadSnapForMiniApp(
       imageUrl: uploaded.imageUrl,
       publicId: uploaded.publicId,
       caption: caption || undefined,
+      idempotencyKey: stableIdempotencyKey,
     },
   });
 }

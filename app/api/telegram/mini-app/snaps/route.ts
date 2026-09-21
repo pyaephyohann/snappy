@@ -3,7 +3,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getAuthenticatedAppUser } from "@/lib/auth";
 import { broadcastNewSnap } from "@/lib/notifications/notification-service";
-import { createSnapForUser } from "@/lib/snap-create-service";
+import {
+  createSnapWithSparkAccounting,
+  type SnapUploadError,
+} from "@/lib/snap-upload-service";
 import { telegramMiniAppUnauthorizedResponse } from "@/lib/telegram/mini-app-api";
 
 const createSnapSchema = z.object({
@@ -13,6 +16,8 @@ const createSnapSchema = z.object({
     .string()
     .max(500, "Caption must be less than 500 characters")
     .optional(),
+  /** Client-generated UUID for this logical upload; required for retry safety. */
+  idempotencyKey: z.string().min(1).max(128),
 });
 
 export async function POST(request: NextRequest) {
@@ -33,17 +38,30 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid request data" }, { status: 400 });
   }
 
-  const { imageUrl, publicId, caption } = validationResult.data;
+  const { imageUrl, publicId, caption, idempotencyKey } = validationResult.data;
 
-  const result = await createSnapForUser({
-    targetUserId: user.id,
-    uploadedById: user.id,
-    imageUrl,
-    publicId,
-    caption,
-  });
-
-  if (!result.ok) {
+  // Delegate to the shared upload service (same Spark accounting as Web/PWA).
+  let result;
+  try {
+    result = await createSnapWithSparkAccounting({
+      targetUserId: user.id,
+      uploadedById: user.id,
+      imageUrl,
+      publicId,
+      caption,
+      idempotencyKey,
+    });
+  } catch (error) {
+    if (error && typeof error === "object" && "code" in error) {
+      const uploadError = error as { code: SnapUploadError };
+      if (uploadError.code === "insufficient_sparks") {
+        return NextResponse.json(
+          { error: "Not enough Sparks" },
+          { status: 403 },
+        );
+      }
+    }
+    console.error("Snap creation error:", error);
     return NextResponse.json(
       { error: "Could not create Snap" },
       { status: 400 },
@@ -69,6 +87,11 @@ export async function POST(request: NextRequest) {
         imageUrl: result.snap.imageUrl,
         caption: result.snap.caption,
       },
+      spark: {
+        isFreeUpload: result.isFreeUpload,
+        sparkRewardCredited: result.sparkRewardCredited,
+      },
+      idempotent: result.idempotent,
     },
     { status: 201 },
   );

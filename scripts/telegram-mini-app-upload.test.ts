@@ -47,8 +47,9 @@ test("mini app snap API derives owner from session only", () => {
     "utf8",
   );
   assert.match(route, /getAuthenticatedAppUser/);
-  assert.match(route, /createSnapForUser/);
+  assert.match(route, /createSnapWithSparkAccounting/);
   assert.match(route, /targetUserId: user\.id/);
+  assert.match(route, /idempotencyKey/);
   assert.doesNotMatch(route, /targetUserId.*request/);
   assert.doesNotMatch(route, /telegramUserId/);
 });

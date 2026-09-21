@@ -1,7 +1,7 @@
 import type { Context } from "grammy";
 import { InlineKeyboard } from "grammy";
 import { uploadSnapImageBuffer } from "@/lib/cloudinary-server-upload";
-import { createSnapForUser } from "@/lib/snap-create-service";
+import { createSnapWithSparkAccounting } from "@/lib/snap-upload-service";
 import { validateSnapImageBuffer } from "@/lib/snap-media";
 import { matchFriendsByNamePartial } from "@/lib/friends-search";
 import { listSnappyFriendsForUser } from "@/lib/snappy-friends";
@@ -335,29 +335,39 @@ export async function handleTelegramPhotoMessage(ctx: Context): Promise<boolean>
 
   let created;
   try {
-    created = await createSnapForUser({
+    // Telegram update_id is stable across webhook processing retries and
+    // uniquely identifies this incoming photo message/update.
+    const uploadIdempotencyKey =
+      `tg-${identity.telegramUserId}-update-${ctx.update.update_id}`;
+
+    created = await createSnapWithSparkAccounting({
       targetUserId,
       uploadedById: linked.userId,
       imageUrl: cloudinaryResult.secureUrl,
       publicId: cloudinaryResult.publicId,
       caption: telegramCaption,
+      idempotencyKey: uploadIdempotencyKey,
     });
   } catch (error) {
     console.error(
       "[TELEGRAM] Snap create failed:",
       sanitizeTelegramError(error),
     );
-    await ctx.reply(UPLOAD_LOOKUP_ERROR_MESSAGE);
-    await setAwaitingSnapUploadForTarget(stateKey, targetUserId);
-    return true;
-  }
-
-  if (!created.ok) {
-    if (created.error === "invalid_caption") {
-      await ctx.reply(UPLOAD_CAPTION_TOO_LONG_MESSAGE);
-    } else {
-      await ctx.reply(UPLOAD_LOOKUP_ERROR_MESSAGE);
+    // Distinguish Spark-related errors from generic failures.
+    if (error && typeof error === "object" && "code" in error) {
+      const err = error as { code: string; message?: string };
+      if (err.code === "insufficient_sparks") {
+        await ctx.reply("Not enough Sparks for this upload.");
+        await setAwaitingSnapUploadForTarget(stateKey, targetUserId);
+        return true;
+      }
+      if (err.message === "invalid_caption") {
+        await ctx.reply(UPLOAD_CAPTION_TOO_LONG_MESSAGE);
+        await setAwaitingSnapUploadForTarget(stateKey, targetUserId);
+        return true;
+      }
     }
+    await ctx.reply(UPLOAD_LOOKUP_ERROR_MESSAGE);
     await setAwaitingSnapUploadForTarget(stateKey, targetUserId);
     return true;
   }
