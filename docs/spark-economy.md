@@ -521,9 +521,70 @@ Idempotent webhook replays reuse the `tg-…-update-<update_id>` key, so a
 reprocessed photo returns the original Snap and its recorded outcome — one
 Snap, one charge, one reward.
 
+## S3 — Caption Editing
+
+> S3 integrates the locked caption-edit rule into the existing My Snaps editor.
+> It does not change S1 accounting or S2 upload rules.
+
+### Free-plan rule
+
+| Action | Cost |
+|--------|------|
+| Caption edit | **2 Sparks** |
+
+The server determines and enforces this cost through the existing atomic Spark
+spending path. The client never submits an amount or decides whether an edit
+is affordable.
+
+### User experience
+
+Caption editing remains available only for the authenticated user's **My
+Snaps**. Before saving, the editor shows the server-provided caption cost and
+current balance, then asks for confirmation:
+
+```
+Edit caption for 2 Sparks?
+✨ You have 7 Sparks.
+[Cancel] [Save for 2 Sparks]
+```
+
+When the server confirms a charged edit, the viewer shows:
+
+```
+Caption updated
+-2 Sparks ✨
+```
+
+The usage display adopts the authoritative `SparkUsageSummary` returned by the
+server. If the response cannot include usage, the existing S2 usage endpoint
+is refetched; the UI never subtracts Sparks locally.
+
+### Atomicity, validation, and stale state
+
+`PATCH /api/snaps/[snapId]/caption` validates the caption, authenticates the
+session, verifies `Snap.uploadedById`, and performs the caption update plus
+`CAPTION_EDIT` debit in one database transaction. A failed validation,
+unauthorized edit, insufficient balance, or failed transaction leaves both the
+caption and Spark balance unchanged.
+
+The request carries a stable idempotency key for one logical edit. A retry
+returns the existing result without charging twice. Saving the exact current
+caption is a no-op: it leaves the database and Spark ledger unchanged.
+
+If the UI's balance is stale, the server still decides. An insufficient-Spark
+response is HTTP 403 with `code: "insufficient_sparks"`; the editor shows the
+server error and refreshes usage rather than displaying a deduction.
+
+### Surface scope
+
+Caption editing is integrated in the existing Web/PWA My Snaps flow. Telegram
+currently has no caption-edit surface, so S3 adds no new Telegram editor or
+parallel accounting path. Telegram upload-time captions remain part of Snap
+creation and are unaffected.
+
 ### Out of scope (later milestones)
 
 Subscription plans, subscription checkout, payment gateway, Spark purchases
-or packs, annual billing, premium features, caption Spark-charging UI,
+or packs, annual billing, premium features, caption-edit discounts,
 subscription management UI, pricing page, new economy rules, and any change to
 Spark earning amounts or daily limits.

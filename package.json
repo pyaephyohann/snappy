@@ -11,6 +11,7 @@
     "test:auth": "node --import tsx --test scripts/auth-logic.test.ts",
     "test:spark": "node --import tsx --test scripts/spark-service.test.ts",
     "test:spark-s2": "node --import tsx --test scripts/spark-s2.test.ts",
+    "test:spark-s3": "node --import tsx --test scripts/spark-s3.test.ts",
     "seed": "tsx prisma/seed.ts",
     "telegram:setup": "tsx scripts/setup-telegram-webhook.ts",
     "telegram:verify-production": "tsx scripts/verify-telegram-production.ts",

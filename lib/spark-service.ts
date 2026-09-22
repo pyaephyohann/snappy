@@ -305,6 +305,8 @@ export async function getSparkUsageSummary(
     dailyEarnRemaining: sparkUsage.earningCapRemaining,
     dailyEarningCap: DAILY_SPARK_EARNING_CAP,
     extraUploadCost: EXTRA_UPLOAD_COST_SPARKS,
+    captionEditCost: CAPTION_EDIT_COST_SPARKS,
+    canAffordCaptionEdit: balance.total >= CAPTION_EDIT_COST_SPARKS,
     uploadReward: SPARK_PER_UPLOAD_REWARD,
     nextUploadIsPaid,
     canAffordNextUpload:

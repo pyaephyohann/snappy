@@ -110,17 +110,18 @@ test("caption API authenticates and enforces uploader ownership", () => {
   assert.match(route, /getAuthenticatedAppUser/);
   assert.match(route, /Unauthorized/);
   assert.match(route, /status: 401/);
-  assert.match(route, /snap\.uploadedById !== user\.id/);
+  const captionService = read("lib/snap-caption-service.ts");
+  assert.match(captionService, /snap\.uploadedById !== input\.userId/);
   assert.match(route, /status: 403/);
   // Caption-only update: the zod schema accepts caption alone, and the update
   // payload writes no media or ownership fields.
   assert.match(route, /const updateSnapCaptionSchema = z\.object\(\{/);
   assert.match(route, /\.max\(/);
   assert.match(route, /SNAP_MAX_CAPTION_LENGTH/);
-  assert.match(route, /data: \{ caption \}/);
+  assert.match(captionService, /data: \{ caption: input\.caption \}/);
   assert.doesNotMatch(
-    route,
-    /data: \{[\s\S]{0,80}(imageUrl|publicId|userId|uploadedById):/,
+    captionService,
+    /data: \{[\s\S]{0,100}(imageUrl|publicId|userId|uploadedById):/,
   );
 });
 

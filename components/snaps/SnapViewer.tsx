@@ -11,6 +11,15 @@ import { buildSnapFilename, downloadImage } from '@/lib/download-image';
 import { shouldShowAd, incrementDownloadCount, resetDownloadCount } from '@/lib/download-ad';
 import { SNAP_MAX_CAPTION_LENGTH } from '@/lib/snap-media';
 import AdModal from '@/components/ui/AdModal';
+import { useSparkUsage } from '@/hooks/useSparkUsage';
+import type { SparkUsageSummary } from '@/lib/spark-usage';
+
+function generateCaptionEditIdempotencyKey(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return `caption-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
 
 interface SnapViewerProps {
   isOpen: boolean;
@@ -86,36 +95,63 @@ export default function SnapViewer({
   const [captionDraft, setCaptionDraft] = useState(caption ?? '');
   const [savingCaption, setSavingCaption] = useState(false);
   const [captionError, setCaptionError] = useState<string | null>(null);
+  const [captionSuccess, setCaptionSuccess] = useState<string | null>(null);
+  const [confirmingCaptionEdit, setConfirmingCaptionEdit] = useState(false);
+  const [captionEditIdempotencyKey, setCaptionEditIdempotencyKey] = useState(
+    () => generateCaptionEditIdempotencyKey(),
+  );
+  const { usage, loading: usageLoading, refresh: refreshUsage, applyUsage } =
+    useSparkUsage();
   const canEdit = canEditCaption && Boolean(snapId);
 
   const handleStartCaptionEdit = () => {
     setCaptionDraft(captionValue ?? '');
     setCaptionError(null);
+    setCaptionSuccess(null);
+    setCaptionEditIdempotencyKey(generateCaptionEditIdempotencyKey());
     setEditingCaption(true);
   };
 
   const handleCancelCaptionEdit = () => {
     setEditingCaption(false);
+    setConfirmingCaptionEdit(false);
     setCaptionError(null);
   };
 
   const handleSaveCaption = async () => {
     if (!snapId || savingCaption) return;
 
+    const normalizedCaption = captionDraft.trim() || null;
+    const isNoOp = normalizedCaption === captionValue;
+    if (usage && !isNoOp && !usage.canAffordCaptionEdit) {
+      setCaptionError(
+        `Not enough Sparks ✨ Caption editing costs ${usage.captionEditCost} Sparks. You currently have ${usage.balance}.`,
+      );
+      void refreshUsage();
+      return;
+    }
+
     setSavingCaption(true);
     setCaptionError(null);
+    setCaptionSuccess(null);
 
     try {
       const response = await fetch(`/api/snaps/${snapId}/caption`, {
         method: 'PATCH',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ caption: captionDraft }),
+        body: JSON.stringify({
+          caption: captionDraft,
+          idempotencyKey: captionEditIdempotencyKey,
+        }),
       });
 
       const result = (await response.json()) as {
         error?: string;
+        code?: string;
         snap?: { caption: string | null };
+        spark?: { sparkSpent: number; idempotent: boolean; noOp: boolean };
+        usage?: SparkUsageSummary | null;
       };
 
       if (!response.ok) {
@@ -125,17 +161,33 @@ export default function SnapViewer({
       const nextCaption = result.snap?.caption ?? null;
       setCaptionValue(nextCaption);
       setEditingCaption(false);
+      setConfirmingCaptionEdit(false);
+      if (result.usage) {
+        applyUsage(result.usage);
+      } else {
+        void refreshUsage();
+      }
+      if (result.spark?.noOp) {
+        setCaptionSuccess('Caption unchanged. No Sparks spent.');
+      } else if (result.spark && result.spark.sparkSpent > 0) {
+        setCaptionSuccess(
+          `Caption updated\n-${result.spark.sparkSpent} Sparks ✨`,
+        );
+      } else {
+        setCaptionSuccess('Caption updated.');
+      }
       onCaptionSaved?.(nextCaption);
     } catch (error) {
       setCaptionError(
         error instanceof Error ? error.message : 'Failed to update caption',
       );
+      // Never invent a post-failure balance; synchronize with the server.
+      void refreshUsage();
     } finally {
       setSavingCaption(false);
     }
   };
 
-  
 
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
@@ -382,6 +434,23 @@ export default function SnapViewer({
                         disabled={savingCaption}
                         className="w-full resize-none rounded-lg border border-border bg-background px-3 py-2 text-base text-foreground placeholder:text-muted-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
                       />
+                      <div className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+                        {usageLoading ? (
+                          "Checking Spark balance…"
+                        ) : usage ? (
+                          <>
+                            This edit costs {usage.captionEditCost} Sparks ✨. You
+                            have {usage.balance}.
+                          </>
+                        ) : (
+                          "Caption editing costs Sparks. Your balance will be verified by the server."
+                        )}
+                      </div>
+                      {usage && !usage.canAffordCaptionEdit ? (
+                        <p className="text-xs text-destructive" role="alert">
+                          Not enough Sparks ✨ Caption editing costs {usage.captionEditCost} Sparks. You currently have {usage.balance}.
+                        </p>
+                      ) : null}
                       <div className="flex items-center justify-between gap-3">
                         <span className="text-xs text-muted-foreground">
                           {captionDraft.length}/{SNAP_MAX_CAPTION_LENGTH}
@@ -397,11 +466,35 @@ export default function SnapViewer({
                           </button>
                           <button
                             type="button"
-                            onClick={() => void handleSaveCaption()}
-                            disabled={savingCaption}
+                            onClick={() => {
+                              if (
+                                usage &&
+                                captionValue !== (captionDraft.trim() || null) &&
+                                !usage.canAffordCaptionEdit
+                              ) {
+                                return;
+                              }
+                              if (usage && captionValue !== captionDraft.trim() && !confirmingCaptionEdit) {
+                                setConfirmingCaptionEdit(true);
+                                return;
+                              }
+                              void handleSaveCaption();
+                            }}
+                            disabled={
+                              savingCaption ||
+                              Boolean(
+                                usage &&
+                                captionValue !== (captionDraft.trim() || null) &&
+                                !usage.canAffordCaptionEdit,
+                              )
+                            }
                             className="min-h-[40px] rounded-lg bg-primary px-3 py-2 text-xs font-medium text-primary-foreground transition-opacity hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
                           >
-                            {savingCaption ? "Saving…" : "Save"}
+                            {savingCaption
+                              ? "Saving…"
+                              : usage && captionValue !== (captionDraft.trim() || null)
+                                ? `Save for ${usage.captionEditCost} Sparks`
+                                : "Save"}
                           </button>
                         </div>
                       </div>
@@ -413,6 +506,11 @@ export default function SnapViewer({
                     </div>
                   ) : (
                     <div className="space-y-2">
+                      {captionSuccess ? (
+                        <p className="whitespace-pre-line text-xs text-foreground" role="status">
+                          {captionSuccess}
+                        </p>
+                      ) : null}
                       <p className="text-foreground text-xs sm:text-sm">
                         {captionValue ?? (
                           <span className="text-muted-foreground">
@@ -477,6 +575,51 @@ export default function SnapViewer({
         </>
       )}
           </AnimatePresence>
+
+      {confirmingCaptionEdit && usage ? (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center p-4"
+          role="alertdialog"
+          aria-modal="true"
+          aria-labelledby="caption-spark-confirm-title"
+        >
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => setConfirmingCaptionEdit(false)}
+            aria-hidden="true"
+          />
+          <div className="relative w-full max-w-sm rounded-2xl border border-border bg-card p-5 shadow-2xl">
+            <h3
+              id="caption-spark-confirm-title"
+              className="text-base font-semibold text-foreground"
+            >
+              Edit caption for {usage.captionEditCost} Sparks?
+            </h3>
+            <p className="mt-2 text-sm text-muted-foreground">
+              <span aria-hidden="true">✨</span> You have {usage.balance}{" "}
+              {usage.balance === 1 ? "Spark" : "Sparks"}.
+            </p>
+            <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+              <button
+                type="button"
+                onClick={() => setConfirmingCaptionEdit(false)}
+                className="flex-1 rounded-lg border border-border bg-card px-4 py-2 text-sm text-foreground transition-colors hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring"
+              >
+                Cancel
+              </button>
+              <GlowButton
+                type="button"
+                onClick={() => void handleSaveCaption()}
+                disabled={savingCaption}
+                glowClassName="flex-1"
+                className="w-full flex-1 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground transition-opacity hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 sm:text-base"
+              >
+                Save for {usage.captionEditCost} Sparks
+              </GlowButton>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <AdModal open={showAdModal} onContinue={handleAdContinue} />
     </>

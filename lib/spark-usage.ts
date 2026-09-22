@@ -25,6 +25,10 @@ export interface SparkUsageSummary {
   dailyEarningCap: number;
   /** Spark cost of an upload once the free allowance is exhausted. */
   extraUploadCost: number;
+  /** Spark cost of one caption edit. */
+  captionEditCost: number;
+  /** True when the user can afford a caption edit at the current server snapshot. */
+  canAffordCaptionEdit: boolean;
   /** Sparks credited by an eligible (free) upload. */
   uploadReward: number;
   /** True when the next upload is expected to be Spark-paid. */
