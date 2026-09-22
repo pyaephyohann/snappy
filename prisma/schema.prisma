@@ -121,6 +121,7 @@ model Message {
   conversation   Conversation      @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   sender         User              @relation("MessageSender", fields: [senderId], references: [id], onDelete: Cascade)
   reactions       MessageReaction[]
+  notifications   Notification[]
 
   @@index([conversationId, createdAt, id])
   @@index([conversationId, senderId, createdAt, id])
@@ -269,11 +270,13 @@ model Notification {
   actorId   String
   snapId    String?
   body      String?
+  messageId String?          @unique
   readAt    DateTime?
   createdAt DateTime         @default(now())
   user      User             @relation("NotificationRecipient", fields: [userId], references: [id], onDelete: Cascade)
   actor     User             @relation("NotificationActor", fields: [actorId], references: [id], onDelete: Cascade)
   snap      Snap?            @relation(fields: [snapId], references: [id], onDelete: Cascade)
+  message   Message?         @relation(fields: [messageId], references: [id], onDelete: Cascade)
 
   @@index([userId, createdAt])
   @@index([userId, readAt])
@@ -282,6 +285,7 @@ model Notification {
 
 enum NotificationType {
   NEW_SNAP
+  NEW_MESSAGE
   REACTION
   COMMENT
   BIRTHDAY

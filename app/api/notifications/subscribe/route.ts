@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getAuthenticatedAppUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import {
   pushSubscriptionSchema,
@@ -6,6 +7,11 @@ import {
 } from "@/lib/notifications/push-subscription-schema";
 
 export async function POST(request: NextRequest) {
+  const user = await getAuthenticatedAppUser();
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   let body: unknown;
   try {
     body = await request.json();
@@ -18,7 +24,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid subscription" }, { status: 400 });
   }
 
-  const { endpoint, keys, deviceId, userId } = parsed.data;
+  const { endpoint, keys, deviceId } = parsed.data;
+  const existing = await prisma.pushSubscription.findUnique({
+    where: { endpoint },
+    select: { userId: true },
+  });
+
+  if (existing?.userId && existing.userId !== user.id) {
+    return NextResponse.json({ error: "Subscription belongs to another user" }, { status: 403 });
+  }
 
   await prisma.pushSubscription.upsert({
     where: { endpoint },
@@ -27,13 +41,13 @@ export async function POST(request: NextRequest) {
       endpoint,
       p256dh: keys.p256dh,
       auth: keys.auth,
-      userId: userId ?? null,
+      userId: user.id,
     },
     update: {
       deviceId,
       p256dh: keys.p256dh,
       auth: keys.auth,
-      userId: userId ?? null,
+      userId: user.id,
     },
   });
 
@@ -41,6 +55,11 @@ export async function POST(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
+  const user = await getAuthenticatedAppUser();
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   let body: unknown;
   try {
     body = await request.json();
@@ -53,11 +72,9 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   }
 
-  await prisma.pushSubscription
-    .delete({
-      where: { endpoint: parsed.data.endpoint },
-    })
-    .catch(() => undefined);
+  await prisma.pushSubscription.deleteMany({
+    where: { endpoint: parsed.data.endpoint, userId: user.id },
+  });
 
   return NextResponse.json({ success: true });
 }

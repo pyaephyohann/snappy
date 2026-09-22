@@ -168,6 +168,14 @@ function isValidInternalPath(pathname) {
   ) {
     return true;
   }
+  if (pathname.startsWith("/chats/")) {
+    const conversationId = pathname.slice("/chats/".length).split("/")[0];
+    return conversationId.length > 0 && !conversationId.includes("..");
+  }
+  if (pathname.startsWith("/telegram/app/chats/")) {
+    const conversationId = pathname.slice("/telegram/app/chats/".length).split("/")[0];
+    return conversationId.length > 0 && !conversationId.includes("..");
+  }
   if (pathname.startsWith("/friends/")) {
     const slug = pathname.slice("/friends/".length).split("/")[0];
     return slug.length > 0 && !slug.includes("..");

@@ -12,6 +12,7 @@ import {
 import { prisma } from "@/lib/prisma";
 import { isSocialMutationRateLimited } from "@/lib/social-rate-limit";
 import { getReactionsForMessages } from "@/lib/message-reactions";
+import { createNewMessageNotification } from "@/lib/notifications/notification-service";
 
 function mutationKey(request: Request, userId: string): string {
   return `chat-message:${userId}:${request.headers.get("x-forwarded-for") ?? "unknown"}`;
@@ -178,6 +179,10 @@ export async function POST(
     });
 
     return message;
+  });
+
+  await createNewMessageNotification({ messageId: created.id }).catch((error) => {
+    console.error("[Notification] New message notification failed:", error);
   });
 
   return NextResponse.json({

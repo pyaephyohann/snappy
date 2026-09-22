@@ -415,9 +415,28 @@ model MessageReaction {
 
 The same shared `MessageBubble` and reaction API work in both Web/PWA and Telegram Mini App.
 
-## S6 — Notifications (planned)
+## S6 — Notifications — Implemented
 
-Not implemented. Extend the existing `Notification` and `NotificationType` architecture only after message delivery semantics are defined. A message notification should target the recipient, never trust a client-supplied recipient, respect read state, and integrate with `PushSubscription.userId` and the existing notification list/unread badge. Telegram Mini App in-app refresh/polling or Telegram delivery must be designed separately; no notification type is added in S1.
+S6 adds chat-message notifications through the existing persisted notification and Web Push systems.
+
+### Product rules
+
+- A successful authorized message creates exactly one `NEW_MESSAGE` notification for the other conversation participant.
+- The sender never receives a notification for their own message.
+- Recipient, actor, conversation, and destination are derived server-side from the persisted message and conversation; client-supplied identity is never trusted.
+- `Notification.messageId` is unique, providing database-enforced idempotency for retries and concurrent processing.
+- The message preview is bounded and stored in `Notification.body`.
+- `Notification.readAt` and `ConversationParticipant.lastReadAt` remain independent. Opening a chat updates chat read state only; opening a notification marks the notification read.
+
+### Web Push
+
+`NEW_MESSAGE` uses the existing targeted Web Push infrastructure and is sent only to subscriptions owned by the recipient. Push failures do not fail message creation, and expired subscriptions retain the existing 404/410 cleanup behavior. Web/PWA notification clicks route to `/chats/<conversationId>` through validated internal URLs.
+
+### Telegram Mini App
+
+Telegram Mini App users use the same persisted `Notification` rows and notification APIs. Shared notification UI routes chat alerts to `/telegram/app/chats/<conversationId>` and does not depend on Web Push inside the Telegram WebView. Telegram Bot notification delivery is explicitly deferred and is not part of S6.
+
+S6 adds no WebSocket, SSE, EventSource, or other realtime transport; chat polling remains the S4 synchronization mechanism.
 
 ## S7 — User Status (planned)
 
@@ -444,7 +463,7 @@ Every relationship endpoint must:
 
 ## Notifications architecture integration point
 
-Current notifications are persisted in `Notification`, addressed by `userId`, attributed by `actorId`, and rendered by `/api/notifications` and `NotificationsPageClient`. Existing push delivery is implemented by `lib/notifications/notification-service.ts` and uses user-scoped `PushSubscription` rows for targeted Snap interaction pushes. S1 should not change this system. S6 can add message-specific notification types and URL routing after chat exists.
+Current notifications are persisted in `Notification`, addressed by `userId`, attributed by `actorId`, and rendered by `/api/notifications` and `NotificationsPageClient`. Existing push delivery is implemented by `lib/notifications/notification-service.ts` and uses user-scoped `PushSubscription` rows for targeted Snap interaction pushes. S1 should not change this system. S6 adds the implemented message-specific notification type and URL routing described above.
 
 ## Telegram Mini App considerations
 

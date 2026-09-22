@@ -1,10 +1,11 @@
 # Notifications
 
-Snappy notifications cover three categories:
+Snappy notifications cover four categories:
 
 1. **New Snap broadcast** — pushed to every subscribed device when any Snap is uploaded.
 2. **Snap interaction alerts** — targeted to the Snap owner when another user reacts or comments.
 3. **Birthday notifications** — pushed to every subscribed device when a user's birthday is detected (once per day per user).
+4. **Chat message notifications** — targeted to the other participant after an authorized message is created.
 
 ---
 
@@ -39,6 +40,22 @@ When **User A comments on User B's Snap**, User B is notified.
 
 ---
 
+## Chat Message Notifications
+
+When User A sends an authorized message to User B, Snappy creates one `NEW_MESSAGE` notification for User B.
+
+- `userId` is the server-derived recipient.
+- `actorId` is the persisted message sender.
+- `messageId` links the notification to the message and is unique, preventing duplicate notification rows.
+- The body is a bounded message preview.
+- Self-notifications, failed sends, and unauthorized sends do not create notifications.
+- Web Push targets only the recipient's `PushSubscription.userId` rows.
+- Web/PWA clicks route to `/chats/<conversationId>`.
+- Telegram Mini App uses the same persisted notification/API path and routes to `/telegram/app/chats/<conversationId>`.
+- Telegram Bot delivery is deferred and is not implemented in S6.
+
+`Notification.readAt` and chat `ConversationParticipant.lastReadAt` are independent. Opening a chat does not automatically mark the global notification read.
+
 ## Birthday Notifications
 
 When a user's birthday is detected (day 1 of the 3-day window), a notification is sent:
@@ -64,7 +81,8 @@ See [Hero Carousel documentation](./hero-carousel.md) for full birthday mode det
 | `userId` | recipient (Snap owner / birthday user) |
 | `actorId` | user who reacted/commented (self for birthday) |
 | `snapId` | related Snap |
-| `type` | `NEW_SNAP` \| `REACTION` \| `COMMENT` \| `BIRTHDAY` |
+| `messageId` | related chat message; unique for `NEW_MESSAGE` |
+| `type` | `NEW_SNAP` \| `NEW_MESSAGE` \| `REACTION` \| `COMMENT` \| `BIRTHDAY` |
 | `body` | comment preview / reaction emoji / birthday message |
 | `createdAt` | timestamp |
 
@@ -74,6 +92,8 @@ Uses the existing web-push infrastructure (`lib/notifications/notification-servi
 
 - `broadcastNewSnap` (unchanged) pushes to **all** subscriptions.
 - `notifySnapInteraction` pushes only to the **Snap owner's** subscriptions (`PushSubscription.userId`).
+- Chat message notifications push only to the server-derived recipient's subscriptions.
+- Push delivery is non-fatal: the persisted notification remains if delivery fails.
 
 Notification delivery is **fire-and-forget**: a notification failure never fails the reaction/comment API response.
 

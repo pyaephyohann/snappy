@@ -18,6 +18,14 @@ export function isValidInternalNotificationUrl(path: string): boolean {
   if (path === "/notifications" || path.startsWith("/notifications/")) {
     return true;
   }
+  if (path.startsWith("/chats/")) {
+    const conversationId = path.slice("/chats/".length).split("/")[0];
+    return conversationId.length > 0 && !conversationId.includes("..");
+  }
+  if (path.startsWith("/telegram/app/chats/")) {
+    const conversationId = path.slice("/telegram/app/chats/".length).split("/")[0];
+    return conversationId.length > 0 && !conversationId.includes("..");
+  }
   if (path.startsWith("/friends/")) {
     const slug = path.slice("/friends/".length).split("/")[0];
     return slug.length > 0 && !slug.includes("..");

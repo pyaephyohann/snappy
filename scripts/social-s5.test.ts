@@ -223,8 +223,8 @@ test("S5 is documented as implemented in social.md", () => {
   assert.match(docs, /S5 — Message Reactions — Implemented/);
 });
 
-test("S6 notification reference is corrected from S5", () => {
+test("S6 notification milestone follows S5 without renumbering", () => {
   const docs = read("docs/social.md");
-  assert.match(docs, /S6 can add message-specific notification types/);
+  assert.match(docs, /S6 — Notifications — Implemented/);
   assert.doesNotMatch(docs, /S5 can add message-specific notification types/);
 });

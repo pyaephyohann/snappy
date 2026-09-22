@@ -27,6 +27,7 @@ export async function GET(request: NextRequest) {
       include: {
         actor: { select: { name: true, profileImage: true } },
         snap: { select: { id: true, user: { select: { name: true } } } },
+        message: { select: { conversationId: true } },
       },
     });
 
@@ -41,6 +42,7 @@ export async function GET(request: NextRequest) {
         actor: { name: n.actor.name, image: n.actor.profileImage },
         snapId: n.snapId,
         snapOwnerName: n.snap?.user.name ?? null,
+        conversationId: n.message?.conversationId ?? null,
         body: n.body,
         read: n.readAt !== null,
         createdAt: n.createdAt.toISOString(),

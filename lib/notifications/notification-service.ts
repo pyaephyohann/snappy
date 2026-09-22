@@ -12,7 +12,7 @@ export interface PushPayload {
   body: string;
   url: string;
   notificationId: string;
-  type: "NEW_SNAP" | "REACTION" | "COMMENT";
+  type: "NEW_SNAP" | "NEW_MESSAGE" | "REACTION" | "COMMENT" | "BIRTHDAY";
   createdAt: string;
   icon?: string;
   badge?: string;
@@ -250,6 +250,117 @@ export async function notifySnapInteraction({
 }
 
 /**
+ * Creates one notification for the recipient of a persisted chat message and
+ * delivers it to that recipient's owned Web Push subscriptions.
+ *
+ * The message is the only input identity: sender, conversation, recipient,
+ * preview, and destination are all derived from persisted records.
+ */
+export async function createNewMessageNotification({
+  messageId,
+}: {
+  messageId: string;
+}): Promise<void> {
+  const message = await prisma.message.findUnique({
+    where: { id: messageId },
+    select: {
+      id: true,
+      content: true,
+      senderId: true,
+      sender: { select: { id: true, name: true } },
+      conversation: {
+        select: {
+          id: true,
+          participants: {
+            select: {
+              userId: true,
+              user: { select: { id: true, isActive: true } },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (!message) {
+    console.warn("[Notification] Message not found:", messageId);
+    return;
+  }
+
+  const senderParticipant = message.conversation.participants.find(
+    (participant) => participant.userId === message.senderId,
+  );
+  const recipient = message.conversation.participants.find(
+    (participant) => participant.userId !== message.senderId,
+  );
+
+  if (
+    !senderParticipant ||
+    !recipient ||
+    recipient.userId === message.senderId ||
+    !recipient.user.isActive
+  ) {
+    console.warn("[Notification] Invalid chat notification participants:", messageId);
+    return;
+  }
+
+  const preview = message.content.trim().slice(0, 160);
+  let notification;
+  try {
+    notification = await prisma.notification.create({
+      data: {
+        type: "NEW_MESSAGE",
+        userId: recipient.userId,
+        actorId: message.senderId,
+        messageId: message.id,
+        body: preview,
+      },
+    });
+  } catch (error: unknown) {
+    // A unique messageId means retries and concurrent processing are safe.
+    if (
+      error &&
+      typeof error === "object" &&
+      "code" in error &&
+      (error as { code?: string }).code === "P2002"
+    ) {
+      return;
+    }
+    throw error;
+  }
+
+  if (!isWebPushConfigured()) {
+    return;
+  }
+
+  ensureWebPushConfigured();
+  const targetUrl = sanitizeNotificationUrl(`/chats/${message.conversation.id}`);
+  if (!targetUrl) {
+    console.error("[Web Push] Invalid chat notification URL:", message.conversation.id);
+    return;
+  }
+
+  const payload: PushPayload = {
+    title: message.sender.name,
+    body: preview,
+    url: targetUrl,
+    notificationId: notification.id,
+    type: "NEW_MESSAGE",
+    createdAt: notification.createdAt.toISOString(),
+  };
+
+  const subscriptions = await prisma.pushSubscription.findMany({
+    where: { userId: recipient.userId },
+  });
+
+  await Promise.all(
+    subscriptions.map((subscription, index) =>
+      sendPushToSubscription(subscription, payload, index),
+    ),
+  );
+}
+
+/**
  * Send a birthday notification for the given user, but only once per day.
  * Deduplicates by checking for an existing BIRTHDAY notification for this
  * user created today (in Asia/Yangon timezone).
@@ -322,7 +433,7 @@ export async function sendBirthdayNotificationIfDue({
     body: `Happy Birthday ${username}`,
     url: targetUrl,
     notificationId: notification.id,
-    type: "NEW_SNAP", // Use NEW_SNAP type for push delivery compatibility
+    type: "BIRTHDAY",
     createdAt: notification.createdAt.toISOString(),
   };
 

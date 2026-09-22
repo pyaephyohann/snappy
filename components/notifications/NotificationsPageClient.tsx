@@ -6,10 +6,11 @@ import { NOTIFICATIONS_UPDATED_EVENT } from "@/lib/local-notifications";
 
 type NotificationItem = {
   id: string;
-  type: "NEW_SNAP" | "REACTION" | "COMMENT";
+  type: "NEW_SNAP" | "NEW_MESSAGE" | "REACTION" | "COMMENT" | "BIRTHDAY";
   actor: { name: string; image: string };
   snapId: string | null;
   snapOwnerName: string | null;
+  conversationId: string | null;
   body: string | null;
   read: boolean;
   createdAt: string;
@@ -29,6 +30,9 @@ function formatRelativeTime(iso: string): string {
 }
 
 function notificationTitle(item: NotificationItem): string {
+  if (item.type === "NEW_MESSAGE") {
+    return `${item.actor.name} sent you a message`;
+  }
   if (item.type === "REACTION") {
     return `${item.actor.name} reacted to your Snap`;
   }
@@ -46,6 +50,10 @@ function notificationBody(item: NotificationItem): string | null {
 }
 
 function targetUrl(item: NotificationItem, miniAppPrefix?: string): string {
+  if (item.type === "NEW_MESSAGE" && item.conversationId) {
+    const path = `/chats/${encodeURIComponent(item.conversationId)}`;
+    return miniAppPrefix ? `${miniAppPrefix}${path}` : path;
+  }
   if (item.snapOwnerName) {
     const path = `/friends/${encodeURIComponent(item.snapOwnerName)}`;
     return miniAppPrefix ? `${miniAppPrefix}${path}` : path;
