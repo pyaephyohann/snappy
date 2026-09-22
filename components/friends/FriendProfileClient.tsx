@@ -41,12 +41,9 @@ export default function FriendProfileClient({
 
   const handleUpload = async (file: File, caption?: string) => {
     setError(null);
-    try {
-      await uploadSnapForUser(friend.id, file, caption);
-      router.refresh();
-    } catch (error) {
-      throw error;
-    }
+    const result = await uploadSnapForUser(friend.id, file, caption);
+    router.refresh();
+    return result;
   };
 
   const handleRetry = () => {

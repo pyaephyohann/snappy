@@ -21,6 +21,7 @@ import type {
   SparkKind,
 } from "@prisma/client";
 import { Prisma } from "@prisma/client";
+import type { SparkUsageSummary } from "@/lib/spark-usage";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -270,6 +271,44 @@ export async function getDailySparkUsage(
     sparksEarnedToday,
     earningCapRemaining,
     earningCapReached: sparksEarnedToday >= DAILY_SPARK_EARNING_CAP,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Usage summary (S2 — server-authoritative presentation projection)
+// ---------------------------------------------------------------------------
+
+/**
+ * Build the read-only Spark usage summary the upload UI renders.
+ * Every value is derived from the authoritative ledger + daily counters —
+ * nothing here is computed or trusted on the client. Contains no ledger
+ * internals (no transaction ids, sources, or history).
+ */
+export async function getSparkUsageSummary(
+  userId: string,
+  now: Date = new Date(),
+): Promise<SparkUsageSummary> {
+  const [balance, uploadUsage, sparkUsage] = await Promise.all([
+    getSparkBalance(userId),
+    getDailyUploadUsage(userId, now),
+    getDailySparkUsage(userId, now),
+  ]);
+
+  const nextUploadIsPaid = uploadUsage.freeUploadsRemaining <= 0;
+
+  return {
+    balance: balance.total,
+    freeUploadsUsed: uploadUsage.freeUploadsUsed,
+    freeUploadsRemaining: uploadUsage.freeUploadsRemaining,
+    freeDailyUploads: FREE_DAILY_UPLOADS,
+    dailyEarnedSparks: sparkUsage.sparksEarnedToday,
+    dailyEarnRemaining: sparkUsage.earningCapRemaining,
+    dailyEarningCap: DAILY_SPARK_EARNING_CAP,
+    extraUploadCost: EXTRA_UPLOAD_COST_SPARKS,
+    uploadReward: SPARK_PER_UPLOAD_REWARD,
+    nextUploadIsPaid,
+    canAffordNextUpload:
+      !nextUploadIsPaid || balance.total >= EXTRA_UPLOAD_COST_SPARKS,
   };
 }
 

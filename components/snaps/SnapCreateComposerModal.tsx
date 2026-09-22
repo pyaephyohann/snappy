@@ -5,6 +5,9 @@ import { useCallback, useEffect, useState } from "react";
 import { useDropzone } from "react-dropzone";
 import { GlowButton } from "@/components/ui/glow-button";
 import SnapCameraCapture from "@/components/snaps/SnapCameraCapture";
+import SparkUsageIndicator from "@/components/snaps/SparkUsageIndicator";
+import { useSparkUsage } from "@/hooks/useSparkUsage";
+import type { CreatedSnapPayload } from "@/lib/snap-upload-client";
 import { isCameraCaptureSupported } from "@/lib/snap-camera";
 import { formatFileSize } from "@/lib/format-file-size";
 
@@ -13,7 +16,10 @@ const MAX_CAPTION_LENGTH = 500;
 
 export interface SnapCreateComposerModalProps {
   onClose: () => void;
-  onUpload?: (file: File, caption?: string) => Promise<void>;
+  onUpload?: (
+    file: File,
+    caption?: string,
+  ) => Promise<CreatedSnapPayload | void>;
   /** When provided, opens directly on preview step with this image. */
   initialFile?: File | null;
   /** Shown when creating a snap for a specific profile. */
@@ -46,8 +52,25 @@ export default function SnapCreateComposerModal({
     "idle" | "uploading" | "saving"
   >("idle");
   const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const [confirmingPaidUpload, setConfirmingPaidUpload] = useState(false);
+  const [uploadResult, setUploadResult] = useState<CreatedSnapPayload | null>(
+    null,
+  );
+  const {
+    usage,
+    loading: usageLoading,
+    refresh: refreshUsage,
+    applyUsage,
+  } = useSparkUsage();
   const cameraSupported =
     enableInModalCamera && isCameraCaptureSupported();
+
+  // Server-authoritative state only — the client never decides the cost or
+  // whether the user may spend Sparks.
+  const outOfSparks =
+    usage !== null && usage.nextUploadIsPaid && !usage.canAffordNextUpload;
+  const needsPaidConfirmation =
+    usage !== null && usage.nextUploadIsPaid && usage.canAffordNextUpload;
 
   const resetPreview = useCallback(() => {
     if (previewUrl) {
@@ -83,7 +106,7 @@ export default function SnapCreateComposerModal({
     };
   }, [previewUrl]);
 
-  const handleUpload = async () => {
+  const runUpload = async () => {
     if (!selectedFile || !onUpload) return;
 
     setIsUploading(true);
@@ -91,20 +114,41 @@ export default function SnapCreateComposerModal({
     setUploadPhase("uploading");
 
     try {
-      await onUpload(selectedFile, caption);
+      const result = await onUpload(selectedFile, caption);
       setUploadPhase("saving");
+      setUploadResult(result ?? null);
       setUploadStatus("success");
+
+      // Adopt the refreshed summary returned with the upload result; fall
+      // back to a single refetch when the response did not include one.
+      if (result?.usage) {
+        applyUsage(result.usage);
+      } else {
+        void refreshUsage();
+      }
 
       setTimeout(() => {
         onClose();
-      }, 1500);
+      }, 2000);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Upload failed. Please try again.",
       );
       setIsUploading(false);
       setUploadPhase("idle");
+      setConfirmingPaidUpload(false);
+      // The server may have rejected the upload (e.g. Sparks spent since the
+      // summary loaded) — resync instead of trusting the stale UI state.
+      void refreshUsage();
     }
+  };
+
+  const handleUploadClick = () => {
+    if (needsPaidConfirmation && !confirmingPaidUpload) {
+      setConfirmingPaidUpload(true);
+      return;
+    }
+    void runUpload();
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -203,6 +247,37 @@ export default function SnapCreateComposerModal({
               </div>
             ) : null}
 
+            <SparkUsageIndicator usage={usage} loading={usageLoading} />
+
+            {usage && !usage.nextUploadIsPaid ? (
+              <p className="mb-4 text-xs text-muted-foreground">
+                This upload uses one of today&apos;s free uploads
+                {usage.dailyEarnRemaining > 0
+                  ? ` and earns +${usage.uploadReward} Spark ✨`
+                  : ""}
+                .
+              </p>
+            ) : null}
+
+            {outOfSparks && usage ? (
+              <div
+                className="mb-4 rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm"
+                role="alert"
+              >
+                <p className="font-semibold text-foreground">
+                  You&apos;re out of Sparks ✨
+                </p>
+                <p className="mt-1 text-muted-foreground">
+                  You&apos;ve used all {usage.freeDailyUploads} free uploads
+                  today. An extra upload costs {usage.extraUploadCost} Sparks —
+                  you have {usage.balance}.
+                </p>
+                <p className="mt-1 text-muted-foreground">
+                  Free uploads reset at 00:00 (Asia/Yangon).
+                </p>
+              </div>
+            ) : null}
+
             {previewUrl ? (
               <div className="mb-6">
                 <div className="relative aspect-square w-full overflow-hidden rounded-lg border border-border bg-muted sm:aspect-video">
@@ -288,6 +363,28 @@ export default function SnapCreateComposerModal({
               </div>
             ) : null}
 
+            {uploadStatus === "success" && uploadResult ? (
+              <div
+                className="mb-4 rounded-lg border border-primary/30 bg-primary/10 p-3 text-sm"
+                role="status"
+              >
+                <p className="font-medium text-foreground">Snap uploaded</p>
+                {uploadResult.spark?.isFreeUpload &&
+                uploadResult.spark.sparkRewarded > 0 ? (
+                  <p className="mt-1 text-foreground">
+                    +{uploadResult.spark.sparkRewarded} Spark ✨
+                  </p>
+                ) : null}
+                {uploadResult.spark &&
+                !uploadResult.spark.isFreeUpload &&
+                uploadResult.spark.sparkSpent > 0 ? (
+                  <p className="mt-1 text-foreground">
+                    -{uploadResult.spark.sparkSpent} Sparks ✨
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+
             <div className="flex flex-col gap-3 sm:flex-row sm:gap-4">
               {previewUrl && onRetakePhoto ? (
                 <GlowButton
@@ -324,9 +421,12 @@ export default function SnapCreateComposerModal({
               {onUpload ? (
                 <GlowButton
                   type="button"
-                  onClick={() => void handleUpload()}
+                  onClick={handleUploadClick}
                   disabled={
-                    !selectedFile || isUploading || uploadStatus === "success"
+                    !selectedFile ||
+                    isUploading ||
+                    outOfSparks ||
+                    uploadStatus === "success"
                   }
                   glowClassName="flex-1"
                   className="w-full flex-1 rounded-lg bg-primary px-4 py-3 text-sm text-primary-foreground transition-opacity hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50 sm:text-base"
@@ -344,6 +444,53 @@ export default function SnapCreateComposerModal({
           </div>
         </div>
       </div>
+
+      {confirmingPaidUpload && usage ? (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center p-4"
+          role="alertdialog"
+          aria-modal="true"
+          aria-labelledby="spark-confirm-title"
+        >
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => setConfirmingPaidUpload(false)}
+            aria-hidden="true"
+          />
+          <div className="relative w-full max-w-sm rounded-2xl border border-border bg-card p-5 shadow-2xl">
+            <h3
+              id="spark-confirm-title"
+              className="text-base font-semibold text-foreground"
+            >
+              Use {usage.extraUploadCost} Sparks to upload this Snap?
+            </h3>
+            <p className="mt-2 text-sm text-muted-foreground">
+              <span aria-hidden="true">✨</span> You have {usage.balance}{" "}
+              {usage.balance === 1 ? "Spark" : "Sparks"}
+            </p>
+            <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+              <button
+                type="button"
+                onClick={() => setConfirmingPaidUpload(false)}
+                className="flex-1 rounded-lg border border-border bg-card px-4 py-2 text-sm text-foreground transition-colors hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring"
+              >
+                Cancel
+              </button>
+              <GlowButton
+                type="button"
+                onClick={() => {
+                  setConfirmingPaidUpload(false);
+                  void runUpload();
+                }}
+                glowClassName="flex-1"
+                className="w-full flex-1 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground transition-opacity hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-ring sm:text-base"
+              >
+                Upload for {usage.extraUploadCost} Sparks
+              </GlowButton>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {isCameraOpen ? (
         <SnapCameraCapture

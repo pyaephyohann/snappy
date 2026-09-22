@@ -2,6 +2,10 @@ import type { Context } from "grammy";
 import { InlineKeyboard } from "grammy";
 import { uploadSnapImageBuffer } from "@/lib/cloudinary-server-upload";
 import { createSnapWithSparkAccounting } from "@/lib/snap-upload-service";
+import {
+  getSparkUsageSummary,
+  SPARK_PER_UPLOAD_REWARD,
+} from "@/lib/spark-service";
 import { validateSnapImageBuffer } from "@/lib/snap-media";
 import { matchFriendsByNamePartial } from "@/lib/friends-search";
 import { listSnappyFriendsForUser } from "@/lib/snappy-friends";
@@ -42,7 +46,8 @@ import {
   UPLOAD_TARGET_STALE_MESSAGE,
   formatUploadTargetSelected,
   UPLOAD_RATE_LIMIT_MESSAGE,
-  UPLOAD_SUCCESS_MESSAGE,
+  formatUploadSuccessResult,
+  formatUploadInsufficientSparksMessage,
   UPLOAD_UNSUPPORTED_MEDIA_MESSAGE,
 } from "./messages";
 import { getSnappyPublicUrl } from "./public-url";
@@ -357,7 +362,12 @@ export async function handleTelegramPhotoMessage(ctx: Context): Promise<boolean>
     if (error && typeof error === "object" && "code" in error) {
       const err = error as { code: string; message?: string };
       if (err.code === "insufficient_sparks") {
-        await ctx.reply("Not enough Sparks for this upload.");
+        // Use the authoritative numbers so the user understands the state
+        // instead of a bare failure.
+        const usage = await getSparkUsageSummary(linked.userId).catch(
+          () => null,
+        );
+        await ctx.reply(formatUploadInsufficientSparksMessage(usage));
         await setAwaitingSnapUploadForTarget(stateKey, targetUserId);
         return true;
       }
@@ -402,9 +412,19 @@ export async function handleTelegramPhotoMessage(ctx: Context): Promise<boolean>
     buildFriendProfileUrl(created.ownerName),
   );
 
-  await ctx.reply(UPLOAD_SUCCESS_MESSAGE, {
-    reply_markup: buildUploadSuccessKeyboard(viewUrl),
-  });
+  await ctx.reply(
+    formatUploadSuccessResult({
+      isFreeUpload: created.isFreeUpload,
+      sparkRewardCredited: created.sparkRewardCredited,
+      sparkSpent: created.sparkSpent,
+      sparkRewarded: created.sparkRewardCredited
+        ? SPARK_PER_UPLOAD_REWARD
+        : 0,
+    }),
+    {
+      reply_markup: buildUploadSuccessKeyboard(viewUrl),
+    },
+  );
 
   return true;
 }

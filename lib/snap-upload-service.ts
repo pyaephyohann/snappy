@@ -43,6 +43,8 @@ export interface SnapUploadResult {
   uploaderName: string;
   isFreeUpload: boolean;
   sparkRewardCredited: boolean;
+  /** Sparks actually debited for this logical upload (0 for free uploads). */
+  sparkSpent: number;
 }
 
 export type SnapUploadError =
@@ -53,6 +55,30 @@ export type SnapUploadError =
   | "insufficient_sparks";
 
 const MAX_IDEMPOTENCY_RETRIES = 3;
+
+/**
+ * Read the Sparks actually debited for an existing (idempotent) upload.
+ *
+ * The charge is keyed by (userId, type, referenceId) in the ledger, so a
+ * replay reports the real original amount instead of assuming the cost.
+ * Must be called inside the same Prisma transaction as the operation read.
+ */
+async function readRecordedSparkSpend(
+  tx: Prisma.TransactionClient,
+  input: SnapUploadInput,
+): Promise<number> {
+  const debit = await tx.sparkTransaction.findUnique({
+    where: {
+      userId_type_referenceId: {
+        userId: input.uploadedById,
+        type: "EXTRA_SNAP_UPLOAD",
+        referenceId: input.idempotencyKey,
+      },
+    },
+    select: { amount: true },
+  });
+  return debit ? Math.abs(debit.amount) : 0;
+}
 
 /**
  * Create one logical Snap upload atomically.
@@ -130,6 +156,7 @@ export async function createSnapWithSparkAccounting(
             uploaderName: existing.uploadedBy?.name ?? input.uploadedById,
             isFreeUpload: existingOperation.isFreeUpload ?? false,
             sparkRewardCredited: existingOperation.sparkRewardCredited ?? false,
+            sparkSpent: await readRecordedSparkSpend(tx, input),
           };
         }
 
@@ -178,13 +205,15 @@ export async function createSnapWithSparkAccounting(
         );
         const isFreeUpload = counterResult !== null;
 
+        let sparkSpent = 0;
         if (!isFreeUpload) {
-          await atomicSpendSparks(tx, {
+          const spendResult = await atomicSpendSparks(tx, {
             userId: input.uploadedById,
             type: "EXTRA_SNAP_UPLOAD",
             referenceId: input.idempotencyKey,
             reason: "extra_snap_upload",
           });
+          sparkSpent = spendResult.amountDeducted;
         }
 
         const snap = await tx.snap.create({
@@ -258,6 +287,7 @@ export async function createSnapWithSparkAccounting(
           uploaderName: uploader.name,
           isFreeUpload,
           sparkRewardCredited,
+          sparkSpent,
         };
       });
     } catch (error) {

@@ -1,4 +1,5 @@
 import { SNAP_MAX_CAPTION_LENGTH } from "@/lib/snap-media";
+import type { SparkUsageSummary } from "@/lib/spark-usage";
 
 export const START_MESSAGE = [
   "📸 Welcome to Snappy!",
@@ -162,6 +163,61 @@ export const UPLOAD_SUCCESS_MESSAGE = [
   "",
   "Your Snap is now on Snappy.",
 ].join("\n");
+
+/** Spark outcome for one logical upload, exactly as reported by the server. */
+export interface UploadSparkOutcome {
+  isFreeUpload: boolean;
+  sparkRewardCredited: boolean;
+  sparkSpent: number;
+  sparkRewarded: number;
+}
+
+/**
+ * Bot success reply driven by the actual server result (S2).
+ * Free uploads that earned a Spark show the reward; Spark-paid uploads show
+ * the real charge. An idempotent replay reports the recorded outcome for that
+ * logical upload, so it stays accurate without implying a second charge.
+ */
+export function formatUploadSuccessResult(
+  outcome: UploadSparkOutcome,
+): string {
+  const lines = ["✅ Snap uploaded!", "", "Your Snap is now on Snappy."];
+
+  if (!outcome.isFreeUpload && outcome.sparkSpent > 0) {
+    lines.push(`-${outcome.sparkSpent} Sparks ✨`);
+  } else if (outcome.sparkRewardCredited && outcome.sparkRewarded > 0) {
+    lines.push(`+${outcome.sparkRewarded} Spark ✨`);
+  }
+
+  return lines.join("\n");
+}
+
+export const UPLOAD_INSUFFICIENT_SPARKS_MESSAGE = [
+  "✨ You're out of Sparks",
+  "",
+  "You've used all your free uploads for today and don't have enough Sparks for an extra upload.",
+  "",
+  "Free uploads reset at 00:00 (Asia/Yangon).",
+].join("\n");
+
+/** Insufficient-Sparks reply with the server's current numbers when available. */
+export function formatUploadInsufficientSparksMessage(
+  usage: Pick<
+    SparkUsageSummary,
+    "freeDailyUploads" | "extraUploadCost" | "balance"
+  > | null,
+): string {
+  if (!usage) return UPLOAD_INSUFFICIENT_SPARKS_MESSAGE;
+
+  return [
+    "✨ You're out of Sparks",
+    "",
+    `You've used all ${usage.freeDailyUploads} free uploads today.`,
+    `An extra upload costs ${usage.extraUploadCost} Sparks — you have ${usage.balance}.`,
+    "",
+    "Free uploads reset at 00:00 (Asia/Yangon).",
+  ].join("\n");
+}
 
 export const UPLOAD_UNSUPPORTED_MEDIA_MESSAGE =
   "Please send a photo. Snappy currently supports images up to 10 MB through Telegram.";

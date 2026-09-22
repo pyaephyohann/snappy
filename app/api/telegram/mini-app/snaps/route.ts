@@ -4,6 +4,11 @@ import { z } from "zod";
 import { getAuthenticatedAppUser } from "@/lib/auth";
 import { broadcastNewSnap } from "@/lib/notifications/notification-service";
 import {
+  getSparkUsageSummary,
+  SPARK_PER_UPLOAD_REWARD,
+} from "@/lib/spark-service";
+import type { SparkUsageSummary } from "@/lib/spark-usage";
+import {
   createSnapWithSparkAccounting,
   type SnapUploadError,
 } from "@/lib/snap-upload-service";
@@ -56,7 +61,7 @@ export async function POST(request: NextRequest) {
       const uploadError = error as { code: SnapUploadError };
       if (uploadError.code === "insufficient_sparks") {
         return NextResponse.json(
-          { error: "Not enough Sparks" },
+          { error: "Not enough Sparks", code: "insufficient_sparks" },
           { status: 403 },
         );
       }
@@ -80,6 +85,15 @@ export async function POST(request: NextRequest) {
     }
   });
 
+  // Refreshed, server-authoritative usage for the Spark display. A failure
+  // here never fails the upload — the client can refetch usage separately.
+  let usage: SparkUsageSummary | null = null;
+  try {
+    usage = await getSparkUsageSummary(user.id);
+  } catch (usageError) {
+    console.error("Spark usage summary error:", usageError);
+  }
+
   return NextResponse.json(
     {
       snap: {
@@ -90,8 +104,11 @@ export async function POST(request: NextRequest) {
       spark: {
         isFreeUpload: result.isFreeUpload,
         sparkRewardCredited: result.sparkRewardCredited,
+        sparkSpent: result.sparkSpent,
+        sparkRewarded: result.sparkRewardCredited ? SPARK_PER_UPLOAD_REWARD : 0,
       },
       idempotent: result.idempotent,
+      usage,
     },
     { status: 201 },
   );

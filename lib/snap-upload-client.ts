@@ -3,6 +3,7 @@
  * Shared by profile uploader, mobile bottom-nav camera, and Telegram Mini App.
  */
 import { SNAP_ALLOWED_IMAGE_MIME_TYPES } from "@/lib/snap-media";
+import type { SparkUsageSummary } from "@/lib/spark-usage";
 
 export const SNAP_UPLOAD_ACCEPT = SNAP_ALLOWED_IMAGE_MIME_TYPES.join(",");
 
@@ -11,10 +12,26 @@ export type UploadedCloudinaryImage = {
   publicId: string;
 };
 
+/** Server-reported Spark outcome for one logical Snap upload (S2). */
+export type SnapUploadSparkOutcome = {
+  isFreeUpload: boolean;
+  sparkRewardCredited: boolean;
+  /** Sparks actually debited (0 for free uploads). */
+  sparkSpent: number;
+  /** Sparks actually credited (0 when no reward was given). */
+  sparkRewarded: number;
+};
+
 export type CreatedSnapPayload = {
   id: string;
   imageUrl: string;
   caption: string | null;
+  /** Spark outcome as recorded by the server for this logical upload. */
+  spark?: SnapUploadSparkOutcome;
+  /** True when this response replayed an existing idempotent upload. */
+  idempotent?: boolean;
+  /** Refreshed, server-authoritative usage summary (when provided). */
+  usage?: SparkUsageSummary | null;
 };
 
 export class SnapUploadClientError extends Error {
@@ -22,6 +39,7 @@ export class SnapUploadClientError extends Error {
     | "sign_failed"
     | "cloudinary_failed"
     | "snap_create_failed"
+    | "insufficient_sparks"
     | "session_expired"
     | "unknown";
 
@@ -143,25 +161,45 @@ async function createSnapOnServer(input: {
     );
   }
 
+  const data = (await snapResponse.json().catch(() => null)) as {
+    snap?: { id: string; imageUrl: string; caption: string | null };
+    spark?: SnapUploadSparkOutcome;
+    idempotent?: boolean;
+    usage?: SparkUsageSummary | null;
+    error?: string;
+    code?: string;
+  } | null;
+
   if (!snapResponse.ok) {
+    // The server is authoritative about cost/balance. When it rejects the
+    // upload for insufficient Sparks, surface that state instead of a
+    // generic failure so the UI can explain it.
+    if (data?.code === "insufficient_sparks") {
+      throw new SnapUploadClientError(
+        "insufficient_sparks",
+        data.error ?? "Not enough Sparks for this upload.",
+      );
+    }
     throw new SnapUploadClientError(
       "snap_create_failed",
       "Your image uploaded, but the Snap could not be created. Please try again.",
     );
   }
 
-  const data = (await snapResponse.json()) as {
-    snap: {
-      id: string;
-      imageUrl: string;
-      caption: string | null;
-    };
-  };
+  if (!data?.snap) {
+    throw new SnapUploadClientError(
+      "snap_create_failed",
+      "Your image uploaded, but the Snap could not be created. Please try again.",
+    );
+  }
 
   return {
     id: data.snap.id,
     imageUrl: data.snap.imageUrl,
     caption: data.snap.caption,
+    spark: data.spark,
+    idempotent: data.idempotent,
+    usage: data.usage ?? null,
   };
 }
 
@@ -185,13 +223,13 @@ export async function uploadSnapForUser(
   file: File,
   caption?: string,
   idempotencyKey?: string,
-): Promise<void> {
+): Promise<CreatedSnapPayload> {
   // Generate once per logical operation. Callers can pass the same key when
   // retrying the operation after a lost response.
   const stableIdempotencyKey = idempotencyKey ?? generateIdempotencyKey();
 
   const uploaded = await uploadImageFileToCloudinary(file);
-  await createSnapOnServer({
+  return createSnapOnServer({
     endpoint: "/api/snaps",
     body: {
       targetUserId,

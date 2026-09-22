@@ -3,6 +3,7 @@
 > **Milestone**: S1 — Spark Foundation
 > **Status**: Locked rules (v1)
 > **Pricing**: TBD — do not treat any prices in this document as final
+> **S2 — Snap Integration**: user-facing upload integration built *on top of* S1 (see [S2 — Snap Integration](#s2--snap-integration-user-facing))
 
 ---
 
@@ -338,3 +339,191 @@ Response:
 - The client never submits `sparkAmount`
 - The server determines costs and rewards
 - Authentication required for all Spark operations
+
+---
+
+## S2 — Snap Integration (user-facing)
+
+> S2 does **not** change any S1 accounting rule. It surfaces the existing,
+> server-authoritative state in the Snap upload experience. All numbers shown
+> to the user come from the server; the frontend never computes balances,
+> costs, or eligibility.
+
+### Milestone boundaries
+
+| Milestone | Scope |
+|-----------|-------|
+| **S1** | Ledger, daily counters, atomic spend/earn, upload idempotency, shared `createSnapWithSparkAccounting()` — *accounting foundation* |
+| **S2** | Usage summary API + Spark UI in the Snap upload flow (Web/PWA, Telegram Mini App, Telegram Bot) — *integration only* |
+| **Future** | Subscriptions, checkout, payment gateway, Spark purchases/packs, pricing page, caption-edit charging UI — **not implemented** |
+
+### Spark usage summary (server-authoritative)
+
+`getSparkUsageSummary(userId)` in `lib/spark-service.ts` derives a
+presentation-only projection from the ledger + daily counters, and it is
+exposed as:
+
+```
+GET /api/sparks/usage  →  { usage: SparkUsageSummary }
+```
+
+```ts
+{
+  balance,               // available Sparks (earned + non-expired subscription)
+  freeUploadsUsed,       // free uploads used today
+  freeUploadsRemaining,  // free uploads left today
+  freeDailyUploads,      // 10
+  dailyEarnedSparks,     // Sparks earned today
+  dailyEarnRemaining,    // remaining earning capacity today
+  dailyEarningCap,       // 10
+  extraUploadCost,       // 5
+  uploadReward,          // 1
+  nextUploadIsPaid,      // free allowance exhausted?
+  canAffordNextUpload,   // enough Sparks for the paid upload?
+}
+```
+
+No ledger internals (transaction ids, sources, history) are exposed. The
+shared type lives in `lib/spark-usage.ts` (safe to import from client code).
+
+### Upload responses
+
+Both `POST /api/snaps` and `POST /api/telegram/mini-app/snaps` now return the
+actual server outcome for the logical upload plus a refreshed summary, so the
+UI updates without a second request:
+
+```json
+{
+  "snap": { "id": "..." },
+  "spark": {
+    "isFreeUpload": true,
+    "sparkRewardCredited": true,
+    "sparkSpent": 0,
+    "sparkRewarded": 1
+  },
+  "idempotent": false,
+  "usage": { "balance": 8, "freeUploadsUsed": 5, "...": "..." }
+}
+```
+
+Insufficient-Sparks rejections are machine-readable: HTTP 403 with
+`code: "insufficient_sparks"`.
+
+### Web/PWA + Telegram Mini App (shared UI)
+
+Both flows render inside the shared `SnapCreateComposerModal`, so the Mini App
+inherits the identical behavior — same rules, same terminology, no forked
+economy code.
+
+**Indicator** (always visible while loaded):
+
+```
+✨ 7 Sparks          Free uploads today: 6 / 10
+```
+
+**Before the free limit** — a helper line states that the upload uses one of
+today's free uploads and earns `+1 Spark ✨` (the reward claim is only shown
+when the server reports remaining daily earning capacity).
+
+**Success feedback** — driven by the server result, not an assumption:
+
+```
+Snap uploaded
++1 Spark ✨      (free upload that earned a reward)
+```
+
+```
+Snap uploaded
+-5 Sparks ✨     (Spark-paid upload)
+```
+
+A free upload at the daily earning cap shows "Snap uploaded" with no reward
+line. An idempotent replay reports the outcome recorded for that logical
+upload, so it never implies a second charge.
+
+**Paid confirmation** — only when `nextUploadIsPaid && canAffordNextUpload`:
+
+```
+Use 5 Sparks to upload this Snap?
+✨ You have 12 Sparks
+[Cancel] [Upload for 5 Sparks]
+```
+
+The confirmation is advisory: the server re-decides the charge at request
+time, and its response wins.
+
+**Insufficient Sparks** — when the free allowance is exhausted *and* the
+balance is below `extraUploadCost`, the Upload button is disabled and:
+
+```
+You're out of Sparks ✨
+You've used all 10 free uploads today. An extra upload costs 5 Sparks — you have 2.
+Free uploads reset at 00:00 (Asia/Yangon).
+```
+
+### Circular-UX constraint (unchanged rules)
+
+A user with `0 Sparks` and `10/10 free uploads used` cannot upload, so they
+cannot earn a Spark by uploading. This is the intended consequence of the
+locked S1 rules: there is no free path that forges a new rule. S2 surfaces the
+state honestly (including the Yangon reset time) instead of offering a
+workaround. Earning and spending both resume at the 00:00 Asia/Yangon daily
+boundary.
+
+### Refresh & consistency
+
+1. Preferred: adopt the `usage` field returned with the upload response.
+2. Fallback: a single `GET /api/sparks/usage` refetch.
+3. On upload failure: refetch, since the server state may have changed.
+4. On fetch failure: the indicator stays hidden — the client never guesses a
+   balance.
+
+### Error handling
+
+| Case | Behavior |
+|------|----------|
+| Insufficient Sparks | HTTP 403 `code: "insufficient_sparks"` → friendly message, no success feedback |
+| Daily free limit reached | Upload becomes Spark-paid → confirmation step |
+| Upload failure | No reward/deduction message is shown |
+| Network failure | No invented Spark state; the stable `idempotencyKey` protects retries |
+| Session/auth failure | Existing 401 → "Your Snappy session has expired." (no second auth system) |
+
+### Telegram Bot
+
+The bot reply reflects the actual server result:
+
+```
+✅ Snap uploaded!
+
+Your Snap is now on Snappy.
++1 Spark ✨        (free upload reward)
+```
+
+```
+✅ Snap uploaded!
+
+Your Snap is now on Snappy.
+-5 Sparks ✨       (Spark-paid upload)
+```
+
+On rejection:
+
+```
+✨ You're out of Sparks
+
+You've used all 10 free uploads today.
+An extra upload costs 5 Sparks — you have 2.
+
+Free uploads reset at 00:00 (Asia/Yangon).
+```
+
+Idempotent webhook replays reuse the `tg-…-update-<update_id>` key, so a
+reprocessed photo returns the original Snap and its recorded outcome — one
+Snap, one charge, one reward.
+
+### Out of scope (later milestones)
+
+Subscription plans, subscription checkout, payment gateway, Spark purchases
+or packs, annual billing, premium features, caption Spark-charging UI,
+subscription management UI, pricing page, new economy rules, and any change to
+Spark earning amounts or daily limits.

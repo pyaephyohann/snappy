@@ -8,6 +8,11 @@ import {
   type SnapUploadError,
 } from '@/lib/snap-upload-service';
 import {
+  getSparkUsageSummary,
+  SPARK_PER_UPLOAD_REWARD,
+} from '@/lib/spark-service';
+import type { SparkUsageSummary } from '@/lib/spark-usage';
+import {
   validateCloudinarySnapPublicId,
   validateCloudinarySnapUrl,
 } from '@/lib/snap-validation';
@@ -72,6 +77,16 @@ export async function POST(request: NextRequest) {
       idempotencyKey,
     });
 
+    // Refreshed, server-authoritative usage so the client can update its
+    // Spark display without a second round-trip. A failure here never fails
+    // the upload — the client can fall back to GET /api/sparks/usage.
+    let usage: SparkUsageSummary | null = null;
+    try {
+      usage = await getSparkUsageSummary(session.userId);
+    } catch (usageError) {
+      console.error('Spark usage summary error:', usageError);
+    }
+
     after(async () => {
       try {
         await broadcastNewSnap({
@@ -98,8 +113,11 @@ export async function POST(request: NextRequest) {
         spark: {
           isFreeUpload: result.isFreeUpload,
           sparkRewardCredited: result.sparkRewardCredited,
+          sparkSpent: result.sparkSpent,
+          sparkRewarded: result.sparkRewardCredited ? SPARK_PER_UPLOAD_REWARD : 0,
         },
         idempotent: result.idempotent,
+        usage,
       },
       { status: 201 }
     );
@@ -110,7 +128,10 @@ export async function POST(request: NextRequest) {
       const uploadError = error as { code: SnapUploadError; message: string };
       if (uploadError.code === 'insufficient_sparks') {
         return NextResponse.json(
-          { error: 'Daily free upload limit reached. Not enough Sparks for an extra upload.' },
+          {
+            error: 'Daily free upload limit reached. Not enough Sparks for an extra upload.',
+            code: 'insufficient_sparks',
+          },
           { status: 403 },
         );
       }

@@ -84,8 +84,11 @@ export default function BottomNavCameraFlow({
     if (!selectedUser) {
       throw new Error("No user selected for this snap.");
     }
-    await uploadSnapForUser(selectedUser.id, file, caption);
+    // Returns the server's Spark outcome + refreshed usage summary so the
+    // composer can show the actual charge/reward without a second request.
+    const result = await uploadSnapForUser(selectedUser.id, file, caption);
     router.refresh();
+    return result;
   };
 
   return (

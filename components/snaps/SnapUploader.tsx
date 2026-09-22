@@ -3,9 +3,13 @@
 import { useState } from "react";
 import { GlowButton } from "@/components/ui/glow-button";
 import SnapCreateComposerModal from "@/components/snaps/SnapCreateComposerModal";
+import type { CreatedSnapPayload } from "@/lib/snap-upload-client";
 
 interface SnapUploaderProps {
-  onUpload?: (file: File, caption?: string) => Promise<void>;
+  onUpload?: (
+    file: File,
+    caption?: string,
+  ) => Promise<CreatedSnapPayload | void>;
 }
 
 export default function SnapUploader({ onUpload }: SnapUploaderProps) {
