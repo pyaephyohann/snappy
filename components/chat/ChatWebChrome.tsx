@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import Navbar from "@/components/layout/Navbar";
 import BottomNav from "@/components/mobile/BottomNav";
 import NotificationSync from "@/components/notifications/NotificationSync";
+import PresenceHeartbeat from "@/components/presence/PresenceHeartbeat";
 
 export default function ChatWebChrome({
   username,
@@ -19,6 +20,7 @@ export default function ChatWebChrome({
   return (
     <div className="user-app-shell min-h-full bg-background">
       <NotificationSync />
+      <PresenceHeartbeat />
       <Navbar username={username} profileImage={profileImage} />
       <div className={isConversation ? "" : "user-app-content-pad"}>{children}</div>
       {!isConversation ? <BottomNav username={username} /> : null}

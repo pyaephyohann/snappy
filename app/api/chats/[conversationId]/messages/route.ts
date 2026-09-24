@@ -9,6 +9,7 @@ import {
   validateMessageContent,
   areUsersFriends,
 } from "@/lib/chat";
+import { serializePresence } from "@/lib/presence";
 import { prisma } from "@/lib/prisma";
 import { isSocialMutationRateLimited } from "@/lib/social-rate-limit";
 import { getReactionsForMessages } from "@/lib/message-reactions";
@@ -109,6 +110,11 @@ export async function GET(
       id: access.otherParticipant.user.id,
       name: access.otherParticipant.user.name,
       profileImage: access.otherParticipant.user.profileImage,
+      // S7 presence rides the existing authorized participant payload.
+      ...serializePresence({
+        lastSeenAt: access.otherParticipant.user.lastSeenAt,
+        isActive: access.otherParticipant.user.isActive,
+      }),
     },
   });
 }

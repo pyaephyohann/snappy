@@ -56,6 +56,16 @@ Telegram Mini App Home reuses the shared Web Home experience, including the head
 
 PWA install prompt and service worker registration are skipped under `/telegram/app/*`.
 
+### Presence (S7)
+
+The Mini App uses the **same authenticated presence heartbeat** as Web/PWA: `PresenceHeartbeat` is mounted in `TelegramMiniAppLayoutClient` and sends `PATCH /api/presence` every 30 seconds while the Mini App is visible.
+
+- Identity comes from the Telegram-authenticated Snappy session; the client never supplies a `userId`.
+- Online / offline / last seen is derived server-side from `User.lastSeenAt` using the shared `lib/presence.ts` thresholds (60s online window, 15s write suppression).
+- The shared chat components display it: the chat list shows an online badge and the conversation header shows `Online` or `Last seen …` for `/telegram/app/chats` and `/telegram/app/chats/<conversationId>`.
+- Presence is decided by server-side expiry, not by a client unload/offline write, because Telegram WebView lifecycle events are unreliable.
+- There is **no Telegram Bot presence implementation**: no presence message, no presence notification, and no presence push. Telegram Bot presence delivery is out of scope.
+
 ### Integration & deep links (T5)
 
 **Canonical HTTPS deep link:**
@@ -325,7 +335,7 @@ npm run test:telegram-hardening
 
 ## Shared components and APIs
 
-The Mini App reuses `RecentSnaps`, `SnapGallery`, `SnapViewer`, `SnapCameraCapture`, `SnapCreateComposerModal`, `BottomNavCameraFlow`, `FriendsPickerPanel`, `NotificationsPageClient`, `ProfilePageClient`, `snap-upload-client`, `/api/snaps`, `/api/users/list`, `/api/notifications`, `/api/cloudinary/optimize`, and `/api/cloudinary/sign`. No database migrations or new dependencies are required for parity.
+The Mini App reuses `RecentSnaps`, `SnapGallery`, `SnapViewer`, `SnapCameraCapture`, `SnapCreateComposerModal`, `BottomNavCameraFlow`, `FriendsPickerPanel`, `NotificationsPageClient`, `ProfilePageClient`, `ChatListPageClient`, `ChatWorkspace`, `PresenceIndicator`, `PresenceHeartbeat`, `snap-upload-client`, `/api/snaps`, `/api/users/list`, `/api/notifications`, `/api/chats`, `/api/presence`, `/api/cloudinary/optimize`, and `/api/cloudinary/sign`. No new dependencies are required for parity; the S7 presence column ships with the additive `20260924120000_social_user_presence` migration.
 
 ## Deferred (post T6)
 

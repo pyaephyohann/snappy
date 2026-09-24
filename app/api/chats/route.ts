@@ -9,6 +9,7 @@ import {
   normalizeUserPair,
   areUsersFriends,
 } from "@/lib/chat";
+import { serializePresence } from "@/lib/presence";
 import { prisma } from "@/lib/prisma";
 import { getMutualFriendshipMap } from "@/lib/relationships";
 import { isSocialMutationRateLimited } from "@/lib/social-rate-limit";
@@ -32,12 +33,23 @@ function isUniqueConstraintError(error: unknown): boolean {
 
 function serializeParticipant(participant: {
   userId: string;
-  user: { id: string; name: string; profileImage: string; isActive: boolean };
+  user: {
+    id: string;
+    name: string;
+    profileImage: string;
+    isActive: boolean;
+    lastSeenAt: Date | null;
+  };
 }) {
   return {
     id: participant.user.id,
     name: participant.user.name,
     profileImage: participant.user.profileImage,
+    // S7 presence is always derived server-side from the persisted heartbeat.
+    ...serializePresence({
+      lastSeenAt: participant.user.lastSeenAt,
+      isActive: participant.user.isActive,
+    }),
   };
 }
 
@@ -92,6 +104,7 @@ export async function GET(request: NextRequest) {
               name: true,
               profileImage: true,
               isActive: true,
+              lastSeenAt: true,
             },
           },
         },
@@ -242,7 +255,15 @@ export async function POST(request: NextRequest) {
         participants: {
           select: {
             userId: true,
-            user: { select: { id: true, name: true, profileImage: true, isActive: true } },
+            user: {
+              select: {
+                id: true,
+                name: true,
+                profileImage: true,
+                isActive: true,
+                lastSeenAt: true,
+              },
+            },
           },
         },
       },
@@ -265,7 +286,15 @@ export async function POST(request: NextRequest) {
         participants: {
           select: {
             userId: true,
-            user: { select: { id: true, name: true, profileImage: true, isActive: true } },
+            user: {
+              select: {
+                id: true,
+                name: true,
+                profileImage: true,
+                isActive: true,
+                lastSeenAt: true,
+              },
+            },
           },
         },
       },

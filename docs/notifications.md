@@ -56,6 +56,10 @@ When User A sends an authorized message to User B, Snappy creates one `NEW_MESSA
 
 `Notification.readAt` and chat `ConversationParticipant.lastReadAt` are independent. Opening a chat does not automatically mark the global notification read.
 
+## Presence / Heartbeat Events
+
+Presence heartbeats (`PATCH /api/presence`, S7) **do not create notifications and do not send push notifications**. `NotificationType` is unchanged by S7, presence delivery has no Web Push path, and no Telegram Bot presence message exists. Online / offline / last-seen state is derived from `User.lastSeenAt` and only ever surfaces through already-authorized chat DTOs.
+
 ## Birthday Notifications
 
 When a user's birthday is detected (day 1 of the 3-day window), a notification is sent:

@@ -1,7 +1,15 @@
-export type ChatParticipant = {
+/** Minimal identity used where only the sender is displayed (message rows). */
+export type ChatParty = {
   id: string;
   name: string;
   profileImage: string;
+};
+
+export type ChatParticipant = ChatParty & {
+  /** Server-derived online state (S7). Never computed from the client clock. */
+  isOnline: boolean;
+  /** Server-derived last heartbeat timestamp, or null when never seen. */
+  lastSeenAt: string | null;
 };
 
 export const MESSAGE_REACTION_TYPES = ["❤️", "😂", "😮", "😢", "👍", "👎"] as const;
@@ -16,7 +24,7 @@ export type ChatMessage = {
   id: string;
   content: string;
   senderId: string;
-  sender: ChatParticipant;
+  sender: ChatParty;
   createdAt: string;
   reactions: MessageReactionSummary[];
   myReaction: string | null;

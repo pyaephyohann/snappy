@@ -2,6 +2,7 @@
 
 import BottomNav from "@/components/mobile/BottomNav";
 import NotificationSync from "@/components/notifications/NotificationSync";
+import PresenceHeartbeat from "@/components/presence/PresenceHeartbeat";
 
 interface UserAppChromeProps {
   username: string;
@@ -19,6 +20,7 @@ export default function UserAppChrome({
   return (
     <>
       <NotificationSync />
+      <PresenceHeartbeat />
       <div className="user-app-content-pad min-h-full">{children}</div>
       <BottomNav username={username} />
     </>

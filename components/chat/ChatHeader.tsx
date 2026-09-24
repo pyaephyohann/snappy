@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { ChatParticipant } from "@/lib/chat-client";
+import PresenceIndicator from "@/components/presence/PresenceIndicator";
 
 export default function ChatHeader({
   participant,
@@ -24,7 +25,14 @@ export default function ChatHeader({
         <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full border border-border">
           <Image src={participant.profileImage} alt="" fill sizes="40px" className="object-cover" />
         </div>
-        <span className="min-w-0 truncate text-sm font-semibold text-foreground">{participant.name}</span>
+        <span className="flex min-w-0 flex-col">
+          <span className="truncate text-sm font-semibold text-foreground">{participant.name}</span>
+          <PresenceIndicator
+            isOnline={participant.isOnline}
+            lastSeenAt={participant.lastSeenAt}
+            withLabel
+          />
+        </span>
       </Link>
     </header>
   );

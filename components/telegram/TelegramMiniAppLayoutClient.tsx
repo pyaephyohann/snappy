@@ -1,6 +1,7 @@
 "use client";
 
 import { type ReactNode } from "react";
+import PresenceHeartbeat from "@/components/presence/PresenceHeartbeat";
 import { TelegramMiniAppAuthProvider } from "@/components/telegram/TelegramMiniAppAuthProvider";
 import TelegramPwaSuppress from "@/components/telegram/TelegramPwaSuppress";
 
@@ -12,6 +13,7 @@ export default function TelegramMiniAppLayoutClient({
   return (
     <>
       <TelegramPwaSuppress />
+      <PresenceHeartbeat />
       <TelegramMiniAppAuthProvider>{children}</TelegramMiniAppAuthProvider>
     </>
   );

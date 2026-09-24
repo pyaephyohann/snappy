@@ -365,7 +365,7 @@ The same polling hooks (`useChatList`, `useConversationMessages`, `useConversati
 
 ### Scope boundary
 
-S4 excludes: WebSocket, SSE, EventSource, typing indicators, reactions, attachments, media messages, delivery receipts, message editing/deletion, richer presence, chat push notifications, global state libraries.
+S4 excludes: WebSocket, SSE, EventSource, typing indicators, reactions, attachments, media messages, delivery receipts, message editing/deletion, presence (delivered later in S7), chat push notifications (delivered later in S6), global state libraries.
 
 ## S5 — Message Reactions — Implemented
 
@@ -438,9 +438,54 @@ Telegram Mini App users use the same persisted `Notification` rows and notificat
 
 S6 adds no WebSocket, SSE, EventSource, or other realtime transport; chat polling remains the S4 synchronization mechanism.
 
-## S7 — User Status (planned)
+## S7 — User Status — Implemented
 
-Not implemented. Add a bounded text status to `User` or a separate status history model only after deciding whether status is persistent, expiring, editable, and visible to all users or only friends. Validate and sanitize it server-side and expose it through shared profile/user payloads.
+S7 implements **presence**: online / offline / last seen. The previously documented "bounded text status" is **deferred** and is not part of S7.
+
+### Storage
+
+- `User.lastSeenAt DateTime?` is the single source of truth. It is nullable, has no default, no index, and no backfill.
+- One additive migration (`20260924120000_social_user_presence`) adds the column. No `isOnline` boolean is stored.
+- Presence is user-level, not device-level: Web/PWA and Telegram Mini App write the same row.
+
+### Semantics
+
+- `ONLINE_WINDOW_MS = 60_000` — exactly 60 seconds of age still counts as online; older is offline.
+- `HEARTBEAT_INTERVAL_MS = 30_000` — visible clients heartbeat every 30 seconds.
+- `HEARTBEAT_MIN_WRITE_INTERVAL_MS = 15_000` — the server suppresses writes more frequent than 15 seconds.
+- `null` `lastSeenAt` means never seen → offline. Inactive users are always offline, and server time (never the client clock) decides the state.
+- Offline state is decided by server-side expiry only. No `beforeunload`/`sendBeacon` offline write exists, because Telegram WebView and mobile lifecycle events are unreliable.
+
+### Heartbeat
+
+- `PATCH /api/presence` with an empty body.
+- The target user always comes from `getAuthenticatedAppUser()`. The endpoint accepts no `userId` in the body, query, or route, and rejects unexpected payloads.
+- The write is a single atomic conditional update (`updateMany` with `lastSeenAt IS NULL OR lastSeenAt < now - 15s`) so concurrent tabs/devices cannot race a read-then-write.
+- Responses: `200 { lastSeenAt }`, `401` unauthenticated/inactive, `429` rate limited, `400` unexpected payload.
+- The existing `lib/social-rate-limit.ts` limiter is reused; the database write suppression is the authoritative throttle.
+
+### Reads
+
+- No generic presence read endpoint exists. Presence is serialized through already-authorized chat DTOs only:
+  - `GET /api/chats` → `otherParticipant.isOnline`, `otherParticipant.lastSeenAt`.
+  - `GET /api/chats/<id>/messages` → the same fields, computed from the existing participant query (no per-message query).
+- Presence logic lives in `lib/presence.ts` (`isOnline`, `serializePresence`, `formatLastSeen`).
+
+### UI
+
+- `PresenceIndicator` renders an accessible online/last-seen state that is never color-only: online uses a filled dot and offline an outlined one, and the state is exposed as visible text in the conversation header or as screen-reader text plus an `aria-label` in the chat list.
+- Chat list rows show a compact online badge on the avatar; the conversation header shows `Online` or `Last seen …`.
+- `PresenceHeartbeat` is mounted once per authenticated chrome (`UserAppChrome`, `ChatWebChrome`, `TelegramMiniAppLayoutClient`) and renders nothing.
+- Presence is not shown on Home, Friends, Search, profiles, or in the message list.
+
+### Web / Telegram parity
+
+The Telegram Mini App uses the same heartbeat, the same `lib/presence.ts` logic, and the same shared `ChatList` / `ChatWorkspace` / `ChatHeader` components. There is no Telegram-specific presence endpoint, model, or component, and no Telegram Bot presence implementation.
+
+### Explicitly out of scope
+
+- Presence creates **no** notifications and **no** Web Push, and no presence entry is added to `NotificationType`.
+- No WebSocket, SSE, EventSource, polling-based presence reads, per-device presence, presence history, or new dependency. S4 polling remains the only synchronization transport (chat list 15s, conversation 3s).
 
 ## S8 — Production Polish (planned)
 
@@ -469,7 +514,7 @@ Current notifications are persisted in `Notification`, addressed by `userId`, at
 
 The Mini App validates Telegram `initData`, resolves the linked `TelegramAccount`, and creates the normal signed Snappy session with the linked `User.id`. Mini App APIs already use the same authenticated app-user helpers and do not accept a client-supplied Snappy identity.
 
-Later relationship UI, chat UI, and status work should therefore:
+Relationship UI, chat UI, presence, and notification work follow the same rules:
 
 - Reuse the same `UserFollow` data and `/api` authorization rules.
 - Use Telegram-local routes/components only for presentation and navigation.
@@ -492,7 +537,7 @@ The S1 implementation includes:
 - Telegram Search/Profile integration files and focused Telegram tests
 - S1 unit/API/security tests
 
-Chat backend is implemented in S2. Chat UI, message reactions, chat notifications, and status remain reserved for later milestones.
+Chat backend is implemented in S2. Chat UI (S3), near-realtime polling synchronization (S4), message reactions (S5), chat notifications (S6), and user presence (S7) are implemented. S8 remains reserved for production polish.
 
 ## S1 testing plan
 

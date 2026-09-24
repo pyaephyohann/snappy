@@ -104,5 +104,5 @@ test("S2 documentation and later milestones remain correctly scoped", () => {
   assert.match(docs, /S4 — Near-Realtime Chat Synchronization/);
   assert.match(docs, /S5 — Message Reactions/);
   assert.match(docs, /S6 — Notifications — Implemented/);
-  assert.match(docs, /S7 — User Status \(planned\)/);
+  assert.match(docs, /S7 — User Status — Implemented/);
 });

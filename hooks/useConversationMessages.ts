@@ -6,6 +6,7 @@ import {
   fetchConversationMessages,
   sendChatMessage,
   type ChatMessage,
+  type ChatParticipant,
 } from "@/lib/chat-client";
 import { MAX_MESSAGE_CODE_POINTS } from "@/lib/chat-validation";
 
@@ -81,7 +82,7 @@ export function useConversationMessages(conversationId: string) {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<ChatApiError | null>(null);
   const [canMessage, setCanMessage] = useState(false);
-  const [otherParticipant, setOtherParticipant] = useState<ChatMessage["sender"] | null>(null);
+  const [otherParticipant, setOtherParticipant] = useState<ChatParticipant | null>(null);
   const loadingOlderRef = useRef(false);
   const initialControllerRef = useRef<AbortController | null>(null);
   const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);

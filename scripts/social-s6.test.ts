@@ -165,7 +165,7 @@ test("S6 documentation preserves milestone numbering and defers Telegram Bot del
   const notifications = read("docs/notifications.md");
   assert.match(social, /S5 — Message Reactions — Implemented/);
   assert.match(social, /S6 — Notifications — Implemented/);
-  assert.match(social, /S7 — User Status \(planned\)/);
+  assert.match(social, /S7 — User Status — Implemented/);
   assert.match(social, /Telegram Bot notification delivery is explicitly deferred/);
   assert.match(notifications, /Chat Message Notifications/);
   assert.match(notifications, /Telegram Bot delivery is deferred/);

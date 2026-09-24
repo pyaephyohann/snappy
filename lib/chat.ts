@@ -56,6 +56,7 @@ export async function getConversationAccess(
               name: true,
               profileImage: true,
               isActive: true,
+              lastSeenAt: true,
             },
           },
         },

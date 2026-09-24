@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useRef } from "react";
 import type { ChatConversation } from "@/lib/chat-client";
 import { ChatApiError } from "@/lib/chat-client";
+import PresenceIndicator from "@/components/presence/PresenceIndicator";
 import { Skeleton } from "@/components/ui/skeleton";
 
 function formatRelativeTime(value: string | null): string {
@@ -83,10 +84,18 @@ export function ChatListItem({ conversation, prefix }: { conversation: ChatConve
       <Link
         href={`${prefix}/${encodeURIComponent(conversation.conversationId)}`}
         className={`flex min-h-[72px] items-center gap-3 rounded-xl border p-3 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${unread ? "border-primary/30 bg-primary/5" : "border-border bg-card hover:bg-muted/50"}`}
-        aria-label={`${participant.name}${unread ? `, ${conversation.unreadCount} unread messages` : ""}`}
+        aria-label={`${participant.name}${participant.isOnline ? ", online" : ""}${unread ? `, ${conversation.unreadCount} unread messages` : ""}`}
       >
-        <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full border border-border">
-          <Image src={participant.profileImage} alt="" fill sizes="48px" className="object-cover" />
+        <div className="relative h-12 w-12 shrink-0">
+          <div className="h-12 w-12 overflow-hidden rounded-full border border-border">
+            <Image src={participant.profileImage} alt="" fill sizes="48px" className="object-cover" />
+          </div>
+          {participant.isOnline ? (
+            <PresenceIndicator
+              isOnline
+              className="absolute -bottom-0.5 -right-0.5 rounded-full border-2 border-card bg-card p-0.5"
+            />
+          ) : null}
         </div>
         <span className="min-w-0 flex-1">
           <span className={`block truncate text-sm ${unread ? "font-semibold text-foreground" : "font-medium text-foreground"}`}>
