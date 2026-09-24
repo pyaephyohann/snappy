@@ -296,7 +296,8 @@ Server-only (never `NEXT_PUBLIC_` for secrets):
 | `TELEGRAM_WEBHOOK_URL` | Optional | Full webhook URL; defaults to `${SNAPPY_PUBLIC_URL}/api/telegram/webhook` |
 | `TELEGRAM_BOT_USERNAME` | Recommended | Public `@username` for Mini App → bot links (no secret) |
 | `TELEGRAM_INIT_DATA_MAX_AGE_SECONDS` | Optional | initData freshness (default 3600) |
-| `DATABASE_URL` | Yes | Includes telegram_* tables |
+| `DATABASE_URL` | Yes | Pooled connection used by the app at request time; includes telegram_* tables |
+| `DIRECT_URL` | Yes | Direct (unpooled) connection required by `prisma migrate deploy`, which runs in the Vercel build command |
 | Cloudinary vars | Yes (upload) | Same as web uploads |
 
 ### Production deployment checklist

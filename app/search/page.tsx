@@ -3,7 +3,7 @@ import { getAuthenticatedAppUser } from "@/lib/auth";
 import Navbar from "@/components/layout/Navbar";
 import FriendsSearchClient from "@/components/search/FriendsSearchClient";
 import { getCurrentUserProfileImage } from "@/lib/user-profile";
-import { listUsersForViewer } from "@/lib/relationships";
+import { listUsersForViewerPage } from "@/lib/relationships";
 
 export default async function SearchPage() {
   const user = await getAuthenticatedAppUser();
@@ -11,8 +11,8 @@ export default async function SearchPage() {
     redirect("/");
   }
 
-  const [friends, profileImage] = await Promise.all([
-    listUsersForViewer(user.id),
+  const [friendsPage, profileImage] = await Promise.all([
+    listUsersForViewerPage({ viewerId: user.id }),
     getCurrentUserProfileImage(user.id),
   ]);
 
@@ -23,7 +23,10 @@ export default async function SearchPage() {
         <h1 className="mb-4 text-xl font-semibold text-foreground sm:text-2xl">
           Search
         </h1>
-        <FriendsSearchClient friends={friends} />
+        <FriendsSearchClient
+          friends={friendsPage.users}
+          nextCursor={friendsPage.nextCursor}
+        />
       </main>
     </div>
   );

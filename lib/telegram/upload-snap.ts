@@ -8,7 +8,11 @@ import {
 } from "@/lib/spark-service";
 import { validateSnapImageBuffer } from "@/lib/snap-media";
 import { matchFriendsByNamePartial } from "@/lib/friends-search";
-import { listSnappyFriendsForUser } from "@/lib/snappy-friends";
+import {
+  getSnappyFriendTarget,
+  isSnappyFriendTarget,
+  listSnappyFriendsForUser,
+} from "@/lib/snappy-friends";
 import { buildFriendProfileUrl } from "@/lib/notifications/internal-url";
 import { buildAbsoluteSnappyUrl } from "@/lib/snap-telegram";
 import { broadcastNewSnap } from "@/lib/notifications/notification-service";
@@ -117,12 +121,17 @@ export async function beginUploadSnapFlow(ctx: Context): Promise<void> {
   });
 }
 
-async function listUploadRecipients(telegramUserId: string) {
+async function listUploadRecipients(
+  telegramUserId: string,
+  options: { query?: string } = {},
+) {
   const linked = await getLinkedAccountByTelegramUserId(telegramUserId);
   if (!linked) return null;
   return {
     linked,
-    friends: await listSnappyFriendsForUser(linked.userId),
+    friends: await listSnappyFriendsForUser(linked.userId, {
+      query: options.query,
+    }),
   };
 }
 
@@ -140,11 +149,15 @@ export async function handleUploadTargetSelection(
   if (!(await isAwaitingUploadTarget(stateKey))) return false;
 
   try {
-    const recipientData = await listUploadRecipients(identity.telegramUserId);
-    const friend = recipientData?.friends.find(
-      (candidate) => candidate.id === targetUserId,
+    // Targeted lookup instead of scanning a bounded user list, so a selected
+    // target stays valid for any user base.
+    const linked = await getLinkedAccountByTelegramUserId(
+      identity.telegramUserId,
     );
-    if (!recipientData || !friend) {
+    const friend = linked
+      ? await getSnappyFriendTarget(linked.userId, targetUserId)
+      : null;
+    if (!linked || !friend) {
       await ctx.reply(UPLOAD_TARGET_STALE_MESSAGE);
       await clearTelegramChatState(stateKey);
       return true;
@@ -176,7 +189,10 @@ export async function handleUploadTargetNameMessage(
   if (!(await isAwaitingUploadTarget(stateKey))) return false;
 
   try {
-    const recipientData = await listUploadRecipients(identity.telegramUserId);
+    // Server-side name filter keeps the lookup bounded without losing reach.
+    const recipientData = await listUploadRecipients(identity.telegramUserId, {
+      query: text,
+    });
     if (!recipientData) {
       await ctx.reply(UPLOAD_LINK_REQUIRED_MESSAGE);
       return true;
@@ -184,8 +200,13 @@ export async function handleUploadTargetNameMessage(
 
     const matches = matchFriendsByNamePartial(recipientData.friends, text);
     if (matches.length === 0) {
+      const browseRecipients = await listUploadRecipients(
+        identity.telegramUserId,
+      );
       await ctx.reply(UPLOAD_TARGET_NOT_FOUND_MESSAGE, {
-        reply_markup: buildUploadTargetKeyboard(recipientData.friends),
+        reply_markup: buildUploadTargetKeyboard(
+          browseRecipients?.friends ?? recipientData.friends,
+        ),
       });
       return true;
     }
@@ -241,9 +262,10 @@ export async function handleTelegramPhotoMessage(ctx: Context): Promise<boolean>
     return true;
   }
 
-  let allowedRecipients;
+  let isAllowedTarget: boolean;
   try {
-    allowedRecipients = await listSnappyFriendsForUser(linked.userId);
+    // Exact targeted validation instead of loading every active user.
+    isAllowedTarget = await isSnappyFriendTarget(linked.userId, targetUserId);
   } catch (error) {
     console.error(
       "[TELEGRAM] Upload recipient validation failed:",
@@ -254,7 +276,7 @@ export async function handleTelegramPhotoMessage(ctx: Context): Promise<boolean>
     return true;
   }
 
-  if (!allowedRecipients.some((friend) => friend.id === targetUserId)) {
+  if (!isAllowedTarget) {
     await clearTelegramChatState(stateKey);
     await ctx.reply(UPLOAD_TARGET_STALE_MESSAGE);
     return true;

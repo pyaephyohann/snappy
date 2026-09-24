@@ -9,6 +9,7 @@ import SnapCameraCapture from "@/components/snaps/SnapCameraCapture";
 import SnapCreateComposerModal from "@/components/snaps/SnapCreateComposerModal";
 import { isCameraCaptureSupported } from "@/lib/snap-camera";
 import { uploadSnapForUser } from "@/lib/snap-upload-client";
+import { readNextUserListCursor } from "@/lib/user-list";
 
 type FlowStep = "pick-user" | "camera" | "composer";
 
@@ -24,6 +25,8 @@ export default function BottomNavCameraFlow({
   const [friends, setFriends] = useState<FriendPickerUser[]>([]);
   const [friendsLoading, setFriendsLoading] = useState(true);
   const [friendsError, setFriendsError] = useState<string | null>(null);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [selectedUser, setSelectedUser] = useState<FriendPickerUser | null>(
     null,
   );
@@ -46,6 +49,7 @@ export default function BottomNavCameraFlow({
         const data = (await response.json()) as FriendPickerUser[];
         if (!cancelled) {
           setFriends(data);
+          setNextCursor(readNextUserListCursor(response));
           setFriendsError(null);
         }
       } catch {
@@ -63,6 +67,34 @@ export default function BottomNavCameraFlow({
       cancelled = true;
     };
   }, []);
+
+  const loadMoreFriends = useCallback(async () => {
+    if (!nextCursor || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const response = await fetch(
+        `/api/users/list?cursor=${encodeURIComponent(nextCursor)}`,
+      );
+      if (!response.ok) return;
+      const data = (await response.json()) as FriendPickerUser[];
+      setFriends((current) => {
+        const seen = new Set(current.map((friend) => friend.id));
+        return [
+          ...current,
+          ...data.filter((friend) => {
+            if (seen.has(friend.id)) return false;
+            seen.add(friend.id);
+            return true;
+          }),
+        ];
+      });
+      setNextCursor(readNextUserListCursor(response));
+    } catch {
+      // Pagination is best-effort; the current page stays usable.
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [loadingMore, nextCursor]);
 
   const handlePickUser = (user: FriendPickerUser) => {
     setSelectedUser(user);
@@ -145,7 +177,13 @@ export default function BottomNavCameraFlow({
                   {friendsError}
                 </p>
               ) : (
-                <FriendsPickerPanel friends={friends} onSelect={handlePickUser} />
+                <FriendsPickerPanel
+                  friends={friends}
+                  onSelect={handlePickUser}
+                  hasMore={Boolean(nextCursor)}
+                  loadingMore={loadingMore}
+                  onLoadMore={() => void loadMoreFriends()}
+                />
               )}
             </div>
           </div>

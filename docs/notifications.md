@@ -47,7 +47,7 @@ When User A sends an authorized message to User B, Snappy creates one `NEW_MESSA
 - `userId` is the server-derived recipient.
 - `actorId` is the persisted message sender.
 - `messageId` links the notification to the message and is unique, preventing duplicate notification rows.
-- The body is a bounded message preview.
+- The body is a bounded message preview: at most 160 Unicode code points, truncated without splitting a surrogate pair.
 - Self-notifications, failed sends, and unauthorized sends do not create notifications.
 - Web Push targets only the recipient's `PushSubscription.userId` rows.
 - Web/PWA clicks route to `/chats/<conversationId>`.

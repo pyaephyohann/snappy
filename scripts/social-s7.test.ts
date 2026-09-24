@@ -307,7 +307,7 @@ test("S7 documentation marks presence implemented and defers text status", () =>
   assert.match(social, /User\.lastSeenAt|`lastSeenAt`/);
   assert.match(social, /60_000|60 seconds/);
   assert.match(social, /deferred/i);
-  assert.match(social, /S8 — Production Polish \(planned\)/);
+  assert.match(social, /S8 — Production Polish — Implemented/);
   assert.match(social, /S6 — Notifications — Implemented/);
 
   assert.match(notifications, /do not create notifications and do not send push notifications/);

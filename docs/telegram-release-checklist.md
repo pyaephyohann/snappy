@@ -6,6 +6,7 @@ Mark each item **PASS**, **FAIL**, or **NOT TESTED** only after you have actuall
 
 | Item | Status |
 | --- | --- |
+| Production env: `DATABASE_URL` (pooled) and `DIRECT_URL` (direct, used by `prisma migrate deploy` in the Vercel build) | |
 | Production env: `TELEGRAM_BOT_TOKEN` | |
 | Production env: `TELEGRAM_WEBHOOK_SECRET` | |
 | Production env: `SNAPPY_PUBLIC_URL` (HTTPS) | |

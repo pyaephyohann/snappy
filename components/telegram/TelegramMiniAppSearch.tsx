@@ -8,11 +8,14 @@ import FriendsPickerPanel, {
 import TelegramMiniAppReconnect from "@/components/telegram/TelegramMiniAppReconnect";
 import { useTelegramMiniAppAuth } from "@/components/telegram/TelegramMiniAppAuthProvider";
 import { TELEGRAM_MINI_APP_ROUTES } from "@/lib/telegram/mini-app-routes";
+import { readNextUserListCursor } from "@/lib/user-list";
 
 export default function TelegramMiniAppSearch() {
   const router = useRouter();
   const { retryAuth } = useTelegramMiniAppAuth();
   const [friends, setFriends] = useState<FriendPickerUser[]>([]);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [status, setStatus] = useState<"loading" | "ready" | "error" | "expired">("loading");
 
   const loadFriends = useCallback(async () => {
@@ -25,6 +28,7 @@ export default function TelegramMiniAppSearch() {
       }
       if (!response.ok) throw new Error("request_failed");
       setFriends((await response.json()) as FriendPickerUser[]);
+      setNextCursor(readNextUserListCursor(response));
       setStatus("ready");
     } catch {
       setStatus("error");
@@ -36,6 +40,35 @@ export default function TelegramMiniAppSearch() {
       void loadFriends();
     });
   }, [loadFriends]);
+
+  const loadMoreFriends = useCallback(async () => {
+    if (!nextCursor || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const response = await fetch(
+        `/api/users/list?cursor=${encodeURIComponent(nextCursor)}`,
+        { credentials: "include" },
+      );
+      if (!response.ok) return;
+      const data = (await response.json()) as FriendPickerUser[];
+      setFriends((current) => {
+        const seen = new Set(current.map((friend) => friend.id));
+        return [
+          ...current,
+          ...data.filter((friend) => {
+            if (seen.has(friend.id)) return false;
+            seen.add(friend.id);
+            return true;
+          }),
+        ];
+      });
+      setNextCursor(readNextUserListCursor(response));
+    } catch {
+      // Pagination is best-effort; the current page stays usable.
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [loadingMore, nextCursor]);
 
   if (status === "expired") {
     return <div className="px-4 pt-10"><TelegramMiniAppReconnect onReconnect={() => retryAuth()} /></div>;
@@ -57,6 +90,9 @@ export default function TelegramMiniAppSearch() {
           friends={friends}
           onSelect={(friend) => router.push(`${TELEGRAM_MINI_APP_ROUTES.home}/friends/${encodeURIComponent(friend.name)}`)}
           emptyMessage="No friends match your search."
+          hasMore={Boolean(nextCursor)}
+          loadingMore={loadingMore}
+          onLoadMore={() => void loadMoreFriends()}
         />
       )}
       <button type="button" className="mt-6 text-sm text-primary underline" onClick={() => router.push(TELEGRAM_MINI_APP_ROUTES.home)}>

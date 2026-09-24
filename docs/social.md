@@ -487,9 +487,56 @@ The Telegram Mini App uses the same heartbeat, the same `lib/presence.ts` logic,
 - Presence creates **no** notifications and **no** Web Push, and no presence entry is added to `NotificationType`.
 - No WebSocket, SSE, EventSource, polling-based presence reads, per-device presence, presence history, or new dependency. S4 polling remains the only synchronization transport (chat list 15s, conversation 3s).
 
-## S8 — Production Polish (planned)
+## S8 — Production Polish — Implemented
 
-Not implemented. Add rate limits, abuse reporting/blocking, moderation controls, privacy settings, observability, pagination/load testing, migration rollout checks, push delivery monitoring, and real-device Web/PWA/Telegram QA.
+S8 is a hardening milestone: it adds no Social feature and no new transport. The approved P0/P1 subset is implemented; the deferred list is explicit.
+
+### Next.js security patch
+
+`next` moved from `16.3.0` to `16.3.6` (exact pin) to clear the critical advisory affecting the Image Optimization API and the Windows-only RCE advisory. No other dependency was upgraded; the Prisma `deepmerge-ts` advisory is build-time only and stays deferred.
+
+### Authorization consistency
+
+Session-to-user resolution (`lib/session-user.ts`) now requires `isActive: true`, matching `getAuthenticatedAppUser()`. A deactivated account can no longer read `/api/notifications*` or act on Snap interaction endpoints for the remainder of a 7-day session cookie.
+
+### Chat list query cost
+
+`GET /api/chats` no longer issues one `count()` per conversation. Unread counts come from a single aggregate query (`getUnreadCountsForConversations` in `lib/chat.ts`) that joins the viewer's participant row and preserves the exact semantics (`sender != viewer` and (`lastReadAt IS NULL` or `createdAt > lastReadAt`)). The 15-second chat-list cadence and `ConversationParticipant.lastReadAt` independence from `Notification.readAt` are unchanged.
+
+### Reaction concurrency
+
+`toggleReaction` now uses idempotent mutations: toggle-off uses `deleteMany` (no P2025 when a concurrent request already removed the row) and create/replace uses a single atomic `upsert` on the `(userId, messageId)` unique key with one retry on a lost race. The response reports the persisted reaction. The one-reaction-per-user-per-message invariant stays database-enforced.
+
+### Notification preview safety
+
+Previews are truncated to 160 **Unicode code points** (`buildNotificationPreview`), so an emoji is never split into a lone surrogate in `Notification.body` or in the push payload.
+
+### User-list pagination
+
+Active-user listing is keyset paginated on `(name asc, id asc)` with the `take: n + 1` pattern:
+
+- `GET /api/users/list` accepts `cursor`, `limit` (max 50) and `query` (server-side partial-name search). The response body stays an array so already-installed clients keep working; the next-page cursor is returned in the `X-Next-Cursor` header.
+- Home keeps its 50-friend cap and now reads a bounded first page instead of the entire user table.
+- Search and the friend pickers load additional pages on demand, and the desktop navbar falls back to a debounced server-side search when more pages exist, so search stays complete.
+- Telegram bot flows no longer load every active user: name lookups filter in the database and target/recipient validation uses one targeted lookup (`getSnappyFriendTarget`).
+
+`GET /api/admin/users` stays unpaginated: it is admin-only, and both consumers (the users page and the snaps page user picker) build client-side filters over the full list, so paging it would require an unrelated admin UI redesign.
+
+### Deployment configuration
+
+`DATABASE_URL` is the pooled connection used at request time; `DIRECT_URL` is the direct (unpooled) connection required by `prisma migrate deploy`, which runs inside the Vercel build command (`vercel.json`). Neither is a `NEXT_PUBLIC_*` value and neither is committed with real credentials. Both are documented in `.env.example`, in `docs/telegram.md`, and as a release-checklist row.
+
+### Integration tests
+
+`npm run test:social-integration` runs `DATABASE_URL`-guarded runtime tests for chat authorization (non-participant rejection, unfollow blocks sending while history stays readable, server-derived `canMessage`), notification idempotency, message cursor ordering, presence write suppression, concurrent reaction toggling, and inactive-user rejection. It skips cleanly when no database is configured and never resets or pushes schema. `npm run test:social-s8` holds the S8 static assertions.
+
+### Deferred (explicitly out of scope)
+
+Notification retention/cleanup, per-user push subscription caps, heartbeat placement inside the Telegram auth gate, Telegram notification visibility polling, image CSP hardening, `middleware` to `proxy` migration, structured logging/observability, the `conversations(lastMessageAt, id)` composite index, the Prisma `deepmerge-ts` bump, and lint-warning cleanup. The rate limiter stays best-effort and per-instance (no Redis/Upstash) until measured abuse justifies a distributed limiter.
+
+### No schema change
+
+S8 requires no schema change and no migration; no migration was created or applied.
 
 ## Authorization and security requirements
 
@@ -537,7 +584,7 @@ The S1 implementation includes:
 - Telegram Search/Profile integration files and focused Telegram tests
 - S1 unit/API/security tests
 
-Chat backend is implemented in S2. Chat UI (S3), near-realtime polling synchronization (S4), message reactions (S5), chat notifications (S6), and user presence (S7) are implemented. S8 remains reserved for production polish.
+Chat backend is implemented in S2. Chat UI (S3), near-realtime polling synchronization (S4), message reactions (S5), chat notifications (S6), user presence (S7), and the S8 production-polish hardening are implemented.
 
 ## S1 testing plan
 

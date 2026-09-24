@@ -7,6 +7,18 @@ import {
 } from "@/lib/notifications/vapid";
 import { sanitizeNotificationUrl } from "@/lib/notifications/internal-url";
 
+/** Notification preview is bounded by Unicode code points, not UTF-16 units. */
+export const MAX_NOTIFICATION_PREVIEW_CODE_POINTS = 160;
+
+/**
+ * Truncate to a bounded preview without ever splitting a surrogate pair.
+ * `String.prototype.slice` counts UTF-16 code units, so slicing a message that
+ * contains an emoji can leave a lone surrogate in the stored notification.
+ */
+export function buildNotificationPreview(content: string): string {
+  return [...content.trim()].slice(0, MAX_NOTIFICATION_PREVIEW_CODE_POINTS).join("");
+}
+
 export interface PushPayload {
   title: string;
   body: string;
@@ -304,7 +316,7 @@ export async function createNewMessageNotification({
     return;
   }
 
-  const preview = message.content.trim().slice(0, 160);
+  const preview = buildNotificationPreview(message.content);
   let notification;
   try {
     notification = await prisma.notification.create({

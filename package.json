@@ -35,6 +35,8 @@
     "test:social-s5": "node --import tsx --test scripts/social-s5.test.ts",
     "test:social-s6": "node --import tsx --test scripts/social-s6.test.ts",
     "test:social-s7": "node --import tsx --test scripts/social-s7.test.ts",
+    "test:social-s8": "node --import tsx --test scripts/social-s8.test.ts",
+    "test:social-integration": "node --import tsx --test scripts/social-integration.test.ts",
     "test:home-regression": "node --import tsx --test scripts/home-regression.test.ts",
     "test:image-optimization": "node --import tsx --test scripts/image-optimization.test.ts"
   },
@@ -46,7 +48,7 @@
     "emoji-picker-react": "^4.19.1",
     "framer-motion": "^13.1.0",
     "grammy": "^1.46.0",
-    "next": "16.3.0",
+    "next": "16.3.6",
     "next-cloudinary": "^6.18.8",
     "next-themes": "^0.4.6",
     "pg": "^8.23.0",

@@ -19,6 +19,46 @@ export const DEFAULT_RELATIONSHIP: RelationshipState = {
   isFriend: false,
 };
 
+/** Default and maximum page size for the active-user list (keyset paginated). */
+export const USER_LIST_PAGE_SIZE = 50;
+export const MAX_USER_LIST_PAGE_SIZE = 50;
+
+/** Keyset cursor for the active-user list: `(name asc, id asc)`. */
+export type UserListCursor = {
+  name: string;
+  id: string;
+};
+
+export type UserListPage = {
+  users: RelationshipUser[];
+  nextCursor: string | null;
+};
+
+export function encodeUserListCursor(cursor: UserListCursor): string {
+  return Buffer.from(JSON.stringify(cursor), "utf8").toString("base64url");
+}
+
+export function decodeUserListCursor(value: string | null): UserListCursor | null {
+  if (!value) return null;
+
+  try {
+    const parsed = JSON.parse(
+      Buffer.from(value, "base64url").toString("utf8"),
+    ) as Partial<UserListCursor>;
+    if (
+      typeof parsed.name !== "string" ||
+      parsed.name.length === 0 ||
+      typeof parsed.id !== "string" ||
+      !/^[A-Za-z0-9_-]{1,64}$/.test(parsed.id)
+    ) {
+      return null;
+    }
+    return { name: parsed.name, id: parsed.id };
+  } catch {
+    return null;
+  }
+}
+
 /** Return the relationship from viewerId's perspective. */
 export async function getRelationshipState(
   viewerId: string,
@@ -59,10 +99,75 @@ export async function getRelationshipState(
   return relationshipStateFromFlags(isFollowing, isFollowedBy);
 }
 
-/** Return users with relationship state in one database query, avoiding N+1 calls. */
-export async function listUsersForViewer(viewerId: string): Promise<RelationshipUser[]> {
+type UserWithRelationshipFlags = {
+  id: string;
+  name: string;
+  profileImage: string;
+  followers: { id: string }[];
+  following: { id: string }[];
+};
+
+function toRelationshipUser({
+  followers,
+  following,
+  ...user
+}: UserWithRelationshipFlags): RelationshipUser {
+  return {
+    ...user,
+    relationship: relationshipStateFromFlags(
+      followers.length > 0,
+      following.length > 0,
+    ),
+  };
+}
+
+/**
+ * One keyset-paginated page of active users with relationship state, resolved
+ * in a single database query.
+ *
+ * Previously this returned every active user with no bound. Ordering is
+ * `(name asc, id asc)` and the cursor is opaque, so repeated requests stay
+ * stable while the user table grows. An optional `query` filters server-side by
+ * partial name, which keeps search complete without loading the whole table.
+ */
+export async function listUsersForViewerPage({
+  viewerId,
+  cursor = null,
+  limit = USER_LIST_PAGE_SIZE,
+  query,
+  excludeUserId,
+}: {
+  viewerId: string;
+  cursor?: string | null;
+  limit?: number;
+  query?: string | null;
+  excludeUserId?: string | null;
+}): Promise<UserListPage> {
+  const pageSize = Math.min(
+    Math.max(Number.isInteger(limit) ? limit : USER_LIST_PAGE_SIZE, 1),
+    MAX_USER_LIST_PAGE_SIZE,
+  );
+  const decodedCursor = decodeUserListCursor(cursor);
+  const trimmedQuery = query?.trim() ?? "";
+
   const users = await prisma.user.findMany({
-    where: { isActive: true },
+    where: {
+      isActive: true,
+      // Excluding in the query keeps callers that need a fixed page size (the
+      // home friends grid) from losing a slot to a row filtered out afterwards.
+      ...(excludeUserId ? { id: { not: excludeUserId } } : {}),
+      ...(trimmedQuery
+        ? { name: { contains: trimmedQuery, mode: "insensitive" as const } }
+        : {}),
+      ...(decodedCursor
+        ? {
+            OR: [
+              { name: { gt: decodedCursor.name } },
+              { name: decodedCursor.name, id: { gt: decodedCursor.id } },
+            ],
+          }
+        : {}),
+    },
     select: {
       id: true,
       name: true,
@@ -77,16 +182,37 @@ export async function listUsersForViewer(viewerId: string): Promise<Relationship
       },
     },
     orderBy: [{ name: "asc" }, { id: "asc" }],
+    take: pageSize + 1,
   });
 
-  return users.map(({ followers, following, ...user }) => {
-    const isFollowing = followers.length > 0;
-    const isFollowedBy = following.length > 0;
-    return {
-      ...user,
-      relationship: relationshipStateFromFlags(isFollowing, isFollowedBy),
-    };
-  });
+  const hasMore = users.length > pageSize;
+  const page = hasMore ? users.slice(0, pageSize) : users;
+  const last = page[page.length - 1];
+
+  return {
+    users: page.map(toRelationshipUser),
+    nextCursor:
+      hasMore && last
+        ? encodeUserListCursor({ name: last.name, id: last.id })
+        : null,
+  };
+}
+
+/**
+ * Convenience wrapper returning only the first page of users.
+ * Callers that need to walk the whole list should use `listUsersForViewerPage`.
+ */
+export async function listUsersForViewer(
+  viewerId: string,
+  options?: {
+    cursor?: string | null;
+    limit?: number;
+    query?: string | null;
+    excludeUserId?: string | null;
+  },
+): Promise<RelationshipUser[]> {
+  const page = await listUsersForViewerPage({ viewerId, ...options });
+  return page.users;
 }
 
 export type FriendPage = {
@@ -136,13 +262,7 @@ export async function listFriendsForUser({
   const nextCursor = hasMore ? page[page.length - 1].id : null;
 
   return {
-    users: page.map(({ followers, following, ...user }) => ({
-      ...user,
-      relationship: relationshipStateFromFlags(
-        followers.length > 0,
-        following.length > 0,
-      ),
-    })),
+    users: page.map(toRelationshipUser),
     nextCursor,
   };
 }

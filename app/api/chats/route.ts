@@ -5,6 +5,7 @@ import {
   CHAT_PAGE_SIZE,
   decodeConversationCursor,
   encodeConversationCursor,
+  getUnreadCountsForConversations,
   isValidChatId,
   normalizeUserPair,
   areUsersFriends,
@@ -139,43 +140,33 @@ export async function GET(request: NextRequest) {
   });
   const friendshipMap = await getMutualFriendshipMap(viewer.id, otherUserIds);
 
-  const result = await Promise.all(
-    visiblePage.map(async (conversation) => {
-      const other = conversation.participants.find(
-        (participant) => participant.userId !== viewer.id,
-      );
-      const viewerParticipant = conversation.participants.find(
-        (participant) => participant.userId === viewer.id,
-      );
-      const unreadCount = viewerParticipant
-        ? await prisma.message.count({
-            where: {
-              conversationId: conversation.id,
-              senderId: { not: viewer.id },
-              ...(viewerParticipant.lastReadAt
-                ? { createdAt: { gt: viewerParticipant.lastReadAt } }
-                : {}),
-            },
-          })
-        : 0;
-
-      return {
-        conversationId: conversation.id,
-        otherParticipant: other ? serializeParticipant(other) : null,
-        canMessage: other ? friendshipMap.get(other.userId) === true : false,
-        lastMessage: conversation.messages[0]
-          ? {
-              id: conversation.messages[0].id,
-              content: conversation.messages[0].content,
-              senderId: conversation.messages[0].senderId,
-              createdAt: conversation.messages[0].createdAt.toISOString(),
-            }
-          : null,
-        lastMessageAt: conversation.lastMessageAt?.toISOString() ?? null,
-        unreadCount,
-      };
-    }),
+  // One aggregate query for the whole page instead of one count() per row.
+  const unreadCounts = await getUnreadCountsForConversations(
+    viewer.id,
+    visiblePage.map((conversation) => conversation.id),
   );
+
+  const result = visiblePage.map((conversation) => {
+    const other = conversation.participants.find(
+      (participant) => participant.userId !== viewer.id,
+    );
+
+    return {
+      conversationId: conversation.id,
+      otherParticipant: other ? serializeParticipant(other) : null,
+      canMessage: other ? friendshipMap.get(other.userId) === true : false,
+      lastMessage: conversation.messages[0]
+        ? {
+            id: conversation.messages[0].id,
+            content: conversation.messages[0].content,
+            senderId: conversation.messages[0].senderId,
+            createdAt: conversation.messages[0].createdAt.toISOString(),
+          }
+        : null,
+      lastMessageAt: conversation.lastMessageAt?.toISOString() ?? null,
+      unreadCount: unreadCounts.get(conversation.id) ?? 0,
+    };
+  });
 
   const last = page[page.length - 1];
   return NextResponse.json({

@@ -89,7 +89,9 @@ export async function handleFindFriendsNameMessage(
 
   let friends;
   try {
-    friends = await listSnappyFriendsForUser(linked.userId);
+    // Server-side partial-name filter: keeps the query bounded while still
+    // matching users beyond the first page of the friend list.
+    friends = await listSnappyFriendsForUser(linked.userId, { query: text });
   } catch (error) {
     console.error(
       "[TELEGRAM] Find friends lookup failed:",

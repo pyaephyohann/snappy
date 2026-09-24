@@ -1,6 +1,6 @@
 /// <reference lib="webworker" />
 
-const CACHE_VERSION = "snappy-pwa-v3";
+const CACHE_VERSION = "snappy-pwa-v4";
 const NOTIFICATION_DB = "snappy-notifications";
 const NOTIFICATION_STORE = "pending";
 const OFFLINE_URL = "/offline";

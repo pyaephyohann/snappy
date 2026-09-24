@@ -18,6 +18,10 @@ import {
   detectMacPlatform,
   filterFriendsByQuery,
 } from "@/lib/friends-search";
+import { readNextUserListCursor } from "@/lib/user-list";
+
+/** Debounce for the server-side fallback search. */
+const SERVER_SEARCH_DEBOUNCE_MS = 200;
 
 /** Lucide-style rounded search glyph (inline — no extra deps). */
 function SearchIcon({ className }: { className?: string }) {
@@ -53,6 +57,13 @@ export default function NavbarDesktopFriendSearch() {
     "idle" | "loading" | "error" | "ready"
   >("idle");
   const [activeIndex, setActiveIndex] = useState(-1);
+  const [hasMoreUsers, setHasMoreUsers] = useState(false);
+  // Remote results are stored with the query they belong to, so a stale
+  // response can never be shown for a newer query.
+  const [remoteMatches, setRemoteMatches] = useState<{
+    query: string;
+    users: FriendPickerUser[];
+  } | null>(null);
 
   /** Equal horizontal inset so centered text clears icon + shortcut badge. */
   const SEARCH_INPUT_SIDE_INSET = "4.75rem";
@@ -83,6 +94,7 @@ export default function NavbarDesktopFriendSearch() {
       }
       const data = (await response.json()) as FriendPickerUser[];
       setFriends(data);
+      setHasMoreUsers(readNextUserListCursor(response) !== null);
       setLoadState("ready");
     } catch {
       setLoadState("error");
@@ -92,12 +104,58 @@ export default function NavbarDesktopFriendSearch() {
   const trimmedQuery = query.trim();
   const showPanel = open && trimmedQuery.length > 0;
 
+  /**
+   * The first page filters instantly in memory. When the server reports more
+   * users, a debounced server-side name search adds matches from the rest of the
+   * table so search stays complete as the user base grows.
+   */
+  useEffect(() => {
+    if (!trimmedQuery || !hasMoreUsers) {
+      return;
+    }
+
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        try {
+          const response = await fetch(
+            `/api/users/list?query=${encodeURIComponent(trimmedQuery)}`,
+            { credentials: "include" },
+          );
+          if (!response.ok || cancelled) return;
+          const data = (await response.json()) as FriendPickerUser[];
+          if (!cancelled) setRemoteMatches({ query: trimmedQuery, users: data });
+        } catch {
+          // Local matches stay available when the fallback search fails.
+        }
+      })();
+    }, SERVER_SEARCH_DEBOUNCE_MS);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [hasMoreUsers, trimmedQuery]);
+
   const results = useMemo(() => {
     if (!friends || !trimmedQuery) {
       return [];
     }
-    return filterFriendsByQuery(friends, trimmedQuery);
-  }, [friends, trimmedQuery]);
+    const localMatches = filterFriendsByQuery(friends, trimmedQuery);
+    const remote = remoteMatches?.query === trimmedQuery ? remoteMatches.users : [];
+    if (remote.length === 0) {
+      return localMatches;
+    }
+    const seen = new Set(localMatches.map((friend) => friend.id));
+    return [
+      ...localMatches,
+      ...remote.filter((friend) => {
+        if (seen.has(friend.id)) return false;
+        seen.add(friend.id);
+        return true;
+      }),
+    ];
+  }, [friends, remoteMatches, trimmedQuery]);
 
   const focusInput = useCallback(() => {
     void loadFriends();

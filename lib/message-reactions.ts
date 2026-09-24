@@ -43,11 +43,38 @@ async function verifyMessageAccess(
   return message ?? null;
 }
 
+function isUniqueConstraintError(error: unknown): boolean {
+  return Boolean(
+    error &&
+      typeof error === "object" &&
+      "code" in error &&
+      (error as { code?: string }).code === "P2002",
+  );
+}
+
+function isRecordNotFoundError(error: unknown): boolean {
+  return Boolean(
+    error &&
+      typeof error === "object" &&
+      "code" in error &&
+      (error as { code?: string }).code === "P2025",
+  );
+}
+
 /**
  * Toggle or replace a reaction.
  * - No existing reaction → create.
  * - Same type exists → remove (toggle off).
  * - Different type exists → replace.
+ *
+ * Every mutation is idempotent so concurrent requests (double taps, two devices,
+ * polling reconciliation) cannot produce a 5xx or a duplicate row:
+ * - toggle-off uses `deleteMany`, which is a no-op when a concurrent request
+ *   already removed the row instead of raising P2025;
+ * - create/replace uses a single atomic `upsert` on the `(userId, messageId)`
+ *   unique key instead of delete-then-create, and a lost race is retried once.
+ * The invariant "at most one reaction per (userId, messageId)" is enforced by
+ * the database unique constraint, not by the read that precedes the write.
  */
 export async function toggleReaction(
   viewerId: string,
@@ -65,25 +92,49 @@ export async function toggleReaction(
     select: { id: true, type: true },
   });
 
-  if (existing) {
-    if (existing.type === reactionType) {
-      // Toggle off: remove existing reaction
-      await prisma.messageReaction.delete({ where: { id: existing.id } });
-      return { action: "removed", myReaction: null };
-    }
-    // Replace: delete old, create new
-    await prisma.messageReaction.delete({ where: { id: existing.id } });
-    await prisma.messageReaction.create({
-      data: { userId: viewerId, messageId, type: reactionType },
+  if (existing && existing.type === reactionType) {
+    // Toggle off. deleteMany cannot fail when the row is already gone.
+    await prisma.messageReaction.deleteMany({
+      where: { userId: viewerId, messageId },
     });
-    return { action: "replaced", myReaction: reactionType };
+    return { action: "removed", myReaction: null };
   }
 
-  // Create new reaction
-  await prisma.messageReaction.create({
-    data: { userId: viewerId, messageId, type: reactionType },
+  const MAX_ATTEMPTS = 3;
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
+    try {
+      await prisma.messageReaction.upsert({
+        where: { userId_messageId: { userId: viewerId, messageId } },
+        create: { userId: viewerId, messageId, type: reactionType },
+        update: { type: reactionType },
+      });
+      break;
+    } catch (error) {
+      const lostRace =
+        isUniqueConstraintError(error) || isRecordNotFoundError(error);
+      if (!lostRace) {
+        throw error;
+      }
+      if (attempt === MAX_ATTEMPTS) {
+        // The unique constraint already guarantees at most one row, so a final
+        // race loss is not a request failure: the read-back below reports the
+        // persisted state and the client reconciles on the next poll.
+        break;
+      }
+    }
+  }
+
+  // Report what is actually persisted rather than assuming the write landed.
+  const persisted = await prisma.messageReaction.findUnique({
+    where: { userId_messageId: { userId: viewerId, messageId } },
+    select: { type: true },
   });
-  return { action: "created", myReaction: reactionType };
+  const myReaction = persisted?.type ?? null;
+
+  if (existing) {
+    return { action: "replaced", myReaction };
+  }
+  return { action: "created", myReaction };
 }
 
 /**

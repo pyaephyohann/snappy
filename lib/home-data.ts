@@ -9,6 +9,9 @@ import {
   type PublicRecentSnap,
 } from "@/lib/recent-snaps";
 
+/** Home shows at most this many friends; the list itself is keyset paginated. */
+export const HOME_FRIENDS_LIMIT = 50;
+
 export type HomeData = {
   heroCarousel: PublicHeroCarouselData;
   friends: RelationshipUser[];
@@ -17,16 +20,21 @@ export type HomeData = {
 };
 
 export async function getHomeDataForUser(userId: string): Promise<HomeData> {
-  const [heroCarousel, allUsers, profileImage, snaps] = await Promise.all([
+  const [heroCarousel, users, profileImage, snaps] = await Promise.all([
     getAutomaticHeroCarousel(),
-    listUsersForViewer(userId),
+    // Bounded first page instead of the entire active-user table. The viewer is
+    // excluded in the query, so the cap is still 50 friends rather than 50 users.
+    listUsersForViewer(userId, {
+      limit: HOME_FRIENDS_LIMIT,
+      excludeUserId: userId,
+    }),
     getCurrentUserProfileImage(userId),
     loadRecentSnapsForHome(),
   ]);
 
   return {
     heroCarousel,
-    friends: allUsers.filter((u) => u.id !== userId).slice(0, 50),
+    friends: users.filter((u) => u.id !== userId).slice(0, HOME_FRIENDS_LIMIT),
     profileImage,
     snaps,
   };
