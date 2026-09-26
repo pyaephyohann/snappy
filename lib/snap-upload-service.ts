@@ -13,8 +13,9 @@ import {
   incrementDailyUploadCounter,
   recordUploadUsage,
   SparkServiceError,
-  FREE_DAILY_UPLOADS,
 } from "@/lib/spark-service";
+import { getPlanConfig } from "@/lib/subscription-plans";
+import { getEffectivePlan } from "@/lib/subscription-service";
 import { Prisma } from "@prisma/client";
 
 export interface SnapUploadInput {
@@ -67,17 +68,15 @@ async function readRecordedSparkSpend(
   tx: Prisma.TransactionClient,
   input: SnapUploadInput,
 ): Promise<number> {
-  const debit = await tx.sparkTransaction.findUnique({
+  const debits = await tx.sparkTransaction.findMany({
     where: {
-      userId_type_referenceId: {
-        userId: input.uploadedById,
-        type: "EXTRA_SNAP_UPLOAD",
-        referenceId: input.idempotencyKey,
-      },
+      userId: input.uploadedById,
+      type: "EXTRA_SNAP_UPLOAD",
+      referenceId: input.idempotencyKey,
     },
     select: { amount: true },
   });
-  return debit ? Math.abs(debit.amount) : 0;
+  return debits.reduce((sum, debit) => sum + Math.abs(debit.amount), 0);
 }
 
 /**
@@ -197,11 +196,17 @@ export async function createSnapWithSparkAccounting(
           throw new SparkServiceError("invalid_operation", "invalid_caption");
         }
 
+        // Plan-aware daily allowance (S4): the server resolves the uploader's
+        // effective plan and applies that plan's free uploads/day. The client
+        // never provides or influences the plan.
+        const uploaderPlan = await getEffectivePlan(input.uploadedById, tx);
+        const { freeUploadsPerDay } = getPlanConfig(uploaderPlan);
+
         const counterResult = await incrementDailyUploadCounter(
           tx,
           input.uploadedById,
           now,
-          FREE_DAILY_UPLOADS,
+          freeUploadsPerDay,
         );
         const isFreeUpload = counterResult !== null;
 

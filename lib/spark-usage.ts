@@ -8,9 +8,19 @@
  * This module intentionally has no server-only imports (Prisma, etc.) so client
  * components can consume the type without pulling server code into the bundle.
  */
+import type { SubscriptionPlan } from "@prisma/client";
+
 export interface SparkUsageSummary {
   /** Available Spark balance (earned + non-expired subscription). */
   balance: number;
+  /** The user's effective plan, resolved server-side (FREE when no active subscription). */
+  plan: SubscriptionPlan;
+  /** Non-expired subscription Sparks available right now. */
+  subscriptionSparks: number;
+  /** Earned Sparks available right now (these never expire). */
+  earnedSparks: number;
+  /** ISO timestamp of the current billing-period end, or null when not on a paid plan. */
+  subscriptionPeriodEnd: string | null;
   /** Free uploads used in the current Asia/Yangon day. */
   freeUploadsUsed: number;
   /** Free uploads left today (0 or positive). */

@@ -75,13 +75,11 @@ export async function updateSnapCaptionWithSparkAccounting(
           };
         }
 
-        const existingSpend = await tx.sparkTransaction.findUnique({
+        const existingSpend = await tx.sparkTransaction.findFirst({
           where: {
-            userId_type_referenceId: {
-              userId: input.userId,
-              type: "CAPTION_EDIT",
-              referenceId: input.idempotencyKey,
-            },
+            userId: input.userId,
+            type: "CAPTION_EDIT",
+            referenceId: input.idempotencyKey,
           },
           select: { id: true },
         });

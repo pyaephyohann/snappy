@@ -2,8 +2,11 @@
 
 > **Milestone**: S1 — Spark Foundation
 > **Status**: Locked rules (v1)
-> **Pricing**: TBD — do not treat any prices in this document as final
+> **Pricing**: Plan prices are defined as server-side product configuration
+> (S4 — `PLAN_CONFIG`). They are **not** payment integration; see
+> [S4 — Subscription Foundation](#s4--subscription-foundation) below.
 > **S2 — Snap Integration**: user-facing upload integration built *on top of* S1 (see [S2 — Snap Integration](#s2--snap-integration-user-facing))
+> **S4 — Subscription Foundation**: subscription/accounting foundation (plans, grants, expiration, plan-aware costs)
 
 ---
 
@@ -77,7 +80,8 @@ Every user receives **10 free Snap uploads per day**.
 - Resets at **00:00 Asia/Yangon** (UTC+6:30)
 - Tracked via `DailyUploadCounter` (atomic `SELECT ... FOR UPDATE`)
 - Unused free uploads do **not** roll over
-- Configured via `FREE_DAILY_UPLOADS` constant (future: per-plan)
+- Configured via `PLAN_CONFIG` (`freeUploadsPerDay`) — 10/day on the Free,
+  Spark+, and Spark Pro plans; 15/day on Spark Ultra (S4)
 
 ---
 
@@ -102,15 +106,22 @@ An eligible (free) Snap upload earns **+1 Spark**.
 | Extra Snap upload (beyond 10/day free) | 5 Sparks |
 | Caption edit | 2 Sparks |
 
-### Subscription-Plan Costs (Future)
+### Subscription Plan Costs (S4)
 
-> **Pricing TBD** — architectural placeholders only.
+Authoritative per-plan rules live in **one place**: `PLAN_CONFIG` in
+`lib/subscription-plans.ts` (server-side only). The server resolves the
+user's effective plan from the database on every operation — costs are never
+hard-coded throughout the application and never accepted from the client.
 
-| Plan | Monthly Sparks | Free Uploads/day | Extra Upload Cost | Caption Edit Cost |
-|------|---------------|------------------|-------------------|-------------------|
-| Spark+ | 100 | 10 | 4 Sparks | 1 Spark |
-| Spark Pro | 300 | 10 | 3 Sparks | 1 Spark |
-| Spark Ultra | 1,000 | 15 | 2 Sparks | 1 Spark |
+| Plan | Monthly Price | Subscription Sparks | Free Uploads/day | Extra Upload Cost | Caption Edit Cost |
+|------|--------------:|--------------------:|------------------:|-------------------|-------------------|
+| Free | 0 MMK | 0 | 10 | 5 Sparks | 2 Sparks |
+| Spark+ | 29,000 MMK | 100 | 10 | 4 Sparks | 1 Spark |
+| Spark Pro | 59,000 MMK | 300 | 10 | 3 Sparks | 1 Spark |
+| Spark Ultra | 99,000 MMK | 1,000 | 15 | 2 Sparks | 1 Spark |
+
+> Prices are **product configuration only** (S4). Payment integration,
+> checkout, and purchase flows are deferred (S7).
 
 ### Spending Priority
 
@@ -128,7 +139,8 @@ An eligible (free) Snap upload earns **+1 Spark**.
 
 ### Subscription Sparks
 
-- Granted by subscription billing (not yet implemented)
+- Granted by the subscription service at the start of each billing period
+  (S4 — `activateSubscription` / `grantSubscriptionSparks`)
 - Have an expiration date (end of billing period)
 - Expired subscription Sparks are excluded from available balance
 
@@ -159,9 +171,13 @@ spark_transactions
 
 ### Unique Constraint
 
-`@@unique([userId, type, referenceId])`
+`@@unique([userId, type, referenceId, sparkKind])`
 
-Because `referenceId` is **non-nullable**, PostgreSQL correctly enforces uniqueness for every row — no NULL bypass possible.
+Because `referenceId` is **non-nullable**, PostgreSQL correctly enforces
+uniqueness for every row — no NULL bypass possible. The per-`sparkKind`
+component allows a spend that draws from both Spark kinds to record one debit
+per kind under the same logical reference (see S4 spending priority);
+idempotency checks always look at `(userId, type, referenceId)` across kinds.
 
 ### Upload Operation Idempotency
 
@@ -187,7 +203,7 @@ snap_upload_operations
 | `UPLOAD_REWARD` | `snap.id` | One reward per snap |
 | `EXTRA_SNAP_UPLOAD` | Client `idempotencyKey` | One charge per logical upload |
 | `CAPTION_EDIT` | Client `idempotencyKey` or `snapId` | One charge per edit operation |
-| `SUBSCRIPTION_GRANT` | Billing period identifier (future) | One grant per billing period |
+| `SUBSCRIPTION_GRANT` | `sub-grant:{subscriptionId}:{periodStart}` | One grant per billing period |
 | `ADMIN_ADJUSTMENT` | Explicit admin reference | Explicit key required |
 | `REFUND` | Explicit reference | Explicit key required |
 
@@ -355,7 +371,8 @@ Response:
 |-----------|-------|
 | **S1** | Ledger, daily counters, atomic spend/earn, upload idempotency, shared `createSnapWithSparkAccounting()` — *accounting foundation* |
 | **S2** | Usage summary API + Spark UI in the Snap upload flow (Web/PWA, Telegram Mini App, Telegram Bot) — *integration only* |
-| **Future** | Subscriptions, checkout, payment gateway, Spark purchases/packs, pricing page, caption-edit charging UI — **not implemented** |
+| **S4** | Subscription/accounting foundation: plans, grants, expiration, plan-aware costs — *no payment* |
+| **Later** | Checkout, payment gateway, Spark purchases/packs, pricing page, caption-edit charging UI — **not implemented** |
 
 ### Spark usage summary (server-authoritative)
 
@@ -588,3 +605,221 @@ Subscription plans, subscription checkout, payment gateway, Spark purchases
 or packs, annual billing, premium features, caption-edit discounts,
 subscription management UI, pricing page, new economy rules, and any change to
 Spark earning amounts or daily limits.
+
+---
+
+## S4 — Subscription Foundation
+
+> **S4 = subscription/accounting foundation.**
+> **S7 = payment integration.**
+>
+> S4 establishes the backend subscription domain, plan configuration, and
+> accounting behavior only. It adds **no** payment gateway (KPay/AYA/UAB,
+> Stripe), no checkout, no payment webhooks, no pricing page, no subscription
+> purchase UI, no annual billing, no proration, no refunds, no Spark packs,
+> and no new earning mechanisms. Frontend purchase flows belong to S7.
+
+### Subscription plans
+
+Plan identity is the `SubscriptionPlan` enum (`FREE`, `SPARK_PLUS`,
+`SPARK_PRO`, `SPARK_ULTRA`). All per-plan product rules live in **one
+authoritative server-side configuration**, `PLAN_CONFIG` in
+`lib/subscription-plans.ts`:
+
+| Plan | Monthly Price | Subscription Sparks | Free Uploads/day | Extra Upload | Caption Edit |
+|------|--------------:|--------------------:|------------------:|-------------:|-------------:|
+| Free | 0 MMK | 0 | 10 | 5 Sparks | 2 Sparks |
+| Spark+ | 29,000 MMK | 100 | 10 | 4 Sparks | 1 Spark |
+| Spark Pro | 59,000 MMK | 300 | 10 | 3 Sparks | 1 Spark |
+| Spark Ultra | 99,000 MMK | 1,000 | 15 | 2 Sparks | 1 Spark |
+
+Prices are product configuration only — nothing in S4 reads them for
+payment. The daily Spark earning cap (10/day) and upload reward (+1) remain
+locked S1 rules and are **not** per-plan.
+
+### Subscription period model
+
+One `Subscription` row per user (`subscriptions`, `userId` unique):
+
+```
+subscriptions
+├── id
+├── userId             (UNIQUE → users)
+├── plan               (SubscriptionPlan)
+├── status             (SubscriptionStatus: ACTIVE | CANCELED | EXPIRED)
+├── currentPeriodStart (explicit timestamp)
+├── currentPeriodEnd   (explicit timestamp)
+└── createdAt / updatedAt
+```
+
+Billing periods are explicit, deterministic timestamps: `currentPeriodEnd =
+currentPeriodStart + 1 calendar month` computed in UTC by
+`addBillingMonths()` (month-end clamped). Daily usage boundaries remain
+`00:00 Asia/Yangon` as in S1 — daily counters are unrelated to billing
+periods. No accounting identity ever uses `Date.now()` or a random UUID.
+
+Statuses are minimal and domain-meaningful (no payment-provider states such
+as `TRIALING`/`PAST_DUE`/`PAYMENT_FAILED` — those arrive with S7):
+
+| Status | Meaning |
+|--------|---------|
+| `ACTIVE` | Current billing period; benefits apply |
+| `CANCELED` | Non-renewing; benefits continue until `currentPeriodEnd` |
+| `EXPIRED` | Terminal; billing period ended without renewal |
+
+**Free users (Phase 13):** a user with **no** subscription row is implicitly
+the Free plan. `resolveEffectivePlan()` falls back to `FREE` for absent,
+Free, expired, or past-period rows, so there is never an ambiguous state and
+Free users need no payment record. The effective plan is always computed
+server-side from the database.
+
+### Subscription Spark grants
+
+At the start of a billing period, `grantSubscriptionSparks()` credits the
+plan's subscription Sparks as a ledger transaction:
+
+```
+type:   SUBSCRIPTION_GRANT
+source: SUBSCRIPTION
+sparkKind: SUBSCRIPTION
+amount: PLAN_CONFIG[plan].subscriptionSparks
+expiresAt: currentPeriodEnd
+```
+
+`activateSubscription({ userId, plan, periodStart? })` (in
+`lib/subscription-service.ts`) is the internal, service-level operation that
+establishes a subscription: it creates/updates the row and grants the period
+Sparks in one atomic transaction. It is **not** exposed as an HTTP endpoint;
+a future payment milestone calls it after a successful payment. There is no
+frontend purchase button.
+
+### Grant idempotency
+
+Grant identity is deterministic: `subscriptionGrantReference()` produces
+
+```
+sub-grant:{subscriptionId}:{currentPeriodStart.toISOString()}
+```
+
+e.g. `sub-grant:cmxx…:2026-09-26T10:00:00.000Z` — the same billing-period
+event always maps to the same accounting operation. Combined with the ledger
+unique constraint `(userId, type, referenceId, sparkKind)` and a
+`SELECT … FOR UPDATE` lock on the user row, running the grant **once, twice,
+or ten times — including concurrently — credits the allocation exactly
+once**. No `Date.now()` or per-retry random identity is used anywhere in the
+subscription service.
+
+### Subscription Spark expiration
+
+Subscription Sparks expire at the end of their billing period via
+`expiresAt = currentPeriodEnd` on the grant row. Balance and spend queries
+already count only rows with `expiresAt IS NULL OR expiresAt > now`, so
+expiration is a **pure function of time**:
+
+- Historical `SUBSCRIPTION_GRANT` rows are **never mutated or deleted**.
+- No `SUBSCRIPTION_EXPIRATION` transaction is written — writing one would
+  double-subtract from an already-excluded grant.
+- `expireDueSubscriptions()` is an idempotent bookkeeping sweep that flips
+  the subscription row to `EXPIRED`; it never touches the ledger, and safety
+  does not depend on it running.
+
+**Earned Spark permanence:** Earned Sparks have `expiresAt = NULL` and are
+untouched by subscription expiration.
+
+```
+Earned: 20   Subscription: 100
+period ends
+Earned: 20   Subscription: 0   (grant excluded, ledger unchanged)
+```
+
+### Spending priority
+
+Subscription Sparks are consumed first, earned Sparks second. Because the
+balance is tracked per Spark kind, a spend that spans both kinds records
+**one debit row per kind** under the same logical reference:
+
+```
+subscription = 3, earned = 10, spend 5 (Free plan)
+→ SUBSCRIPTION debit −3 (expiresAt = pool period end)
+→ EARNED      debit −2
+→ subscription = 0, earned = 8
+```
+
+The subscription debit inherits `expiresAt` from the subscription Sparks it
+draws from, so grant and debit expire together at the period boundary — an
+expired pool has zero residue and the balance can never go negative.
+
+All spending keeps the S1 concurrency guarantees: the canonical user row is
+locked with `SELECT … FOR UPDATE` inside one Prisma transaction, then
+balances are summed and debits inserted while holding the lock. Two
+simultaneous spends are serialized; a same-key concurrent replay returns the
+original charge instead of charging twice. There is **no** read-calculate-
+write implementation anywhere.
+
+### Plan-aware upload and caption costs
+
+The server resolves the effective plan on every operation and reads
+`freeUploadsPerDay`, `extraUploadCost`, and `captionEditCost` from
+`PLAN_CONFIG`:
+
+- **Uploads:** `createSnapWithSparkAccounting` applies the plan's daily free
+  allowance to `DailyUploadCounter` and charges the plan's extra-upload cost
+  when the allowance is exhausted.
+- **Caption edits:** `atomicSpendSparks` charges the plan's caption cost
+  through the same atomic, server-authoritative path as S3.
+
+The client never submits a plan; a claimed `plan = "SPARK_ULTRA"` in a
+request body is ignored by every route.
+
+### Usage summary extension
+
+`SparkUsageSummary` (S2, server-authoritative) now additionally reports:
+
+```ts
+{
+  plan,                    // FREE | SPARK_PLUS | SPARK_PRO | SPARK_ULTRA
+  balance,                 // total available Sparks
+  subscriptionSparks,      // non-expired subscription Sparks
+  earnedSparks,            // earned Sparks (never expire)
+  subscriptionPeriodEnd,   // ISO timestamp or null when not on a paid plan
+  freeDailyUploads,        // plan's daily free allowance
+  extraUploadCost,         // plan's extra upload cost
+  captionEditCost,         // plan's caption edit cost
+  // …existing S2 fields unchanged
+}
+```
+
+This is backend/domain information for future S5/S6 UI — S4 builds no
+pricing UI.
+
+### Transitions and upgrade/downgrade rules
+
+S4 safely supports **Free → paid** (and paid → paid **after** the previous
+period has ended) via `activateSubscription`, which creates a fresh billing
+period and exactly one grant for it. While a paid subscription is still
+active:
+
+- replaying the same activation is **idempotent** (no second grant);
+- activating a *different* paid plan is **rejected** (`already_active`).
+
+Immediate upgrades/downgrades mid-period — prorated Sparks, refunds,
+partial-month grants, rollover bonuses, or double grants — are **explicitly
+deferred** to the payment/subscription-lifecycle milestone and are not
+invented in S4.
+
+### Concurrency
+
+All subscription operations (`activateSubscription`,
+`grantSubscriptionSparks`, `cancelSubscription`, spends) serialize on the
+canonical `users` row lock in a single, consistent order, wrapped in
+`prisma.$transaction`. Two simultaneous activation/grant requests produce
+**one** subscription row and **one** grant; the ledger unique constraint is
+the final backstop. Expiration is time-based (no job race), so a spend at
+the period boundary can never consume expired subscription Sparks.
+
+### Milestone boundaries
+
+| Concern | Milestone |
+|---------|-----------|
+| Plans, grants, idempotency, expiration, plan-aware costs, internal activation | **S4 — done (this milestone)** |
+| Payment gateway (KPay/AYA/UAB, Stripe), checkout, payment webhooks, pricing page, purchase UI, proration, refunds | **S7 — deferred** |

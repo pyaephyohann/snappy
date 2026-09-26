@@ -22,6 +22,15 @@ import type {
 } from "@prisma/client";
 import { Prisma } from "@prisma/client";
 import type { SparkUsageSummary } from "@/lib/spark-usage";
+import {
+  DEFAULT_PLAN,
+  getPlanConfig,
+} from "@/lib/subscription-plans";
+import {
+  getSubscription,
+  isSubscriptionActive,
+  resolveEffectivePlan,
+} from "@/lib/subscription-service";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -34,10 +43,16 @@ const APP_TIMEZONE = "Asia/Yangon";
 const YANGON_OFFSET_HOURS = 6.5;
 
 /**
- * Free Snap uploads per day for every user on the free plan.
- * Spark Ultra future plan: 15/day — handled at spend-time, not here.
+ * Free Snap uploads per day, Spark costs, and every other per-plan rule are
+ * defined ONCE in PLAN_CONFIG (lib/subscription-plans.ts). These aliases are
+ * derived from the FREE plan configuration so the locked S1 values remain
+ * importable without becoming a second source of truth:
+ *   FREE_DAILY_UPLOADS = 10
+ *   EXTRA_UPLOAD_COST_SPARKS = 5
+ *   CAPTION_EDIT_COST_SPARKS = 2
+ * Tests assert these equal PLAN_CONFIG[DEFAULT_PLAN].
  */
-export const FREE_DAILY_UPLOADS = 10;
+export const FREE_DAILY_UPLOADS = getPlanConfig(DEFAULT_PLAN).freeUploadsPerDay;
 
 /** Maximum Sparks a user can earn per day via eligible uploads. */
 export const DAILY_SPARK_EARNING_CAP = 10;
@@ -45,11 +60,11 @@ export const DAILY_SPARK_EARNING_CAP = 10;
 /** Sparks rewarded per eligible Snap upload. */
 export const SPARK_PER_UPLOAD_REWARD = 1;
 
-/** Sparks cost for an extra Snap upload (beyond free daily allowance). */
-export const EXTRA_UPLOAD_COST_SPARKS = 5;
+/** Sparks cost for an extra Snap upload on the FREE plan (see PLAN_CONFIG). */
+export const EXTRA_UPLOAD_COST_SPARKS = getPlanConfig(DEFAULT_PLAN).extraUploadCost;
 
-/** Sparks cost for a caption edit. */
-export const CAPTION_EDIT_COST_SPARKS = 2;
+/** Sparks cost for a caption edit on the FREE plan (see PLAN_CONFIG). */
+export const CAPTION_EDIT_COST_SPARKS = getPlanConfig(DEFAULT_PLAN).captionEditCost;
 
 // ---------------------------------------------------------------------------
 // Errors
@@ -139,11 +154,14 @@ export interface SparkBalance {
  * Compute the user's available Spark balance from the ledger.
  *
  * Only non-expired transactions are counted. Positive amounts are credits,
- * negative amounts are debits.
+ * negative amounts are debits. This distinguishes Earned Sparks (never
+ * expire), active Subscription Sparks (within their billing period), and
+ * expired Subscription Sparks (excluded — never available, never negative).
  */
-export async function getSparkBalance(userId: string): Promise<SparkBalance> {
-  const now = new Date();
-
+export async function getSparkBalance(
+  userId: string,
+  now: Date = new Date(),
+): Promise<SparkBalance> {
   const rows = await prisma.sparkTransaction.groupBy({
     by: ["sparkKind"],
     where: {
@@ -193,7 +211,9 @@ export interface DailyUploadUsage {
  * Get the user's upload usage for the current daily period.
  *
  * Free upload count comes from the atomic DailyUploadCounter (source of truth).
- * Spark-paid count comes from UploadUsage records.
+ * Spark-paid count comes from UploadUsage records. The daily allowance is
+ * plan-aware: the server resolves the user's effective plan and applies that
+ * plan's `freeUploadsPerDay` from PLAN_CONFIG.
  */
 export async function getDailyUploadUsage(
   userId: string,
@@ -202,7 +222,8 @@ export async function getDailyUploadUsage(
   const yangonDay = getYangonDayDate(now);
   const { dayStart, dayEnd } = getDailyPeriodBoundaries(now);
 
-  const [counter, paidUsages] = await Promise.all([
+  const [subscription, counter, paidUsages] = await Promise.all([
+    getSubscription(userId),
     prisma.dailyUploadCounter.findUnique({
       where: { userId_day: { userId, day: yangonDay } },
       select: { count: true },
@@ -217,12 +238,13 @@ export async function getDailyUploadUsage(
     }),
   ]);
 
+  const planConfig = getPlanConfig(resolveEffectivePlan(subscription, now));
   const freeUploadsUsed = counter?.count ?? 0;
   const sparkUploadsUsed = paidUsages.length;
   const totalUploads = freeUploadsUsed + sparkUploadsUsed;
   const freeUploadsRemaining = Math.max(
     0,
-    FREE_DAILY_UPLOADS - freeUploadsUsed,
+    planConfig.freeUploadsPerDay - freeUploadsUsed,
   );
 
   return {
@@ -230,7 +252,7 @@ export async function getDailyUploadUsage(
     sparkUploadsUsed,
     totalUploads,
     freeUploadsRemaining,
-    dailyLimitReached: freeUploadsUsed >= FREE_DAILY_UPLOADS,
+    dailyLimitReached: freeUploadsUsed >= planConfig.freeUploadsPerDay,
   };
 }
 
@@ -280,37 +302,54 @@ export async function getDailySparkUsage(
 
 /**
  * Build the read-only Spark usage summary the upload UI renders.
- * Every value is derived from the authoritative ledger + daily counters —
- * nothing here is computed or trusted on the client. Contains no ledger
- * internals (no transaction ids, sources, or history).
+ * Every value is derived from the authoritative ledger + daily counters +
+ * the server-resolved subscription state — nothing here is computed or
+ * trusted on the client. Contains no ledger internals (no transaction ids,
+ * sources, or history).
+ *
+ * Plan-aware (S4): costs, daily allowance, plan identity, subscription
+ * Sparks, earned Sparks, and the billing-period end all reflect the user's
+ * effective plan resolved server-side.
  */
 export async function getSparkUsageSummary(
   userId: string,
   now: Date = new Date(),
 ): Promise<SparkUsageSummary> {
-  const [balance, uploadUsage, sparkUsage] = await Promise.all([
+  const [balance, uploadUsage, sparkUsage, subscription] = await Promise.all([
     getSparkBalance(userId),
     getDailyUploadUsage(userId, now),
     getDailySparkUsage(userId, now),
+    getSubscription(userId),
   ]);
+
+  const plan = resolveEffectivePlan(subscription, now);
+  const planConfig = getPlanConfig(plan);
+  const subscriptionPeriodEnd =
+    subscription && isSubscriptionActive(subscription, now)
+      ? subscription.currentPeriodEnd.toISOString()
+      : null;
 
   const nextUploadIsPaid = uploadUsage.freeUploadsRemaining <= 0;
 
   return {
     balance: balance.total,
+    plan,
+    subscriptionSparks: balance.subscription,
+    earnedSparks: balance.earned,
+    subscriptionPeriodEnd,
     freeUploadsUsed: uploadUsage.freeUploadsUsed,
     freeUploadsRemaining: uploadUsage.freeUploadsRemaining,
-    freeDailyUploads: FREE_DAILY_UPLOADS,
+    freeDailyUploads: planConfig.freeUploadsPerDay,
     dailyEarnedSparks: sparkUsage.sparksEarnedToday,
     dailyEarnRemaining: sparkUsage.earningCapRemaining,
     dailyEarningCap: DAILY_SPARK_EARNING_CAP,
-    extraUploadCost: EXTRA_UPLOAD_COST_SPARKS,
-    captionEditCost: CAPTION_EDIT_COST_SPARKS,
-    canAffordCaptionEdit: balance.total >= CAPTION_EDIT_COST_SPARKS,
+    extraUploadCost: planConfig.extraUploadCost,
+    captionEditCost: planConfig.captionEditCost,
+    canAffordCaptionEdit: balance.total >= planConfig.captionEditCost,
     uploadReward: SPARK_PER_UPLOAD_REWARD,
     nextUploadIsPaid,
     canAffordNextUpload:
-      !nextUploadIsPaid || balance.total >= EXTRA_UPLOAD_COST_SPARKS,
+      !nextUploadIsPaid || balance.total >= planConfig.extraUploadCost,
   };
 }
 
@@ -443,14 +482,25 @@ export async function createSparkReward(
 }
 
 /**
- * Atomically spend Sparks inside a Prisma transaction.
+ * Atomically spend Sparks inside a Prisma transaction (S4 — plan-aware).
  *
- * Uses SELECT ... FOR UPDATE on aggregated balances to prevent concurrent
- * overspending. Subscription Sparks are consumed first, then earned Sparks.
+ * - SELECT ... FOR UPDATE on the canonical user row serializes all spends,
+ *   so concurrent spends can never overspend or go negative.
+ * - The cost is resolved server-side from the user's EFFECTIVE PLAN
+ *   (PLAN_CONFIG) — the client never supplies a plan or an amount.
+ * - Spending priority: subscription Sparks first, then earned Sparks. The
+ *   debit is split into one ledger row per Spark kind under the same logical
+ *   reference, so per-kind balances stay exact and the ledger remains the
+ *   single source of truth.
+ * - The subscription debit inherits `expiresAt` from the subscription Sparks
+ *   it draws from, so grant and debit expire together at the billing-period
+ *   boundary (expired pool → zero residue, never negative).
+ * - Idempotent under the lock: a concurrent request with the same reference
+ *   that already committed returns the original charge.
  *
  * Must be called inside a Prisma interactive transaction (`tx`).
  *
- * @returns The debit transaction record, or throws SparkServiceError.
+ * @returns The debit transaction record(s), or throws SparkServiceError.
  */
 export async function atomicSpendSparks(
   tx: Prisma.TransactionClient,
@@ -465,16 +515,50 @@ export async function atomicSpendSparks(
   amountDeducted: number;
   subscriptionPortion: number;
   earnedPortion: number;
+  /** True when a concurrent request already charged this reference. */
+  idempotent: boolean;
 }> {
   const { userId, type, referenceId, reason } = input;
+  const now = new Date();
+
+  // Lock the canonical user row first. PostgreSQL does not lock aggregate
+  // input rows with a plain SUM query, so this serializes all user spends.
+  await tx.$queryRaw`SELECT "id" FROM "users" WHERE "id" = ${userId} FOR UPDATE`;
+
+  // Idempotency re-check under the lock: a concurrent request with the same
+  // logical reference may have committed while we waited for the lock.
+  const existing = await tx.sparkTransaction.findMany({
+    where: { userId, type, referenceId },
+    select: { id: true, sparkKind: true, amount: true, metadata: true },
+  });
+  if (existing.length > 0) {
+    const meta = existing[0].metadata as Record<string, unknown> | null;
+    return {
+      transactionId:
+        existing.find((row) => row.sparkKind === "SUBSCRIPTION")?.id ??
+        existing[0].id,
+      amountDeducted: existing.reduce(
+        (sum, row) => sum + Math.abs(row.amount),
+        0,
+      ),
+      subscriptionPortion: Number(meta?.subscriptionPortion ?? 0),
+      earnedPortion: Number(meta?.earnedPortion ?? 0),
+      idempotent: true,
+    };
+  }
+
+  // Server-authoritative cost: resolve the user's effective plan.
+  const subscription = await getSubscription(userId, tx);
+  const plan = resolveEffectivePlan(subscription, now);
+  const planConfig = getPlanConfig(plan);
 
   let cost: number;
   switch (type) {
     case "EXTRA_SNAP_UPLOAD":
-      cost = EXTRA_UPLOAD_COST_SPARKS;
+      cost = planConfig.extraUploadCost;
       break;
     case "CAPTION_EDIT":
-      cost = CAPTION_EDIT_COST_SPARKS;
+      cost = planConfig.captionEditCost;
       break;
     default:
       throw new SparkServiceError(
@@ -483,14 +567,12 @@ export async function atomicSpendSparks(
       );
   }
 
-  // Lock the canonical user row first. PostgreSQL does not lock aggregate
-  // input rows with a plain SUM query, so this serializes all user spends.
-  await tx.$queryRaw`SELECT "id" FROM "users" WHERE "id" = ${userId} FOR UPDATE`;
-
   // Sum subscription Sparks (non-expired) while holding the user lock.
+  // MAX(expiresAt) is the billing-period boundary of the pool this spend
+  // draws from — the subscription debit is tied to the same boundary.
   const subRows = await tx.$queryRaw<
-    Array<{ total: bigint }>
-  >`SELECT COALESCE(SUM("amount"), 0) AS total
+    Array<{ total: bigint; expiresAt: Date | null }>
+  >`SELECT COALESCE(SUM("amount"), 0) AS total, MAX("expiresAt") AS "expiresAt"
      FROM "spark_transactions"
      WHERE "userId" = ${userId}
        AND "sparkKind" = 'SUBSCRIPTION'
@@ -499,6 +581,7 @@ export async function atomicSpendSparks(
   const subscriptionBalance = Number(
     subRows[0]?.total ?? BigInt(0),
   );
+  const subscriptionExpiresAt = subRows[0]?.expiresAt ?? null;
 
   // Lock and sum earned Sparks (non-expired).
   const earnedRows = await tx.$queryRaw<
@@ -524,29 +607,57 @@ export async function atomicSpendSparks(
   const subscriptionPortion = Math.min(cost, subscriptionBalance);
   const earnedPortion = cost - subscriptionPortion;
 
-  // Insert debit transaction.
-  const debit = await tx.sparkTransaction.create({
-    data: {
-      userId,
-      amount: -cost,
-      type,
-      source: "SNAP",
-      sparkKind: "EARNED",
-      referenceType: "snap",
-      referenceId,
-      metadata: {
-        reason: reason ?? type,
-        subscriptionPortion,
-        earnedPortion,
+  const metadata = {
+    reason: reason ?? type,
+    plan,
+    subscriptionPortion,
+    earnedPortion,
+  };
+
+  // One debit row per Spark kind under the same logical reference, so both
+  // per-kind balances stay exact. Zero portions create no row.
+  let subscriptionDebitId: string | null = null;
+  if (subscriptionPortion > 0) {
+    const debit = await tx.sparkTransaction.create({
+      data: {
+        userId,
+        amount: -subscriptionPortion,
+        type,
+        source: "SNAP",
+        sparkKind: "SUBSCRIPTION",
+        expiresAt: subscriptionExpiresAt,
+        referenceType: "snap",
+        referenceId,
+        metadata,
       },
-    },
-  });
+    });
+    subscriptionDebitId = debit.id;
+  }
+
+  let earnedDebitId: string | null = null;
+  if (earnedPortion > 0) {
+    const debit = await tx.sparkTransaction.create({
+      data: {
+        userId,
+        amount: -earnedPortion,
+        type,
+        source: "SNAP",
+        sparkKind: "EARNED",
+        expiresAt: null,
+        referenceType: "snap",
+        referenceId,
+        metadata,
+      },
+    });
+    earnedDebitId = debit.id;
+  }
 
   return {
-    transactionId: debit.id,
+    transactionId: subscriptionDebitId ?? earnedDebitId as string,
     amountDeducted: cost,
     subscriptionPortion,
     earnedPortion,
+    idempotent: false,
   };
 }
 
@@ -584,13 +695,11 @@ export async function earnSparks(
 ): Promise<EarnSparksResult> {
   const { userId, snapId } = input;
 
-  const existing = await prisma.sparkTransaction.findUnique({
+  const existing = await prisma.sparkTransaction.findFirst({
     where: {
-      userId_type_referenceId: {
-        userId,
-        type: "UPLOAD_REWARD",
-        referenceId: snapId,
-      },
+      userId,
+      type: "UPLOAD_REWARD",
+      referenceId: snapId,
     },
     select: { id: true },
   });
@@ -632,13 +741,11 @@ export async function earnSparks(
       error instanceof Prisma.PrismaClientKnownRequestError &&
       error.code === "P2002"
     ) {
-      const concurrent = await prisma.sparkTransaction.findUnique({
+      const concurrent = await prisma.sparkTransaction.findFirst({
         where: {
-          userId_type_referenceId: {
-            userId,
-            type: "UPLOAD_REWARD",
-            referenceId: snapId,
-          },
+          userId,
+          type: "UPLOAD_REWARD",
+          referenceId: snapId,
         },
         select: { id: true },
       });
@@ -681,7 +788,10 @@ export interface SpendSparksResult {
  * Spend Sparks for an action (extra upload or caption edit).
  *
  * Priority: subscription Sparks are consumed first, then earned Sparks.
- * Idempotent: calling with the same referenceId/type is safe.
+ * The cost comes from the server-resolved effective plan (PLAN_CONFIG) —
+ * never from the client. Idempotent: calling with the same
+ * referenceId/type is safe, including for a spend split across both
+ * Spark kinds.
  *
  * Uses a Prisma interactive transaction with row-level locking to prevent
  * concurrent overspending.
@@ -691,14 +801,11 @@ export async function spendSparks(
 ): Promise<SpendSparksResult> {
   const { userId, type, referenceId, reason } = input;
 
-  // Determine cost based on action type.
-  let cost: number;
+  // Validate the operation type. The cost itself is resolved inside
+  // atomicSpendSparks from the user's effective plan.
   switch (type) {
     case "EXTRA_SNAP_UPLOAD":
-      cost = EXTRA_UPLOAD_COST_SPARKS;
-      break;
     case "CAPTION_EDIT":
-      cost = CAPTION_EDIT_COST_SPARKS;
       break;
     default:
       throw new SparkServiceError(
@@ -707,25 +814,29 @@ export async function spendSparks(
       );
   }
 
-  // Check for existing spend (idempotency).
-  const existing = await prisma.sparkTransaction.findUnique({
-    where: {
-      userId_type_referenceId: { userId, type, referenceId },
-    },
-    select: { id: true, metadata: true },
+  // Check for existing spend (idempotency across both Spark kinds).
+  const existing = await prisma.sparkTransaction.findMany({
+    where: { userId, type, referenceId },
+    select: { id: true, sparkKind: true, amount: true, metadata: true },
+    orderBy: { createdAt: "asc" },
   });
 
-  if (existing) {
+  if (existing.length > 0) {
     // Already spent — idempotent success.
     // Return the original split from metadata for caller visibility.
-    const meta = existing.metadata as Record<string, unknown> | null;
+    const meta = existing[0].metadata as Record<string, unknown> | null;
     return {
       ok: true,
       idempotent: true,
-      amountDeducted: cost,
+      amountDeducted: existing.reduce(
+        (sum, row) => sum + Math.abs(row.amount),
+        0,
+      ),
       subscriptionPortion: Number(meta?.subscriptionPortion ?? 0),
       earnedPortion: Number(meta?.earnedPortion ?? 0),
-      transactionId: existing.id,
+      transactionId:
+        existing.find((row) => row.sparkKind === "SUBSCRIPTION")?.id ??
+        existing[0].id,
     };
   }
 
@@ -741,7 +852,7 @@ export async function spendSparks(
 
   return {
     ok: true,
-    idempotent: false,
+    idempotent: spendResult.idempotent,
     amountDeducted: spendResult.amountDeducted,
     subscriptionPortion: spendResult.subscriptionPortion,
     earnedPortion: spendResult.earnedPortion,

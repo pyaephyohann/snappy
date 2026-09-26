@@ -59,6 +59,7 @@ model User {
   sentMessages                 Message[]           @relation("MessageSender")
   messageReactions             MessageReaction[]   @relation("MessageReactionUser")
   sparkTransactions            SparkTransaction[]
+  subscription                 Subscription?
   uploadUsages                 UploadUsage[]
   dailyUploadCounters          DailyUploadCounter[]
   dailySparkEarnCounters       DailySparkEarnCounter[]
@@ -343,10 +344,12 @@ model SparkTransaction {
   createdAt      DateTime              @default(now())
   user           User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  /// Idempotency: at most one transaction per (user, type, referenceId).
-  /// Because referenceId is non-nullable, PostgreSQL enforces NULL-inequality
-  /// correctly for every row.
-  @@unique([userId, type, referenceId])
+  /// Idempotency: at most one transaction per (user, type, referenceId,
+  /// sparkKind). A spend that draws from both Spark kinds records one debit
+  /// per kind under the same logical referenceId; replay detection checks
+  /// (user, type, referenceId) across kinds. referenceId is non-nullable,
+  /// so PostgreSQL enforces uniqueness correctly for every row.
+  @@unique([userId, type, referenceId, sparkKind])
   /// Balance queries: sum all non-expired transactions for a user.
   @@index([userId, expiresAt])
   /// Type-specific lookups (e.g. daily earning cap, subscription queries).
@@ -361,6 +364,52 @@ model SparkTransaction {
 enum SparkKind {
   EARNED
   SUBSCRIPTION
+}
+
+/// Subscription plan identity (S4 — Subscription Foundation).
+/// Prices and all per-plan Spark rules live in ONE authoritative place:
+/// PLAN_CONFIG in lib/subscription-plans.ts (server-side only).
+enum SubscriptionPlan {
+  FREE
+  SPARK_PLUS
+  SPARK_PRO
+  SPARK_ULTRA
+}
+
+/// Subscription lifecycle status. S4 defines only statuses with clear domain
+/// meaning; provider-specific billing states arrive with payment integration
+/// in a later milestone.
+enum SubscriptionStatus {
+  /// Benefits of the current billing period apply.
+  ACTIVE
+  /// Will not renew; benefits continue until currentPeriodEnd.
+  CANCELED
+  /// Terminal: the billing period ended without renewal.
+  EXPIRED
+}
+
+/// One subscription record per user (S4 — subscription/accounting foundation).
+///
+/// A user with no row is implicitly FREE — there is never an ambiguous state:
+/// resolveEffectivePlan() falls back to the FREE plan configuration. The row
+/// stores explicit billing-period boundaries; Spark grants reference the
+/// period deterministically (see lib/subscription-service.ts).
+model Subscription {
+  id                 String             @id @default(cuid())
+  userId             String             @unique
+  plan               SubscriptionPlan
+  status             SubscriptionStatus @default(ACTIVE)
+  /// Explicit, deterministic start of the current billing period.
+  currentPeriodStart DateTime
+  /// Explicit, deterministic end of the current billing period.
+  currentPeriodEnd   DateTime
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  user               User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// Expiration sweep lookups (status + period end).
+  @@index([status, currentPeriodEnd])
+  @@map("subscriptions")
 }
 
 /// Atomic daily upload counter per user. The single source of truth for
