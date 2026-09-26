@@ -823,3 +823,84 @@ the period boundary can never consume expired subscription Sparks.
 |---------|-----------|
 | Plans, grants, idempotency, expiration, plan-aware costs, internal activation | **S4 — done (this milestone)** |
 | Payment gateway (KPay/AYA/UAB, Stripe), checkout, payment webhooks, pricing page, purchase UI, proration, refunds | **S7 — deferred** |
+
+---
+
+## S5 — Spark UI Foundation
+
+S5 makes the existing Spark and subscription state visible to users. It is a
+**UI/product-surface milestone only**: no accounting rule, cost, balance,
+grant, expiration behavior, or database structure changes. The economy
+remains exactly as defined in S1–S4, and payment integration remains
+deferred to **S7**.
+
+### Profile Sparks card
+
+The shared profile surface (`components/profile/ProfilePageClient.tsx`) now
+renders a **profile Sparks card**
+(`components/sparks/SparkBalanceCard.tsx`) in the existing card style:
+
+```text
+Sparks
+Total          123 ✨
+Earned          23 ✨
+Subscription   100 ✨
+Plan           Spark Plus
+Status         Active
+Renews / ends  Oct 26, 2026
+```
+
+Displayed values:
+
+- **Total / Earned / Subscription Sparks** — straight from the server summary.
+- **Plan** — the server-resolved effective plan (`FREE` renders as `Free`).
+- **Status** — the derived `subscriptionStatus` field below.
+- **Renews / ends** — only when the server reports a billing-period end.
+
+A user with no subscription row sees `Free plan`, `Subscription 0 ✨`,
+status `Free`, and **no** expiration date: no subscription, period, or
+payment record is ever fabricated for display. A canceled subscription keeps
+showing its real status until the existing period end — cancellation is
+non-renewing, not immediate expiration.
+
+### Web/PWA + Telegram Mini App (shared surface)
+
+The card lives inside the shared profile component, so `/profile` and
+`/telegram/app/profile` — and therefore Web, PWA, and the Telegram Mini App —
+all show identical numbers from one implementation. No separate Telegram
+Spark UI, navigation entry, or new route was added.
+
+### subscriptionStatus (derived response field)
+
+`SparkUsageSummary` gained one additive, server-derived field:
+
+| Value | Meaning |
+|-------|---------|
+| `ACTIVE` | Paid subscription; benefits run through `subscriptionPeriodEnd` |
+| `CANCELED` | Non-renewing; benefits continue until `subscriptionPeriodEnd` |
+| `EXPIRED` | Paid row whose benefits ended; effective plan is already `FREE` and its subscription Sparks are already excluded from balances |
+| `null` | Free state — no paid subscription row |
+
+It is computed in `getSparkUsageSummary` from the existing subscription row
+and the same `isSubscriptionActive` check that plan resolution uses. It is
+**not** a Prisma field: no schema change, no migration, no subscription
+history, no payment records. A paid row whose period has ended reports
+`EXPIRED` whether or not the status sweep has run, and the ledger is never
+mutated or deleted.
+
+### Server-authoritative rendering
+
+The card calls the existing `useSparkUsage` hook → `GET /api/sparks/usage`
+and renders `SparkUsageSummary` verbatim. The client performs **no** economy
+calculation: no balance, cost, affordability, or expiration math, and no
+hard-coded plan values or plan pricing. While the request is loading the
+card shows a skeleton (never zeros); on failure it shows `role="alert"` and
+invents no balance. The rest of the profile page is unaffected by a failed
+fetch, and no new API endpoint was added.
+
+### Out of scope (unchanged rules)
+
+S5 adds **no** pricing display, plan-selection UI, purchase flow, payment
+method, upgrade button, transaction/ledger history, subscription history, or
+settings page — and S5 does not change economy behavior. Payment integration
+stays in **S7**.

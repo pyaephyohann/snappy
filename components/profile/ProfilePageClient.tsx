@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import ProfileSnapPicker from "@/components/profile/ProfileSnapPicker";
+import SparkBalanceCard from "@/components/sparks/SparkBalanceCard";
 import ProfileLogoutButton from "@/components/profile/ProfileLogoutButton";
 import TelegramDisconnectButton from "@/components/profile/TelegramDisconnectButton";
 import TelegramConnectButton from "@/components/telegram/TelegramConnectButton";
@@ -186,6 +187,8 @@ export default function ProfilePageClient({
                 {formError}
               </p>
             ) : null}
+
+            <SparkBalanceCard />
 
             <section className="rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-6">
               <div className="flex flex-wrap items-baseline justify-between gap-2">

@@ -8,7 +8,10 @@
  * This module intentionally has no server-only imports (Prisma, etc.) so client
  * components can consume the type without pulling server code into the bundle.
  */
-import type { SubscriptionPlan } from "@prisma/client";
+import type {
+  SubscriptionPlan,
+  SubscriptionStatus,
+} from "@prisma/client";
 
 export interface SparkUsageSummary {
   /** Available Spark balance (earned + non-expired subscription). */
@@ -21,6 +24,23 @@ export interface SparkUsageSummary {
   earnedSparks: number;
   /** ISO timestamp of the current billing-period end, or null when not on a paid plan. */
   subscriptionPeriodEnd: string | null;
+  /**
+   * Derived lifecycle status of the user's subscription row (S5), rendered
+   * as-is by the profile Sparks card.
+   *
+   * - `ACTIVE` / `CANCELED` — paid subscription whose benefits run through
+   *   `subscriptionPeriodEnd` (cancellation is non-renewing, not immediate).
+   * - `EXPIRED` — a paid subscription row whose benefits have ended; the
+   *   effective plan has already fallen back to FREE and its subscription
+   *   Sparks are already excluded from the balances above.
+   * - `null` — the Free state: the user has no paid subscription row. No
+   *   subscription is ever fabricated for display, and no period end is
+   *   implied.
+   *
+   * Derived server-side in `getSparkUsageSummary`; never computed on the
+   * client and never stored as a new database field.
+   */
+  subscriptionStatus: SubscriptionStatus | null;
   /** Free uploads used in the current Asia/Yangon day. */
   freeUploadsUsed: number;
   /** Free uploads left today (0 or positive). */

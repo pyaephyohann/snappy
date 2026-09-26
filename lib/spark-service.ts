@@ -19,6 +19,7 @@ import type {
   SparkTransactionType,
   SparkTransactionSource,
   SparkKind,
+  SubscriptionStatus,
 } from "@prisma/client";
 import { Prisma } from "@prisma/client";
 import type { SparkUsageSummary } from "@/lib/spark-usage";
@@ -331,12 +332,26 @@ export async function getSparkUsageSummary(
 
   const nextUploadIsPaid = uploadUsage.freeUploadsRemaining <= 0;
 
+  // S5 — derived display status (never a new database field):
+  // - no paid subscription row (or a FREE row) → null = the Free state;
+  // - paid row whose benefits still run (ACTIVE or CANCELED) → its raw
+  //   status, so a canceled plan keeps showing CANCELED until period end;
+  // - paid row whose benefits have ended (swept or not) → EXPIRED, which
+  //   matches the FREE plan resolution above. The ledger is never touched.
+  const subscriptionStatus: SubscriptionStatus | null =
+    subscription && subscription.plan !== DEFAULT_PLAN
+      ? isSubscriptionActive(subscription, now)
+        ? subscription.status
+        : "EXPIRED"
+      : null;
+
   return {
     balance: balance.total,
     plan,
     subscriptionSparks: balance.subscription,
     earnedSparks: balance.earned,
     subscriptionPeriodEnd,
+    subscriptionStatus,
     freeUploadsUsed: uploadUsage.freeUploadsUsed,
     freeUploadsRemaining: uploadUsage.freeUploadsRemaining,
     freeDailyUploads: planConfig.freeUploadsPerDay,
