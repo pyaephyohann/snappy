@@ -904,3 +904,93 @@ S5 adds **no** pricing display, plan-selection UI, purchase flow, payment
 method, upgrade button, transaction/ledger history, subscription history, or
 settings page — and S5 does not change economy behavior. Payment integration
 stays in **S7**.
+
+## S6 — Spark Plan UI Foundation
+
+S6 adds a shared, **display-only** plan comparison section to the profile
+surface so users can understand the four available plans and see which one
+currently applies to them. S6 performs **zero subscription mutations**:
+payment and subscription lifecycle changes remain the **S7** milestone.
+
+### Component and data flow
+
+```text
+PLAN_CONFIG
+    ↓
+SparkPlanSection
+    ↑
+useSparkUsage()
+    ↑
+GET /api/sparks/usage
+
+ProfilePageClient
+    ├── SparkBalanceCard   ← S5, unchanged
+    └── SparkPlanSection   ← S6, new
+```
+
+`components/sparks/SparkPlanSection.tsx` renders directly beneath
+`<SparkBalanceCard />` inside the shared
+`components/profile/ProfilePageClient.tsx`, which automatically gives parity
+across Web `/profile`, PWA `/profile`, and the Telegram Mini App
+`/telegram/app/profile`. No separate Telegram plan UI exists.
+
+### Authoritative plan configuration
+
+Every rendered value — plan name, monthly price, subscription Spark grant,
+free uploads per day, extra upload cost, and caption edit cost — is read from
+the single authoritative `PLAN_CONFIG` in `lib/subscription-plans.ts`.
+Prices are formatted with `Intl.NumberFormat` from
+`PLAN_CONFIG[plan].monthlyPriceMmk`; the component hard-codes no price
+digits, no Spark constants, and no configuration of its own. S6 does not
+modify `lib/subscription-plans.ts`, does not duplicate or relocate any
+constant, and introduces no second configuration source.
+
+### Current plan from the server
+
+The "Your plan" marker is the server-reported `usage.plan` from the existing
+`SparkUsageSummary` (`useSparkUsage()` → `GET /api/sparks/usage`) — the same
+source `SparkBalanceCard` renders, so the section can never contradict the
+card:
+
+- **Free:** `usage.plan` resolves to `FREE`, so the Free card is marked.
+- **ACTIVE:** the server-reported paid plan is marked.
+- **CANCELED:** the paid plan remains marked while benefits continue through
+  the billing period.
+- **EXPIRED:** the server has already resolved the effective plan to `FREE`,
+  so Free is marked.
+
+The client performs no expiration, status, balance, or affordability
+calculation and adds no second subscription state machine.
+
+### Display-only behavior
+
+- The section issues no API call of its own; `GET /api/sparks/usage` remains
+  the only Spark endpoint, and no new route (`/api/subscription`,
+  `/api/plans`, …) exists.
+- Availability copy ("Plan activation will be available in a future update.")
+  is informational only: no working call to action, and nothing
+  implies that payment or activation has completed.
+- While loading, the section shows skeletons instead of guessing state. On a
+  failed fetch it renders the static authoritative configuration with a
+  local `role="alert"` message and marks no current plan — no plan or
+  balance value is ever invented, and the rest of the profile page keeps
+  working.
+
+### Tests
+
+`scripts/spark-s6.test.ts` (`npm run test:spark-s6`) is source-level and
+covers: consumption of `PLAN_CONFIG` with no hard-coded price literals, all
+four plans rendered in order, configuration-driven features, current plan
+from `usage.plan`, absence of client-side economy/status/expiration math, no
+API call and no subscription/plans route, no payment functionality, shared
+profile integration for Web/PWA/Telegram, S5 and protected economy files
+unchanged, and documentation coverage.
+
+### Out of scope (unchanged rules)
+
+S6 adds no checkout, payment method, payment provider, webhook,
+confirmation, refund, proration, invoice, or payment history — and no
+activation, cancellation, upgrade, downgrade, reactivation, or expiration
+sweep wiring. `components/payment/**`, `app/profile/payment/**`, and
+`public/images/payments/**` remain completely isolated from S6. Payment
+integration and subscription lifecycle mutations stay in **S7**.
