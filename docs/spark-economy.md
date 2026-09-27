@@ -994,3 +994,74 @@ activation, cancellation, upgrade, downgrade, reactivation, or expiration
 sweep wiring. `components/payment/**`, `app/profile/payment/**`, and
 `public/images/payments/**` remain completely isolated from S6. Payment
 integration and subscription lifecycle mutations stay in **S7**.
+
+## S7-A — Subscription Purchase Foundation
+
+S7-A adds a provider-independent server-side foundation for recording a
+subscription purchase intent and managing cancellation. It does **not**
+confirm, simulate, or fulfill a payment. No payment provider, provider API,
+credential, webhook, or payment UI is integrated in this milestone.
+
+### Purchase record and authoritative configuration
+
+`SubscriptionPurchase` stores the authenticated user, requested paid plan,
+server-derived amount/currency snapshot, stable order reference, hashed
+idempotency key, provider-neutral purchase status, lifecycle timestamps,
+optional server-verified period start, and an optional link to the resulting
+`Subscription`. The additive migration creates this model and `PurchaseStatus`
+without rewriting subscription or Spark ledger rows. Provider-specific
+references are isolated to the purchase record, not `Subscription`.
+
+The client submits only a paid plan and an `Idempotency-Key` header. The
+server validates the plan against `PAID_PLANS`, reads the amount exclusively
+from `PLAN_CONFIG[plan].monthlyPriceMmk`, and derives currency, order
+reference, and initial status itself. Benefits and subscription Sparks
+remain derived from `PLAN_CONFIG` in existing server services. The original
+idempotency key is hashed before persistence; the hash is unique per user.
+A repeated key and same plan returns the existing intent; reuse with another
+plan conflicts.
+
+### Purchase lifecycle and authorization
+
+Purchase states are `INITIALIZED`, `PENDING`, `SUCCEEDED`, `FAILED`,
+`CANCELED`, and `EXPIRED`. S7-A exposes authenticated create-intent and
+owner-scoped read routes. Purchase status, price, Spark amount, period,
+subscription status, and user identity are not writable from the client.
+A purchase intent is not proof of payment and does not activate a plan.
+
+The fulfillment primitive is internal to the server service and requires an
+opaque verification capability that no S7-A route or client code can mint.
+There is no public fulfillment route. S7-B may provide that capability only
+after adding an actual server-side verification mechanism and stable paid
+period information. It must bind the verified amount/currency/order to the
+stored purchase, persist one period start, and fulfill atomically.
+
+### Idempotency and Spark grant boundary
+
+Purchase creation serializes on the user row and is protected by a unique
+(user, idempotency-key-hash) constraint plus deterministic order identity.
+Future verified fulfillment must run in one transaction: lock the canonical
+user row, verify the pending purchase, activate through the existing
+transaction-aware subscription service primitive, create the existing
+period-keyed Spark grant, link the purchase, and mark it succeeded. Replays
+return the linked result without selecting a new period or extending the
+subscription. Spark grant uniqueness and deterministic `subscriptionGrantReference`
+remain the final duplicate-grant backstop.
+
+### Cancellation and expiration
+
+`POST /api/subscription/cancel` authenticates the app user and derives the
+user id only from that session; it delegates to `cancelSubscription()`.
+Cancellation remains non-renewing: status becomes `CANCELED`, benefits and
+subscription Sparks remain effective through `currentPeriodEnd`, and there is
+no refund, immediate Free transition, or Spark reversal. Existing expiration
+semantics remain unchanged: after the period, effective usage resolves to
+Free; `expireDueSubscriptions()` remains bookkeeping only.
+
+### S7-B boundary
+
+Provider selection, credentials, provider APIs, payment UI/instructions,
+webhooks/signature verification, payment reconciliation, and actual payment
+fulfillment are deferred to **S7-B**. Until a verified server-side event is
+available, S7-A purchase records remain non-fulfilled intents and no client
+request can manufacture payment success.

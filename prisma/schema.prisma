@@ -60,6 +60,7 @@ model User {
   messageReactions             MessageReaction[]   @relation("MessageReactionUser")
   sparkTransactions            SparkTransaction[]
   subscription                 Subscription?
+  subscriptionPurchases        SubscriptionPurchase[]
   uploadUsages                 UploadUsage[]
   dailyUploadCounters          DailyUploadCounter[]
   dailySparkEarnCounters       DailySparkEarnCounter[]
@@ -388,6 +389,15 @@ enum SubscriptionStatus {
   EXPIRED
 }
 
+enum PurchaseStatus {
+  INITIALIZED
+  PENDING
+  SUCCEEDED
+  FAILED
+  CANCELED
+  EXPIRED
+}
+
 /// One subscription record per user (S4 — subscription/accounting foundation).
 ///
 /// A user with no row is implicitly FREE — there is never an ambiguous state:
@@ -406,10 +416,42 @@ model Subscription {
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
   user               User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  purchases          SubscriptionPurchase[]
 
   /// Expiration sweep lookups (status + period end).
   @@index([status, currentPeriodEnd])
   @@map("subscriptions")
+}
+
+model SubscriptionPurchase {
+  id                  String           @id @default(cuid())
+  userId              String
+  requestedPlan       SubscriptionPlan
+  amountMmk           Int
+  planConfigVersion   String           @default("1")
+  currency            String           @default("MMK")
+  orderReferenceId    String           @unique
+  idempotencyKeyHash  String
+  providerReferenceId String?          @unique
+  status              PurchaseStatus   @default(INITIALIZED)
+  failureReason       String?
+  requestedAt         DateTime         @default(now())
+  paymentInitiatedAt  DateTime?
+  paymentSucceededAt  DateTime?
+  paymentFailedAt     DateTime?
+  canceledAt          DateTime?
+  expiresAt           DateTime?
+  periodStart         DateTime?
+  subscriptionId      String?
+  subscription        Subscription?    @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  user                User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+
+  @@unique([userId, idempotencyKeyHash])
+  @@index([userId, status, createdAt])
+  @@index([status, expiresAt])
+  @@map("subscription_purchases")
 }
 
 /// Atomic daily upload counter per user. The single source of truth for

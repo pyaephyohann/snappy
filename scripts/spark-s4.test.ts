@@ -15,8 +15,8 @@
  */
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync, readdirSync } from "node:fs";
-import { resolve, join } from "node:path";
+import { existsSync, readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import type { PrismaClient } from "@prisma/client";
 import {
   PLAN_CONFIG,
@@ -35,17 +35,6 @@ let sequence = 0;
 
 function read(relativePath: string): string {
   return readFileSync(resolve(import.meta.dirname, "..", relativePath), "utf8");
-}
-
-function listFilesRecursively(dir: string): string[] {
-  const entries = readdirSync(dir, { withFileTypes: true });
-  const files: string[] = [];
-  for (const entry of entries) {
-    const full = join(dir, entry.name);
-    if (entry.isDirectory()) files.push(...listFilesRecursively(full));
-    else files.push(full);
-  }
-  return files;
 }
 
 async function db(): Promise<PrismaClient> {
@@ -263,22 +252,29 @@ test("subscription service uses deterministic grant identity and no mutation-bas
   assert.doesNotMatch(source, /stripe|kpay|\bwebhook\b/i);
 });
 
-test("no purchase or activation endpoint exists (S4 scope protection)", () => {
-  const apiRoutes = listFilesRecursively(
-    resolve(import.meta.dirname, "..", "app", "api"),
-  ).filter((file) => file.endsWith("route.ts"));
-
-  for (const route of apiRoutes) {
-    const body = readFileSync(route, "utf8");
-    assert.ok(
-      !body.includes("activateSubscription"),
-      `route must not expose activateSubscription: ${route}`,
-    );
-    assert.ok(
-      !route.includes("subscription"),
-      `route must not be a subscription endpoint: ${route}`,
-    );
+test("purchase intent and cancellation routes are authenticated and no public fulfillment route exists", () => {
+  const routes = [
+    read("app/api/subscription/purchases/route.ts"),
+    read("app/api/subscription/purchases/[id]/route.ts"),
+    read("app/api/subscription/cancel/route.ts"),
+  ];
+  for (const route of routes) {
+    assert.match(route, /requireAuthenticatedAppUser/);
+    assert.doesNotMatch(route, /activateSubscription|fulfillVerifiedPurchase|paymentSucceededAt|status:\s*["']SUCCEEDED["']/);
   }
+
+  const fulfillmentRoute = resolve(
+    import.meta.dirname,
+    "..",
+    "app",
+    "api",
+    "subscription",
+    "purchases",
+    "[id]",
+    "fulfill",
+    "route.ts",
+  );
+  assert.equal(existsSync(fulfillmentRoute), false, "no client-callable fulfillment endpoint");
 
   const subscriptionService = read("lib/subscription-service.ts");
   assert.ok(!/buySubscription|createCheckout|startCheckout/i.test(subscriptionService));

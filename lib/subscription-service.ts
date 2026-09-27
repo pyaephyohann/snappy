@@ -273,81 +273,69 @@ function isUniqueViolation(error: unknown): boolean {
  *   (`already_active`). No prorated grants, refunds, or double grants are
  *   invented in S4.
  */
+/**
+ * Establish a paid subscription inside the caller's transaction. This keeps
+ * the existing activation rules and grant identity while allowing an internal
+ * verified-purchase flow to make purchase state + activation + grant atomic.
+ * Callers must serialize on the canonical user row (this helper does so).
+ */
+export async function activateSubscriptionInTransaction(
+  tx: Prisma.TransactionClient,
+  input: ActivateSubscriptionInput & { periodStart: Date },
+): Promise<ActivateSubscriptionResult> {
+  const { userId, plan, periodStart } = input;
+  const now = input.now ?? new Date();
+  if (!Number.isFinite(periodStart.getTime())) {
+    throw new SubscriptionServiceError("invalid_plan", "invalid_billing_period_start");
+  }
+
+  if (!isPaidPlan(plan)) {
+    throw new SubscriptionServiceError("invalid_plan", "only_paid_plans_can_be_activated");
+  }
+
+  const currentPeriodEnd = addBillingMonths(periodStart, 1);
+
+  await tx.$queryRaw`SELECT "id" FROM "users" WHERE "id" = ${userId} FOR UPDATE`;
+  const user = await tx.user.findUnique({
+    where: { id: userId },
+    select: { id: true },
+  });
+  if (!user) {
+    throw new SubscriptionServiceError("user_not_found", "user_not_found");
+  }
+
+  const existing = await tx.subscription.findUnique({ where: { userId } });
+  if (existing && isSubscriptionActive(existing, now)) {
+    if (existing.plan === plan && existing.status === "ACTIVE") {
+      const grant = await grantSubscriptionSparks(tx, existing, now);
+      return { subscription: existing, created: false, grant };
+    }
+    throw new SubscriptionServiceError("already_active", "subscription_already_active");
+  }
+
+  const subscription = existing
+    ? await tx.subscription.update({
+        where: { userId },
+        data: { plan, status: "ACTIVE", currentPeriodStart: periodStart, currentPeriodEnd },
+      })
+    : await tx.subscription.create({
+        data: { userId, plan, status: "ACTIVE", currentPeriodStart: periodStart, currentPeriodEnd },
+      });
+  const grant = await grantSubscriptionSparks(tx, subscription, now);
+  return { subscription, created: true, grant };
+}
+
 export async function activateSubscription(
   input: ActivateSubscriptionInput,
 ): Promise<ActivateSubscriptionResult> {
-  const { userId, plan } = input;
   const now = input.now ?? new Date();
-
-  if (!isPaidPlan(plan)) {
-    throw new SubscriptionServiceError(
-      "invalid_plan",
-      "only_paid_plans_can_be_activated",
-    );
-  }
-
   const periodStart = input.periodStart ?? now;
-  const currentPeriodEnd = addBillingMonths(periodStart, 1);
-
   for (let attempt = 0; attempt < MAX_ACTIVATION_RETRIES; attempt += 1) {
     try {
-      return await prisma.$transaction(async (tx) => {
-        // Serialize with all other per-user economy operations.
-        await tx.$queryRaw`SELECT "id" FROM "users" WHERE "id" = ${userId} FOR UPDATE`;
-
-        const user = await tx.user.findUnique({
-          where: { id: userId },
-          select: { id: true },
-        });
-        if (!user) {
-          throw new SubscriptionServiceError("user_not_found", "user_not_found");
-        }
-
-        const existing = await tx.subscription.findUnique({
-          where: { userId },
-        });
-
-        if (existing && isSubscriptionActive(existing, now)) {
-          if (existing.plan === plan && existing.status === "ACTIVE") {
-            // Replay of the same activation: the period grant is idempotent.
-            const grant = await grantSubscriptionSparks(tx, existing, now);
-            return { subscription: existing, created: false, grant };
-          }
-          // Different plan (or reactivating a canceled-but-running period):
-          // immediate upgrade/downgrade behavior is deferred — never invent
-          // prorated Sparks, refunds, or double grants here.
-          throw new SubscriptionServiceError(
-            "already_active",
-            "subscription_already_active",
-          );
-        }
-
-        const subscription = existing
-          ? await tx.subscription.update({
-              where: { userId },
-              data: {
-                plan,
-                status: "ACTIVE",
-                currentPeriodStart: periodStart,
-                currentPeriodEnd,
-              },
-            })
-          : await tx.subscription.create({
-              data: {
-                userId,
-                plan,
-                status: "ACTIVE",
-                currentPeriodStart: periodStart,
-                currentPeriodEnd,
-              },
-            });
-
-        const grant = await grantSubscriptionSparks(tx, subscription, now);
-        return { subscription, created: true, grant };
-      });
+      return await prisma.$transaction((tx) =>
+        activateSubscriptionInTransaction(tx, { ...input, periodStart, now }),
+      );
     } catch (error) {
-      // A concurrent activation won a unique-index race. Roll back (fully
-      // atomic) and retry so the loser observes the winner's committed state.
       if (isUniqueViolation(error) && attempt < MAX_ACTIVATION_RETRIES - 1) {
         continue;
       }

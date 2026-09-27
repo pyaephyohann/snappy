@@ -16,7 +16,7 @@
  */
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { resolve, join } from "node:path";
 import type { PrismaClient } from "@prisma/client";
 
@@ -240,7 +240,7 @@ test("profile Sparks card has no client-side economy math, hard-coded costs, or 
   assert.doesNotMatch(card, /\bcaptionEditCost\b/);
 });
 
-test("S5 introduces no payment functionality anywhere", () => {
+test("S5 UI remains display-only while S7-A adds no payment functionality", () => {
   const files = [
     "components/sparks/SparkBalanceCard.tsx",
     "components/profile/ProfilePageClient.tsx",
@@ -253,24 +253,33 @@ test("S5 introduces no payment functionality anywhere", () => {
     assert.doesNotMatch(read(file), boundary, `no payment content: ${file}`);
   }
 
-  // No new API routes: S5 reads the existing summary endpoint only.
-  const apiRoutes = listFilesRecursively(
-    resolve(import.meta.dirname, "..", "app", "api"),
-  ).filter((file) => file.endsWith("route.ts"));
-  for (const route of apiRoutes) {
-    const normalized = route.replace(/\\/g, "/");
-    assert.equal(
-      /\/api\/(subscription|plans|profile\/sparks)/.test(normalized),
-      false,
-      `no subscription/plan/spark endpoint may exist: ${route}`,
-    );
-    if (normalized.includes("/api/sparks/")) {
-      assert.ok(
-        normalized.endsWith("/api/sparks/usage/route.ts"),
-        `only GET /api/sparks/usage may exist: ${route}`,
-      );
-    }
+  // S5 remains display-only. S7-A adds only authenticated purchase-intent
+  // and cancellation routes; none can activate or verify payment.
+  const purchaseRoute = read("app/api/subscription/purchases/route.ts");
+  const statusRoute = read("app/api/subscription/purchases/[id]/route.ts");
+  const cancelRoute = read("app/api/subscription/cancel/route.ts");
+  for (const route of [purchaseRoute, statusRoute, cancelRoute]) {
+    assert.match(route, /requireAuthenticatedAppUser/);
+    assert.doesNotMatch(route, /activateSubscription|fulfillVerifiedPurchase|paymentSucceededAt/);
   }
+  const fulfillmentRoute = resolve(
+    import.meta.dirname,
+    "..",
+    "app",
+    "api",
+    "subscription",
+    "purchases",
+    "[id]",
+    "fulfill",
+    "route.ts",
+  );
+  assert.equal(existsSync(fulfillmentRoute), false);
+
+  const sparkRoutes = listFilesRecursively(
+    resolve(import.meta.dirname, "..", "app", "api", "sparks"),
+  ).filter((file) => file.endsWith("route.ts"));
+  assert.equal(sparkRoutes.length, 1);
+  assert.ok(sparkRoutes[0].endsWith("/sparks/usage/route.ts"));
 
   // The profile itself never links into the (unrelated) payment page.
   const profile = read("components/profile/ProfilePageClient.tsx");

@@ -17,7 +17,7 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { execSync } from "node:child_process";
 import { resolve, join } from "node:path";
 import {
@@ -162,39 +162,36 @@ test("no client-side economy math, status, or expiration calculation", () => {
 // Mutation safety
 // ===========================================================================
 
-test("S6 makes no API call and no subscription route exists", () => {
+test("S6 makes no API call and S7-A routes do not add a client fulfillment path", () => {
   // The section itself issues no requests and defines no HTTP mutation.
   assert.doesNotMatch(section, /\bfetch\s*\(|axios/);
   assert.doesNotMatch(section, /method:\s*["'](?:POST|PUT|PATCH|DELETE)["']/i);
 
-  // Route scan (mirrors the locked S4/S5 assertions).
-  const apiRoutes = listFilesRecursively(resolve(root, "app", "api")).filter(
+  // Only safe S7-A route surfaces exist, and no client fulfillment endpoint.
+  const purchaseRoute = read("app/api/subscription/purchases/route.ts");
+  const statusRoute = read("app/api/subscription/purchases/[id]/route.ts");
+  const cancelRoute = read("app/api/subscription/cancel/route.ts");
+  for (const route of [purchaseRoute, statusRoute, cancelRoute]) {
+    assert.match(route, /requireAuthenticatedAppUser/);
+    assert.doesNotMatch(route, /activateSubscription|fulfillVerifiedPurchase|paymentSucceededAt/);
+  }
+  const fulfillmentRoute = resolve(
+    root,
+    "app",
+    "api",
+    "subscription",
+    "purchases",
+    "[id]",
+    "fulfill",
+    "route.ts",
+  );
+  assert.equal(existsSync(fulfillmentRoute), false);
+
+  const sparkRoutes = listFilesRecursively(resolve(root, "app", "api", "sparks")).filter(
     (file) => file.endsWith("route.ts"),
   );
-  assert.ok(apiRoutes.length > 0);
-  for (const route of apiRoutes) {
-    const normalized = route.replace(/\\/g, "/");
-    assert.ok(
-      !normalized.includes("subscription"),
-      `route must not be a subscription endpoint: ${route}`,
-    );
-    assert.equal(
-      /\/api\/(subscription|plans|profile\/sparks)/.test(normalized),
-      false,
-      `no subscription/plans endpoint may exist: ${route}`,
-    );
-    if (normalized.includes("/api/sparks/")) {
-      assert.ok(
-        normalized.endsWith("/api/sparks/usage/route.ts"),
-        `only GET /api/sparks/usage may exist: ${route}`,
-      );
-    }
-    const body = readFileSync(route, "utf8");
-    assert.ok(
-      !/activateSubscription|cancelSubscription/.test(body),
-      `route must not expose subscription mutations: ${route}`,
-    );
-  }
+  assert.equal(sparkRoutes.length, 1);
+  assert.ok(sparkRoutes[0].endsWith("/sparks/usage/route.ts"));
 });
 
 test("S6 introduces no subscription lifecycle behavior in the UI", () => {
@@ -278,8 +275,6 @@ test("SparkBalanceCard and protected economy files are unchanged in the working 
     "lib/spark-usage.ts",
     "lib/spark-service.ts",
     "lib/subscription-plans.ts",
-    "lib/subscription-service.ts",
-    "prisma/schema.prisma",
   ];
   for (const path of protectedPaths) {
     const status = execSync(
