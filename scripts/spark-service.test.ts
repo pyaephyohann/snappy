@@ -6,7 +6,7 @@
  *
  * Run: npm run test:spark
  */
-import test, { after, before } from "node:test";
+import test, { after } from "node:test";
 import assert from "node:assert/strict";
 import { PrismaClient } from "@prisma/client";
 import {
@@ -40,9 +40,17 @@ const hasDb = !!process.env.DATABASE_URL;
 const testUserIds: string[] = [];
 const testSnapIds: string[] = [];
 
+// S8.1 hygiene: `User.name` is @unique and this suite runs against a shared
+// database, so each run suffixes its fixture names with a run-scoped id.
+// Residue from an interrupted run can then never collide with a later run.
+const RUN_ID = `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+
 async function createTestUser(name: string): Promise<string> {
   const user = await prisma.user.create({
-    data: { name, profileImage: "https://example.com/test.jpg" },
+    data: {
+      name: `${name}_${RUN_ID}`,
+      profileImage: "https://example.com/test.jpg",
+    },
   });
   testUserIds.push(user.id);
   return user.id;
@@ -69,6 +77,7 @@ async function seedSparkTransaction(opts: {
   sparkKind: "EARNED" | "SUBSCRIPTION";
   expiresAt?: Date | null;
   referenceId?: string;
+  createdAt?: Date;
 }) {
   return prisma.sparkTransaction.create({
     data: {
@@ -78,19 +87,17 @@ async function seedSparkTransaction(opts: {
       source: opts.source,
       sparkKind: opts.sparkKind,
       expiresAt: opts.expiresAt ?? null,
+      createdAt: opts.createdAt,
       referenceType: opts.referenceId ? "test" : null,
       referenceId: opts.referenceId ?? `test_${opts.type}_${Date.now()}_${Math.random().toString(36).slice(2)}`,
     },
   });
 }
 
-before(async () => {
-  if (!hasDb) return;
-  await prisma.sparkTransaction.deleteMany({});
-  await prisma.uploadUsage.deleteMany({});
-  await prisma.dailyUploadCounter.deleteMany({});
-  await prisma.dailySparkEarnCounter.deleteMany({});
-});
+// S8.1 hygiene: this suite intentionally performs NO unscoped
+// `deleteMany({})` on shared tables (they wiped rows owned by other data on
+// the shared database). Determinism comes from the run-scoped unique fixture
+// names above plus the per-run `after` cleanup below.
 
 after(async () => {
   if (!hasDb) return;
@@ -130,7 +137,11 @@ test("getDailyPeriodBoundaries handles midnight boundary", () => {
 test("getYangonDayDate returns date-only midnight UTC", () => {
   const now = new Date("2026-09-20T10:00:00Z"); // 16:30 Yangon
   const day = getYangonDayDate(now);
-  assert.equal(day.toISOString(), "2026-09-19T17:30:00.000Z"); // midnight Yangon Sep 20
+  // The `day` key stamps the Yangon calendar date at midnight UTC (date
+  // only) — the documented contract and the value used as the composite
+  // `userId_day` counter key. The Yangon-midnight INSTANT (17:30Z of the
+  // previous UTC day) is getDailyPeriodBoundaries().dayStart, tested above.
+  assert.equal(day.toISOString(), "2026-09-20T00:00:00.000Z");
 });
 
 // ===========================================================================
@@ -160,8 +171,12 @@ test("getSparkBalance correctly sums earned and subscription sparks", { skip: !h
 
 test("getSparkBalance excludes expired subscription sparks", { skip: !hasDb ? "DATABASE_URL not set" : false }, async () => {
   const userId = await createTestUser("spark_t_balance_exp");
-  await seedSparkTransaction({ userId, amount: 50, type: "SUBSCRIPTION_GRANT", source: "SUBSCRIPTION", sparkKind: "SUBSCRIPTION", expiresAt: new Date("2026-08-01T00:00:00Z"), referenceId: "sub_aug" });
-  await seedSparkTransaction({ userId, amount: 30, type: "SUBSCRIPTION_GRANT", source: "SUBSCRIPTION", sparkKind: "SUBSCRIPTION", expiresAt: new Date("2026-10-01T00:00:00Z"), referenceId: "sub_sep" });
+  // Relative expiries keep this deterministic on any run date (a hardcoded
+  // "future" expiry silently becomes "expired" once the calendar passes it).
+  const expiredAt = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const activeUntil = new Date(Date.now() + 24 * 60 * 60 * 1000);
+  await seedSparkTransaction({ userId, amount: 50, type: "SUBSCRIPTION_GRANT", source: "SUBSCRIPTION", sparkKind: "SUBSCRIPTION", expiresAt: expiredAt, referenceId: "sub_aug" });
+  await seedSparkTransaction({ userId, amount: 30, type: "SUBSCRIPTION_GRANT", source: "SUBSCRIPTION", sparkKind: "SUBSCRIPTION", expiresAt: activeUntil, referenceId: "sub_sep" });
   await seedSparkTransaction({ userId, amount: 10, type: "UPLOAD_REWARD", source: "SNAP", sparkKind: "EARNED", referenceId: "snap_earned" });
 
   const balance = await getSparkBalance(userId);
@@ -208,19 +223,46 @@ test("10 uploads earn at most 10 Sparks per day", { skip: !hasDb ? "DATABASE_URL
 });
 
 test("earnSparks daily cap resets in new daily period", { skip: !hasDb ? "DATABASE_URL not set" : false }, async () => {
+  // The cap authority is the daily counter keyed by the injected `now`'s
+  // Yangon day, so this boundary test is deterministic on any run date.
+  // (Ledger rows are stamped with the real wall clock, so historical earns
+  // cannot be observed through getDailySparkUsage — see the window test
+  // below for that read path.)
   const userId = await createTestUser("spark_t_earn_reset");
   const endOfDay = new Date("2026-09-20T17:29:00Z");
   for (let i = 0; i < 10; i++) {
     const snapId = await createTestSnap(userId, userId);
-    await earnSparks({ userId, snapId }, endOfDay);
+    const result = await earnSparks({ userId, snapId }, endOfDay);
+    assert.equal(result.credited, true, `Upload ${i + 1}`);
   }
-  const dailyUsage = await getDailySparkUsage(userId, endOfDay);
-  assert.equal(dailyUsage.earningCapReached, true);
+  // Same Yangon day: the eleventh earn is capped out.
+  const cappedSnap = await createTestSnap(userId, userId);
+  const capped = await earnSparks({ userId, snapId: cappedSnap }, endOfDay);
+  assert.equal(capped.credited, false);
 
+  // One Yangon midnight later the counter starts a new day key: the daily
+  // cap resets and earning works again.
   const nextDay = new Date("2026-09-20T17:30:00Z");
-  const dailyUsageNext = await getDailySparkUsage(userId, nextDay);
-  assert.equal(dailyUsageNext.sparksEarnedToday, 0);
-  assert.equal(dailyUsageNext.earningCapReached, false);
+  const freshSnap = await createTestSnap(userId, userId);
+  const reset = await earnSparks({ userId, snapId: freshSnap }, nextDay);
+  assert.equal(reset.credited, true);
+});
+
+test("getDailySparkUsage aggregates the injected Yangon day window", { skip: !hasDb ? "DATABASE_URL not set" : false }, async () => {
+  const userId = await createTestUser("spark_t_usage_window");
+  // Backdated ledger rows make the read-path window behavior deterministic:
+  // getDailySparkUsage sums UPLOAD_REWARD rows whose `createdAt` falls
+  // inside the injected Yangon day window.
+  await seedSparkTransaction({ userId, amount: 5, type: "UPLOAD_REWARD", source: "SNAP", sparkKind: "EARNED", referenceId: "win_a", createdAt: new Date("2026-09-20T10:00:00Z") });
+  await seedSparkTransaction({ userId, amount: 5, type: "UPLOAD_REWARD", source: "SNAP", sparkKind: "EARNED", referenceId: "win_b", createdAt: new Date("2026-09-20T16:00:00Z") });
+
+  const usage = await getDailySparkUsage(userId, new Date("2026-09-20T17:29:00Z"));
+  assert.equal(usage.sparksEarnedToday, 10);
+  assert.equal(usage.earningCapReached, true);
+
+  const next = await getDailySparkUsage(userId, new Date("2026-09-20T17:30:00Z"));
+  assert.equal(next.sparksEarnedToday, 0);
+  assert.equal(next.earningCapReached, false);
 });
 
 // ===========================================================================

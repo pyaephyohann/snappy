@@ -171,7 +171,7 @@ test("no provider, webhook, or client callable fulfill route exists", () => {
 
   const routes = listFilesRecursively(resolve(root, "app", "api")).filter((path) => path.endsWith("route.ts"));
   const subscriptionRoutes = routes.filter((path) => path.includes("/subscription/"));
-  assert.equal(subscriptionRoutes.length, 3);
+  assert.equal(subscriptionRoutes.length, 4); // create, read, cancel, payment-init (S7-B.2)
   for (const path of subscriptionRoutes) {
     const source = readFileSync(path, "utf8");
     assert.doesNotMatch(source, /fulfillVerifiedPurchase|activateSubscription/);

@@ -3,26 +3,35 @@
 import { useSparkUsage } from "@/hooks/useSparkUsage";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
+  SparkPlanPurchaseAction,
+  SparkPlanPurchaseStatusPanel,
+  useSparkPlanPurchase,
+  type SparkPlanPurchaseFlowState,
+} from "@/components/sparks/SparkPlanPurchaseFlow";
+import {
   DEFAULT_PLAN,
   PAID_PLANS,
   PLAN_CONFIG,
 } from "@/lib/subscription-plans";
-import type { SubscriptionPlan } from "@prisma/client";
+import type { SubscriptionPlan, SubscriptionStatus } from "@prisma/client";
 
 /**
- * Plan comparison section (S6 — Spark Plan UI Foundation).
+ * Plan comparison section (S6 foundation + S7-B.4 purchase affordance).
  *
- * Display-only: every plan name, monthly price, subscription Spark grant,
- * and cost below is read from the authoritative `PLAN_CONFIG`
- * (`lib/subscription-plans.ts`) — no configuration is duplicated,
- * re-typed, or hard-coded here, and no price digit is written literally.
+ * Every plan name, monthly price, subscription Spark grant, and cost below
+ * is read from the authoritative `PLAN_CONFIG` (`lib/subscription-plans.ts`)
+ * — no configuration is duplicated, re-typed, or hard-coded here, and no
+ * price digit is written literally. Prices shown for a real purchase come
+ * from the server's purchase record, never from client constants.
  *
  * The "Your plan" marker comes verbatim from the server-reported
  * `useSparkUsage()` summary (`usage.plan`), which already resolves the
  * effective plan (including the Free fallback for expired subscriptions).
  * The client performs no balance, affordability, status, or expiration
- * calculation, calls no API of its own, and offers no working action:
- * plan activation and payment belong to a later milestone (S7).
+ * calculation. Purchase creation, payment initialization, and
+ * server-authoritative status observation live in
+ * `SparkPlanPurchaseFlow.tsx` (S7-B.4); this section only renders the
+ * affordance and the flow's status panel.
  */
 
 const PLAN_LABELS: Record<SubscriptionPlan, string> = {
@@ -45,10 +54,15 @@ function sparks(value: number): string {
 function PlanCard({
   plan,
   currentPlan,
+  subscriptionStatus,
+  flow,
 }: {
   plan: SubscriptionPlan;
   /** Server-reported effective plan, or null while usage is unavailable. */
   currentPlan: SubscriptionPlan | null;
+  /** Server-reported subscription status, or null when none is active. */
+  subscriptionStatus: SubscriptionStatus | null;
+  flow: SparkPlanPurchaseFlowState;
 }) {
   const config = PLAN_CONFIG[plan];
   const isCurrent = currentPlan !== null && plan === currentPlan;
@@ -82,19 +96,39 @@ function PlanCard({
         <li>{sparks(config.extraUploadCost)} per extra upload</li>
         <li>{sparks(config.captionEditCost)} per caption edit</li>
       </ul>
+
+      <div className="mt-4">
+        <SparkPlanPurchaseAction
+          plan={plan}
+          planLabel={PLAN_LABELS[plan]}
+          currentPlan={currentPlan}
+          subscriptionStatus={subscriptionStatus}
+          flow={flow}
+        />
+      </div>
     </li>
   );
 }
 
 function PlanGrid({
   currentPlan,
+  subscriptionStatus,
+  flow,
 }: {
   currentPlan: SubscriptionPlan | null;
+  subscriptionStatus: SubscriptionStatus | null;
+  flow: SparkPlanPurchaseFlowState;
 }) {
   return (
     <ul className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
       {PLAN_ORDER.map((plan) => (
-        <PlanCard key={plan} plan={plan} currentPlan={currentPlan} />
+        <PlanCard
+          key={plan}
+          plan={plan}
+          currentPlan={currentPlan}
+          subscriptionStatus={subscriptionStatus}
+          flow={flow}
+        />
       ))}
     </ul>
   );
@@ -102,6 +136,7 @@ function PlanGrid({
 
 export default function SparkPlanSection() {
   const { usage, loading } = useSparkUsage();
+  const purchaseFlow = useSparkPlanPurchase();
 
   return (
     <section className="rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-6">
@@ -109,8 +144,9 @@ export default function SparkPlanSection() {
         Plans
       </h3>
       <p className="mt-2 text-sm text-muted-foreground">
-        Compare the four Snappy plans. Plan activation will be available in a
-        future update.
+        Compare the four Snappy plans. Choose a paid plan to subscribe — the
+        price shown is confirmed by Snappy when you start, and your plan is
+        updated here automatically after payment.
       </p>
 
       {loading ? (
@@ -132,13 +168,26 @@ export default function SparkPlanSection() {
           <p className="mt-3 text-sm text-destructive" role="alert">
             Couldn&apos;t load your current plan right now.
           </p>
-          <PlanGrid currentPlan={null} />
+          <PlanGrid
+            currentPlan={null}
+            subscriptionStatus={null}
+            flow={purchaseFlow}
+          />
         </>
       ) : (
         // Server-authoritative current plan: `usage.plan` is rendered as-is,
         // exactly what SparkBalanceCard shows alongside it.
-        <PlanGrid currentPlan={usage.plan} />
+        <PlanGrid
+          currentPlan={usage.plan}
+          subscriptionStatus={usage.subscriptionStatus}
+          flow={purchaseFlow}
+        />
       )}
+
+      <SparkPlanPurchaseStatusPanel
+        flow={purchaseFlow}
+        planLabels={PLAN_LABELS}
+      />
     </section>
   );
 }

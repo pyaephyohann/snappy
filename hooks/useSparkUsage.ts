@@ -6,6 +6,14 @@ import type { SparkUsageSummary } from "@/lib/spark-usage";
 const SPARK_USAGE_ENDPOINT = "/api/sparks/usage";
 
 /**
+ * Cross-component refresh signal (S7-B.4), mirroring the established
+ * `NOTIFICATIONS_UPDATED_EVENT` pattern. Dispatched after the server
+ * confirms a purchase (SUCCEEDED) so every `useSparkUsage()` consumer
+ * re-fetches the authoritative summary — nothing is computed locally.
+ */
+export const SPARK_USAGE_UPDATED_EVENT = "snappy:spark-usage-updated";
+
+/**
  * Fetches the server-authoritative Spark usage summary used by the Snap
  * upload UI (S2).
  *
@@ -41,7 +49,12 @@ export function useSparkUsage() {
 
   useEffect(() => {
     const timer = setTimeout(() => void refresh(), 0);
-    return () => clearTimeout(timer);
+    const onUpdated = () => void refresh();
+    window.addEventListener(SPARK_USAGE_UPDATED_EVENT, onUpdated);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener(SPARK_USAGE_UPDATED_EVENT, onUpdated);
+    };
   }, [refresh]);
 
   /** Adopt a summary returned by the server with an upload result. */

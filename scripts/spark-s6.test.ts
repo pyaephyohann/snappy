@@ -8,10 +8,16 @@
  * duplicated configuration, no hard-coded price digits), all four plans and
  * their configuration-driven features render, the current plan comes
  * verbatim from the server usage summary, no client-side economy/status/
- * expiration math exists, no API call or subscription route is introduced,
- * no payment functionality exists, the shared profile integration holds for
+ * expiration math exists, no API call or subscription route is introduced
+ * in the section itself, the shared profile integration holds for
  * Web/PWA/Telegram, S5/protected files remain untouched, and documentation
  * covers S6 while the locked S5 slice stays clean of prices and providers.
+ *
+ * S7-B.4 note: the plan cards now carry a purchase affordance, so the two
+ * assertions S7-B.4 supersedes (the section's display-only payment
+ * boundary and useSparkUsage.ts's untouched status) were re-scoped below —
+ * the same minimal-adjustment convention used for the S7-B.2 route count
+ * in scripts/spark-s7a.test.ts.
  *
  * Run: npm run test:spark-s6
  */
@@ -212,13 +218,28 @@ test("S6 introduces no subscription lifecycle behavior in the UI", () => {
 // Payment safety
 // ===========================================================================
 
-test("S6 UI implements no payment functionality", () => {
-  assert.doesNotMatch(section, PAYMENT_BOUNDARY);
+test("payment safety: the S7-B.4 affordance leaks no provider or price data into the Spark UI", () => {
+  // S7-B.4 supersedes the S6 display-only snapshot for SparkPlanSection
+  // (the plan cards now carry a purchase affordance). The S6 guarantees
+  // that remain: the shared profile stays free of payment content, and the
+  // Spark UI surface carries no provider names and no hard-coded prices.
   assert.doesNotMatch(profile, PAYMENT_BOUNDARY);
+  assert.doesNotMatch(section, PROVIDERS);
+  assert.doesNotMatch(section, PRICE_DIGITS);
+  const flow = read("components/sparks/SparkPlanPurchaseFlow.tsx");
+  assert.doesNotMatch(flow, PROVIDERS);
+  assert.doesNotMatch(flow, PRICE_DIGITS);
+  const statusClient = read("lib/purchase-status-client.ts");
+  assert.doesNotMatch(statusClient, PROVIDERS);
+  assert.doesNotMatch(statusClient, PRICE_DIGITS);
 
   // The unrelated profile-photo payment feature stays isolated.
   assert.doesNotMatch(
     section,
+    /components\/payment|profile\/payment|premium-profile-photo-payment|images\/payments/,
+  );
+  assert.doesNotMatch(
+    flow,
     /components\/payment|profile\/payment|premium-profile-photo-payment|images\/payments/,
   );
   assert.doesNotMatch(profile, /\/profile\/payment/);
@@ -271,7 +292,11 @@ test("SparkBalanceCard and protected economy files are unchanged in the working 
     "components/snaps/SparkUsageIndicator.tsx",
     "components/snaps/SnapCreateComposerModal.tsx",
     "components/snaps/SnapViewer.tsx",
-    "hooks/useSparkUsage.ts",
+    // S7-B.4: hooks/useSparkUsage.ts gains only the standard
+    // snappy:spark-usage-updated refresh listener (mirroring the
+    // NOTIFICATIONS_UPDATED_EVENT pattern) so every consumer re-fetches
+    // server-backed data after a confirmed purchase; its contract is
+    // asserted below instead of a zero-diff check.
     "lib/spark-usage.ts",
     "lib/spark-service.ts",
     "lib/subscription-plans.ts",
@@ -289,6 +314,14 @@ test("SparkBalanceCard and protected economy files are unchanged in the working 
   assert.match(card, /useSparkUsage/);
   assert.match(card, /usage\.subscriptionStatus/);
   assert.match(card, /usage\.subscriptionPeriodEnd/);
+
+  // useSparkUsage keeps its S5 contract and adds only the shared refresh
+  // event listener (S7-B.4) used to re-fetch server-backed data.
+  const usageHook = read("hooks/useSparkUsage.ts");
+  assert.match(usageHook, /export function useSparkUsage/);
+  assert.match(usageHook, /applyUsage/);
+  assert.match(usageHook, /SPARK_USAGE_UPDATED_EVENT = "snappy:spark-usage-updated"/);
+  assert.match(usageHook, /addEventListener\(SPARK_USAGE_UPDATED_EVENT/);
 });
 
 // ===========================================================================

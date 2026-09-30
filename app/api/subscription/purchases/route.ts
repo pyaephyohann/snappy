@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { requireAuthenticatedAppUser } from "@/lib/auth";
+import { isSocialMutationRateLimited } from "@/lib/social-rate-limit";
 import {
   createPurchase,
   SubscriptionPurchaseServiceError,
@@ -18,6 +19,12 @@ export async function POST(request: NextRequest) {
     user = await requireAuthenticatedAppUser();
   } catch {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  if (isSocialMutationRateLimited(`subscription-purchase:${user.id}`)) {
+    return NextResponse.json(
+      { error: "Please wait before trying again" },
+      { status: 429 },
+    );
   }
 
   let body: unknown;
@@ -41,7 +48,10 @@ export async function POST(request: NextRequest) {
       parsed.data.plan,
       request.headers.get("idempotency-key") ?? "",
     );
-    return NextResponse.json({ purchase }, { status: 201 });
+    return NextResponse.json(
+      { purchase },
+      { status: 201, headers: { "Cache-Control": "private, no-store" } },
+    );
   } catch (error) {
     if (error instanceof SubscriptionPurchaseServiceError) {
       const status =
@@ -52,7 +62,8 @@ export async function POST(request: NextRequest) {
             : 500;
       return NextResponse.json({ error: error.message }, { status });
     }
-    console.error("Subscription purchase creation error:", error);
+    // Never serialize raw database/provider exceptions into application logs.
+    console.error("Subscription purchase creation failed (internal error)");
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

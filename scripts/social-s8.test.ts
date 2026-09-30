@@ -202,9 +202,14 @@ test("S8 adds no migration and leaves S7 thresholds untouched", () => {
   const migrations = readdirSync(resolve(root, "prisma/migrations"))
     .filter((entry) => entry !== "migration_lock.toml")
     .sort();
+  // S8.1 hygiene: this expectation was stale — social S8 added no migration
+  // of its own, and the committed S7-A subscription purchase foundation
+  // (20260927120000) postdates the social milestone. The assertion keeps its
+  // role (detect unexpected NEW migrations) against the current migration
+  // tip; migrations are never renamed, deleted, or reordered.
   assert.equal(
     migrations[migrations.length - 1],
-    "20260924120000_social_user_presence",
+    "20260927120000_subscription_purchase_foundation",
   );
 
   const presence = read("lib/presence.ts");

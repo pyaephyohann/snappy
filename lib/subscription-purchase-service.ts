@@ -199,6 +199,69 @@ export function requirePaymentVerification(): never {
   );
 }
 
+/**
+ * S7-B.3 — the guarded minting entry point anticipated by S7-A.
+ *
+ * SERVER-ONLY, INTERNAL: callable only from server payment code that has
+ * ALREADY (a) cryptographically verified the provider callback signature via
+ * the Wave adapter, and (b) matched the normalized result against a persisted
+ * purchase by server-side references. It is never reachable from any HTTP
+ * request shape: the brand symbol is module-private, so an ordinary client
+ * payload cannot structurally satisfy `[verificationBrand]: true`, and no
+ * route passes raw callback data here.
+ *
+ * The caller supplies the persisted purchase identity (userId, purchaseId)
+ * found via server-persisted references — the verified provider evidence is
+ * bound to that exact purchase row inside `fulfillVerifiedPurchase`, which
+ * independently re-validates orderReferenceId/amount/currency against the
+ * row before any state change.
+ */
+export function mintVerifiedPurchasePayment(input: {
+  purchase: {
+    userId: string;
+    id: string;
+    orderReferenceId: string;
+    amountMmk: number;
+    currency: string;
+  };
+  verified: {
+    providerReferenceId: string;
+    orderReferenceId: string;
+    amountMmk: number;
+    currency: string;
+    verifiedAt: Date;
+  };
+}): VerifiedPurchasePayment {
+  const { purchase, verified } = input;
+  // Defense in depth: the minter itself re-asserts the binding between the
+  // verified evidence and the persisted purchase before minting.
+  if (
+    verified.orderReferenceId !== purchase.orderReferenceId ||
+    verified.amountMmk !== purchase.amountMmk ||
+    verified.currency !== purchase.currency ||
+    !verified.providerReferenceId ||
+    !Number.isFinite(verified.verifiedAt.getTime())
+  ) {
+    throw new SubscriptionPurchaseServiceError(
+      "payment_verification_mismatch",
+      "verified payment does not match the purchase",
+    );
+  }
+  // The deterministic paid-period start: the moment of server-verified
+  // confirmation. fulfillVerifiedPurchase persists it exactly once and
+  // replays idempotently on later identical callbacks.
+  const periodStart = verified.verifiedAt;
+  return {
+    [verificationBrand]: true,
+    orderReferenceId: purchase.orderReferenceId,
+    amountMmk: purchase.amountMmk,
+    currency: purchase.currency,
+    verificationReference: verified.providerReferenceId,
+    verifiedAt: verified.verifiedAt,
+    periodStart,
+  };
+}
+
 export interface FulfillVerifiedPurchaseResult {
   purchase: SafeSubscriptionPurchase;
   activation: ActivateSubscriptionResult;

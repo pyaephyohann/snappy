@@ -1065,3 +1065,1130 @@ webhooks/signature verification, payment reconciliation, and actual payment
 fulfillment are deferred to **S7-B**. Until a verified server-side event is
 available, S7-A purchase records remain non-fulfilled intents and no client
 request can manufacture payment success.
+
+## S7-B.1 — Payment Domain + Wave Adapter Foundation
+
+S7-B.1 adds the provider-independent payment domain, an explicit purchase
+state machine, and a Wave Money adapter foundation. This milestone performs
+**no real payments**: no provider is contacted, no credentials exist, no
+webhook/callback route is added, no payment initialization API is added, and
+S6 UI is not wired.
+
+### Provider abstraction and normalized payment concepts
+
+`lib/payment/payment-contract.ts` defines the provider-independent contract:
+`PaymentProvider` with `createPayment(input)` and `verifyCallback(input)`,
+plus normalized domain types (`CreatePaymentInput`, `CreatePaymentResult`,
+`VerifyCallbackInput`, `VerifiedPaymentResult`, `NormalizedPaymentStatus`).
+The contract carries payment-domain data only — no Prisma models, no provider
+payload shapes. `CreatePaymentInput` is constructed exclusively by the server
+from the stored purchase and provider configuration (purchase id, order
+reference, amount, currency, expiry/TTL, callback URL, return URL,
+description); the client never supplies or overrides any of it.
+`VerifiedPaymentResult` represents server-verified provider data — a
+signature-checked provider callback — never a client claim. Provider-specific
+request/response structures stay inside the adapter.
+
+### State machine
+
+`lib/payment/payment-state.ts` is a pure, deterministic state machine over
+`INITIALIZED / PENDING / SUCCEEDED / FAILED / CANCELED / EXPIRED` (mirroring
+the `PurchaseStatus` enum; parity is asserted in tests). Transitions are
+classified by trigger: `provider_authoritative`, `server_timeout`,
+`user_cancellation`, `reconciliation`. Legal transitions: INITIALIZED →
+PENDING (provider accepts initialization), INITIALIZED → CANCELED (user),
+PENDING → SUCCEEDED / FAILED / CANCELED (verified provider outcome), PENDING
+→ EXPIRED (server TTL sweep), FAILED → SUCCEEDED (late verified confirmation
+= reconciliation). Terminal states accept only idempotent repeats.
+`INSUFFICIENT_BALANCE` never settles a purchase (documented provider
+"pending" outcome). No client request may transition a purchase to SUCCEEDED:
+only a verified provider outcome event can, and only a server-side verifier
+produces those events. `TIMED_OUT` provider outcomes settle as FAILED, with
+EXPIRED reserved for the server-side TTL sweep so late verified successes can
+still reconcile.
+
+### Wave adapter boundary
+
+`lib/payment/wave-payment-provider.ts` implements `PaymentProvider` for the
+documented Pay with Wave Payment Gateway merchant integration: the
+form-encoded `/payment` request with documented fields, the `/authenticate`
+payment URL, and JSON callback verification. Field mapping:
+`order_id` ← `orderReferenceId`, `merchant_reference_id` ← `purchaseId`,
+`paymentRequestId` → `providerReferenceId` (documented primary tracking id),
+`transactionId` → `providerEventId`. Documented response codes are normalized
+(409 → duplicate, 400/404 → provider rejection, 422 → invalid input, 200
+without a transaction id → unexpected). Documented ambiguity carried to
+S7-B.2 rather than guessed: the request table types `order_id` /
+`merchant_reference_id` as "string" while the PHP sample comments describe
+them as "unsigned integer"; the adapter sends the documented string form and
+S7-B.2 confirms the accepted format in the provider sandbox.
+
+### Signature verification
+
+`lib/payment/wave-signature.ts` isolates the documented HMAC-SHA256 contract:
+lowercase-hex digest, canonical message = documented field values
+concatenated without separator in documented order (request:
+`time_to_live_in_seconds+merchant_id+order_id+amount+backend_result_url+
+merchant_reference_id`; callback:
+`status+timeToLiveSeconds+merchantId+orderId+amount+backendResultUrl+
+merchantReferenceId+initiatorMsisdn+transactionId+paymentRequestId+
+requestTime`), and the documented null rule (a null value hashes as the
+literal string "null"). Verification is constant-time
+(`crypto.timingSafeEqual`) and rejects malformed signatures (wrong length,
+non-hex) without throwing. Unknown provider statuses are rejected safely and
+never normalized to an outcome.
+
+### Configuration boundary
+
+`lib/payment/payment-config.ts` resolves server-only configuration from
+`PAYMENT_PROVIDER`, `PAYMENT_ENVIRONMENT`, `PAYMENT_MERCHANT_ID`,
+`PAYMENT_MERCHANT_NAME`, `PAYMENT_MERCHANT_SECRET`, `PAYMENT_API_BASE_URL`.
+Missing or invalid configuration fails loudly with the offending variable
+names only — never defaulted or fabricated credentials, never secret values
+in errors. Secrets live only in the server-side config object and HMAC
+computation; nothing is exposed via NEXT_PUBLIC_* variables, client bundles,
+API responses, logs, or safe purchase projections. No real credentials are
+committed; these variables are unset in development.
+
+### No provider calls, no credentials, no webhook, no UI
+
+The HTTP boundary (`lib/payment/http-transport.ts`) is an injectable
+interface only — S7-B.1 ships no concrete transport and performs **zero
+network calls**; tests inject a fake transport. There is no payment
+initialization API, no webhook/callback route, no provider SDK, no refund
+logic, and S6 remains display-only. The S7-A fulfillment security boundary is
+untouched: `fulfillVerifiedPurchase` still requires the module-branded
+verification capability and there is still no public fulfillment route.
+
+### Renewal policy (unchanged, deferred)
+
+Manual monthly renewal remains the policy (no auto-renewal exists). Renewal
+implementation is deferred to a later milestone: the S7-A fulfillment path
+correctly rejects fulfillment while a subscription is active, and the
+renewal Spark-grant timing rule (grants must not be issued early for the next
+period) needs an explicit product decision plus an activation-helper change.
+Nothing in S7-B.1 modifies activation, grant, or period logic.
+
+### Schema
+
+No migration. The existing `SubscriptionPurchase.providerReferenceId`
+(nullable unique) cleanly represents Wave's `paymentRequestId` (the
+documented primary tracking id); the create-response `transaction_id` is an
+encrypted redirect handle that belongs only in the payment URL, not in a
+persistent identity column. No `paymentProvider` field is added — S7-A
+records remain provider-independent.
+
+### S7-B.2 boundary
+
+S7-B.2 (next milestone) adds: the payment initialization API route, the real
+HTTP transport, the webhook/callback route with signature verification,
+state-machine persistence wired to `SubscriptionPurchase`, and the guarded
+minting entry point that turns a `VerifiedPaymentResult` into S7-A's branded
+verification capability for `fulfillVerifiedPurchase`. Until then no route
+can initialize a provider payment or mark a purchase paid.
+
+## S7-B.2 — Payment Initialization API
+
+### Endpoint
+
+`POST /api/subscription/purchases/[id]/payment` — initializes the provider
+payment for an existing purchase. The client supplies only the purchase id
+(URL path) and an `Idempotency-Key` header (same format rules as S7-A:
+8–128 chars of `[A-Za-z0-9._:-]`). The request body is never read; there is
+no client-controlled `amount`, `currency`, `plan`, `merchantId`,
+`merchantReference`, `orderId`, `signature`, `backendUrl`, `frontendUrl`,
+`merchantSecret`, `providerReferenceId`, or `paymentStatus`.
+
+### Authentication and ownership
+
+The route authenticates via the existing session convention
+(`requireAuthenticatedAppUser`) and loads the purchase scoped to the session
+user (`where: { id, userId }`). A purchase owned by another user is
+indistinguishable from a missing one: both return 404 with no purchase
+details. A user id is never accepted from the client.
+
+### Server-authoritative purchase data
+
+Every payment-critical value is derived from the persisted purchase row:
+`amountMmk` (the historical server-authoritative amount recorded at purchase
+time — never recalculated or overwritten), `currency` (MMK),
+`orderReferenceId`, `id` (mapped to Wave's `merchant_reference_id`), and a
+server-derived plan label for the payment description. The payment description
+comes from `lib/subscription-plan-labels.ts` (server-only), never the client.
+
+### Plan configuration integrity
+
+Before initialization the service verifies the purchase still matches current
+server-side plan semantics: the plan exists in `PLAN_CONFIG`, the plan is a
+paid plan, `amountMmk > 0`, `currency === "MMK"`, and `planConfigVersion ===
+"1"`. An impossible configuration fails closed with
+`purchase_configuration_invalid` (HTTP 409) and never reaches the provider.
+
+### Purchase-state eligibility
+
+| Status      | Behavior |
+|-------------|----------|
+| INITIALIZED | Payment initialization allowed |
+| PENDING     | With a stored provider reference: safe replay — the existing payment is returned, no duplicate provider call. Without a reference: rejected (defensive; inconsistent state) |
+| SUCCEEDED   | Rejected (409); terminal, never reopened |
+| FAILED      | Rejected (409); a new attempt would be a new purchase, not a retry of this row |
+| CANCELED    | Rejected (409) |
+| EXPIRED     | Rejected (409) |
+
+All decisions flow through the S7-B.1 state machine
+(`decidePurchaseTransition(current, { type: "payment_initiated" })`), so no
+terminal purchase can be reopened and no state can reach SUCCEEDED from
+initialization.
+
+### Idempotency design
+
+Payment-initialization idempotency is distinct from S7-A's
+purchase-creation idempotency (`userId + idempotencyKeyHash`). The
+`Idempotency-Key` header here is validated for format only; purchase identity
+comes from the purchase id in the URL. One purchase row represents at most
+one logical payment attempt: Wave's `(order_id, merchant_reference_id)` pair
+is deterministic from the purchase row (`orderReferenceId` unique per
+purchase; `merchant_reference_id` = purchase id). A replayed request hits
+Wave's documented 409 "Record already exists", which maps to
+`payment_already_requested` (HTTP 409). **No new schema fields or tables were
+needed** — the existing `providerReferenceId` (unique, nullable) durably
+records the accepted attempt.
+
+### Concurrency protection
+
+The flow serializes on the canonical `users` row lock
+(`SELECT ... FOR UPDATE`, mirroring spark-service.ts and S7-A), so two
+concurrent initializations cannot both observe INITIALIZED. The persisted
+transition uses a guarded `updateMany({ where: { id, status: "INITIALIZED" }
+})` and fails closed unless exactly one row changed. Provider creation
+happens OUTSIDE the database transaction (an external HTTP call cannot roll
+back); atomicity across Postgres and Wave is explicitly NOT claimed. The
+orphan window (provider accepted, process died before persistence) is safe
+by construction: the purchase stays INITIALIZED and any retry re-hits Wave's
+409 for the same deterministic reference — a second provider payment cannot
+be created for one purchase.
+
+### Wave initialization
+
+The service calls only `PaymentProvider.createPayment(input)` with a
+server-created `CreatePaymentInput`. No Wave payloads, signing, or endpoint
+selection exist outside the adapter (`lib/payment/wave-payment-provider.ts`).
+The provider instance is wired by `lib/payment/payment-provider-factory.ts`
+(server-only): `resolveWaveProviderConfig()` + the concrete transport.
+
+### HTTP transport
+
+`lib/payment/fetch-http-transport.ts` implements the S7-B.1 `HttpTransport`
+interface with platform-native `fetch` (no third-party library): HTTPS only
+(non-https URLs rejected before any network call), bounded timeout (one shot
+via `AbortSignal.timeout`, never retried — a retry loop could duplicate a
+payment request), bounded response size (oversized/truncated bodies are
+dropped so the adapter fails closed), `redirect: "error"`, and no logging of
+request forms (which contain signatures) or response bodies. All failures map
+to `PaymentProviderError` with static messages.
+
+### Configuration and response contract
+
+`lib/payment/payment-urls.ts` derives the backend callback URL and frontend
+return URL from `SNAPPY_PUBLIC_URL` / `VERCEL_PROJECT_PRODUCTION_URL` (and
+optional `PAYMENT_CALLBACK_BASE_URL`), HTTPS-only, fail-closed (503) when no
+usable origin exists. Merchant credentials never leave the server. A
+successful response contains only:
+
+```json
+{
+  "purchaseId": "...",
+  "status": "PENDING",
+  "paymentUrl": "https://…/authenticate?transaction_id=…",
+  "expiresAt": "…"
+}
+```
+
+No merchant secret, signature, raw Wave response, internal configuration, or
+database internals are returned. Error responses carry safe application
+messages only; operational logs use static error categories and never serialize
+raw exception objects. Status mapping: 400 invalid Idempotency-Key, 401
+unauthenticated, 404 not found / not owned, 409 not-eligible state /
+configuration invalid / payment already requested, 502 provider error
+(timeout, network, rejection, malformed response), 503 configuration
+unavailable, 500 unexpected.
+
+### PENDING semantics and timeout/recovery behavior
+
+A 200 response means the PROVIDER ACCEPTED the payment request. It does NOT
+mean the customer paid. The only persisted transition during initialization
+is `INITIALIZED → PENDING` (plus `providerReferenceId`,
+`paymentInitiatedAt`, `expiresAt`). No code path in initialization can set
+`SUCCEEDED` or `paymentSucceededAt`; that requires a server-verified provider
+callback (S7-B.3) flowing through S7-A's branded `fulfillVerifiedPurchase`.
+
+A provider timeout is a `transport_error`, never success: the purchase stays
+INITIALIZED with no reference, and the client gets 502. Because Wave binds
+payments to the deterministic `(order_id, merchant_reference_id)`, a retry
+cannot create a second payment. If Wave may have accepted before the timeout,
+the same purchase re-initialization deterministically maps to the existing
+provider request (409) rather than a new one; explicit reconciliation (e.g.
+recovering the redirect URL or confirming the outcome) is deferred to
+S7-B.3 and the current behavior is deliberately fail-closed.
+
+### Provider error mapping
+
+Wave adapter (S7-B.1) errors map to application responses without exposing
+raw provider payloads: 409 → `payment_already_requested`; 400/404
+(`INVALID_HASH`/`No record found`) and all rejections → generic
+`payment_provider_error`; 422 and malformed/unexpected responses →
+`payment_provider_error`; timeout/network → `payment_provider_error` (502).
+Configuration failure (`PaymentConfigError`) → 503 before any mutation.
+
+### Tests
+
+`npm run test:spark-s7b2` (`scripts/spark-s7b2.test.ts`): source-level
+security checks (no client-controlled payment data, no secret exposure,
+initialization can never reach SUCCEEDED, HTTPS-only retry-free transport,
+server-derived URLs) plus live-DB tests (auth/ownership, state eligibility,
+server-derived provider input, PENDING replay without duplication, provider
+reference persistence, paymentSucceededAt stays null, timeout/400/409/422/
+malformed fail closed, impossible configuration fails safely, and concurrent
+initialization of one purchase ending in exactly one PENDING purchase with
+one provider reference).
+
+### S7-B.3 boundary
+
+Webhook/callback route, fulfillment minting, and reconciliation remain
+S7-B.3. Renewal remains deferred (manual monthly renewal policy unchanged).
+No refunds, no auto-renewal, no additional providers, no S6 UI wiring, and
+no changes to Spark grant timing or the profile-photo payment system.
+
+## S7-B.3 — Wave Callback Verification + Guarded Fulfillment
+
+### Callback endpoint
+
+`POST /api/payments/wave/callback` — provider-to-server only. NO browser
+session is involved or accepted; the provider authenticates itself through
+the documented HMAC callback signature. GET/PUT/DELETE return 405.
+
+### Raw request handling
+
+- Content-Type must be `application/json` (documented Wave callback format);
+  other types → 415.
+- Body bounded at 64 KiB; oversized payloads → 413 and are never parsed.
+  The exact raw body is what the signature covers, so it is decoded but not
+  transformed.
+- No raw payloads, signatures, or secrets are ever logged; log lines carry
+  static outcome codes only.
+- Nothing from the callback selects a user, plan, price, or Spark amount.
+
+### Signature verification (first, before any trust decision)
+
+Flow: raw body → safe parse + shape validation → HMAC verification → only
+then are payment fields trusted. All of this happens inside the Wave adapter
+(`verifyCallback`), which reuses the S7-B.1 helpers: documented field
+ordering, null → `"null"` rule, HMAC-SHA256 lowercase hex, constant-time
+comparison (`crypto.timingSafeEqual`), and rejection of malformed signatures
+(wrong length / non-hex / missing) without throwing. Merchant ID binding is
+checked against configuration. No signing logic exists outside the adapter.
+An unsigned, malformed, foreign-merchant, or unknown-status callback is
+rejected before any database read or state change.
+
+### Provider normalization
+
+The route and service see only the provider-neutral `VerifiedPaymentResult`
+(`providerReferenceId`, `orderReferenceId`, `merchantReferenceId`,
+`amountMmk`, `currency`, normalized `status`, `verifiedAt`,
+`providerEventId`). Raw Wave payloads never leak into the purchase service.
+`merchantReferenceId` was added to the contract in S7-B.3 (additive) so the
+callback service can verify Wave's `merchant_reference_id` (= purchase id at
+initialization) without duplicating Wave parsing.
+
+### Purchase identification
+
+The purchase is found by BOTH server-persisted references in one query:
+`orderReferenceId === callback orderId` AND `providerReferenceId ===
+callback paymentRequestId`. A row must match both. No user-controlled field
+participates. If the verified `merchantReferenceId` then differs from the
+matched row's id, the callback is rejected (fail closed).
+
+### Amount / currency verification
+
+Strict integer equality (`verified.amountMmk === purchase.amountMmk`) with
+no rounding or approximation; currency must equal the persisted currency
+(normalized `MMK`). Any mismatch rejects fulfillment and leaves the purchase
+untouched.
+
+### Status handling and state transitions
+
+Only the normalized `SUCCEEDED` outcome can enter fulfillment. Non-success
+document statuses route through the S7-B.1 state machine:
+`INSUFFICIENT_BALANCE` is a noop (stays PENDING, never settles);
+`TRANSACTION_TIMED_OUT`/`SCHEDULER_TRANSACTION_TIMED_OUT` → FAILED;
+`PAYMENT_REQUEST_CANCELLED` → CANCELED; `BILL_COLLECTION_FAILED`/
+`ACCOUNT_LOCKED` → FAILED; unknown statuses are rejected by the adapter.
+State transition requirements: `PENDING → SUCCEEDED` is the only legitimate
+success path. `INITIALIZED → SUCCEEDED` is illegal and fails closed — a
+callback for an INITIALIZED row means Wave holds an orphaned payment request
+whose persistence never committed, and guessing is forbidden (see orphan
+limitation below). `CANCELED`/`EXPIRED` are terminal and never reopen into
+success. The `FAILED → SUCCEEDED` reconciliation transition exists in the
+state machine but fulfillment currently rejects it (S7-A requires PENDING);
+this is a documented, deliberate fail-closed limitation until an explicit
+product rule exists.
+
+### Replay protection
+
+The same callback may arrive repeatedly. Fulfillment is S7-A's
+`fulfillVerifiedPurchase`, which is idempotent for an already-SUCCEEDED
+purchase: it returns the recorded subscription and grant without re-granting
+(replay detection via the recorded period + provider reference, plus the
+ledger's unique constraint). Result: one activation, one Spark grant, one
+success state, no matter how many duplicate callbacks arrive. No new
+fulfillment ledger was added.
+
+### Concurrency protection
+
+Concurrent identical callbacks serialize on the canonical `users` row lock
+inside the fulfillment transaction (existing S7-A pattern); the Spark grant's
+deterministic reference plus its unique constraint is the final backstop.
+Non-success terminal transitions use a guarded `updateMany` on the exact
+prior status, so a concurrent settlement wins deterministically. Verified by
+a live-DB test running three simultaneous callbacks: exactly one grant, one
+subscription, one SUCCEEDED state.
+
+### S7-A verification boundary (preserved, non-negotiable)
+
+The `verificationBrand` unique symbol remains module-private in
+`lib/subscription-purchase-service.ts`; the brand is NOT exported. S7-B.3
+adds `mintVerifiedPurchasePayment()` — the guarded internal entry point
+S7-A anticipated — callable only from server payment code that has already
+(a) HMAC-verified the callback via the adapter and (b) matched the
+normalized result to a persisted purchase by server-side references. The
+minter re-asserts the orderReferenceId/amount/currency binding before
+minting, and `fulfillVerifiedPurchase` independently re-validates again
+inside the transaction. The brand cannot be manufactured from any client
+payload, and no route touches the minter (enforced by a source-level test
+over ALL route files).
+
+### Fulfillment transaction
+
+For a verified success, one atomic transaction coordinates: purchase →
+SUCCEEDED with `paymentSucceededAt`, `providerReferenceId`, deterministic
+`periodStart` (= server-verified confirmation time, persisted exactly once
+and reused on replay), and `subscriptionId`; subscription activation via
+`activateSubscriptionInTransaction`; the plan's subscription Spark grant
+(via `grantSubscriptionSparks`, expiring at period end). No Sparks are
+issued outside the transaction; no duplicate subscription rows are possible
+(the user row is locked; a user has at most one subscription row).
+
+### Existing active subscription / renewal
+
+Renewal is deferred to a later milestone and requires an explicit Spark
+timing rule. A confirmed success whose target period conflicts with an
+already-active subscription follows existing S7-A behavior and fails
+(`subscription_already_active`) rather than silently stacking a renewal.
+
+### Callback HTTP response semantics
+
+Deterministic, detail-free (no subscription/Spark/purchase details):
+- `200` — verified callback handled: fulfilled, idempotent duplicate, or a
+  non-settling outcome acknowledged. (200 does NOT mean the customer paid.)
+- `400` — malformed/unverifiable (bad JSON, failed signature, unknown
+  status, merchant mismatch). Retrying cannot help; the provider should not.
+- `404` — verified but no persisted purchase matches the references
+  (includes the orphan case). Never guessed, never fulfilled.
+- `409` — verified and matched but rejected: reference/amount/currency
+  mismatch, illegal transition (INITIALIZED/CANCELED/EXPIRED), or S7-A
+  fulfillment rejection (e.g. active-subscription conflict).
+- `503` — temporary server/database failure: the provider may retry; the
+  callback is idempotent, so retry is safe (Cases A/B/C from the milestone
+  spec: fulfill→200, DB-down→5xx-retry, lost-response→idempotent replay).
+
+### Orphan-payment limitation (documented, fail-closed)
+
+Scenario: Wave accepts the payment request, but the S7-B.2 initialization
+persistence fails — the purchase stays INITIALIZED with
+`providerReferenceId = null`. When the callback arrives, its
+`paymentRequestId` cannot match any persisted reference, so the callback is
+rejected with 404 and NEVER fulfilled or guessed. The money remains
+provider-held against an untracked purchase. Explicit reconciliation (a
+server-side provider query by order reference, or a merchant-portal flow)
+is deferred to a future milestone; until then such payments cannot fulfill
+and cannot double-pay, because Wave binds the payment request to the
+deterministic `(order_id, merchant_reference_id)` pair.
+
+### Tests
+
+`npm run test:spark-s7b3` (`scripts/spark-s7b3.test.ts`), 18 tests: signed
+callback fixtures verify the documented HMAC contract (valid; tampered
+payload/signature; malformed/missing signatures; constant-time path; foreign
+merchant; unknown status); source checks prove the route is POST-only,
+bounded, content-type-gated, detail-free, and that NO route file can reach
+the fulfillment capability; live-DB tests cover exact fulfillment (state,
+reference, `paymentSucceededAt`, one grant of 100), the orphan scenario,
+wrong paymentRequestId/merchant reference/unknown order rejection, amount
+and currency mismatch rejection, INSUFFICIENT_BALANCE/timeout/cancel
+non-fulfillment, terminal-state and INITIALIZED fail-closed behavior,
+concurrent identical callbacks producing exactly one grant/subscription, and
+the S7-A boundary (a structurally-forged, brandless verification object is
+rejected with `payment_verification_required`).
+
+### No browser success authority
+
+Browser redirects (frontend return URL) carry no payment authority and are
+never consumed as evidence; only this signature-verified server callback
+path can settle a purchase, and only via the S7-A branded fulfillment
+boundary. No refunds, no auto-renewal, no additional providers, no S6 UI
+wiring, no profile-photo changes.
+
+## S7-B.4 — Spark Plan Purchase Flow + Payment Status Polling
+
+Connects the S6 Spark Plan UI to the S7-A purchase and S7-B.2 payment
+initialization APIs, opens the provider payment flow safely, and observes
+server-authoritative purchase status by polling. This milestone adds NO
+new backend capability: every money, identity, and state decision remains
+inside the locked S7-A/S7-B.2/S7-B.3 services.
+
+### Plan selection
+
+The plan cards (shared `SparkPlanSection` rendered from
+`ProfilePageClient`, so Web, PWA, and Telegram Mini App all show the same
+UI) keep their S6 visual foundation. Each card gains one purchase
+affordance (`SparkPlanPurchaseAction`):
+
+- FREE → no purchase action at all (never purchasable).
+- the user's current plan → “Current plan”.
+- a paid plan while a subscription is active → a clear server-derived
+  “unavailable” state instead of a fake affordance.
+- otherwise → “Choose plan”.
+
+Plan names and display labels come from the server-backed plan
+configuration; the price shown for an in-flight purchase always comes from
+the server-created purchase record (`amountMmk`/`currency`). The browser
+never sends, stores, or duplicates any price.
+
+### Purchase creation
+
+`start(plan)` → `POST /api/subscription/purchases` with a JSON body of
+exactly `{ plan }` (plan identifier only) and an `Idempotency-Key` header
+generated with `crypto.randomUUID()`. The server validates the plan and
+derives the amount from `PLAN_CONFIG`; FREE is rejected client-side and
+server-side.
+
+Duplicate-purchase protection:
+
+- an in-flight guard makes double-clicks, repeated taps, and re-renders
+  no-ops;
+- retrying after a network interruption reuses the SAME idempotency key
+  as the original attempt (per-attempt key kept in a ref), so the server
+  replays the original purchase instead of creating a second one;
+- a fresh key is generated per distinct attempt — never one permanent
+  key, never a user-derived key.
+
+Errors map to safe, non-technical messages: already-active subscription,
+sign-in required, unknown purchase, provider unavailable, and generic
+failures. Internal details (database errors, stack traces, merchant
+identifiers) never reach the UI.
+
+### Payment initialization
+
+After the purchase exists, `POST /api/subscription/purchases/[id]/payment`
+is called with the purchase id in the URL, a fresh `Idempotency-Key`
+header, and NO request body — no amount, currency, order reference,
+provider reference, signature, merchant secret, callback URL, or plan
+price ever crosses the wire. All of those are derived server-side from the
+persisted purchase row (the S7-B.2 contract).
+
+If the purchase becomes ineligible (e.g. a conflict response), the client
+does not retry blindly or invent an outcome: it begins observing the
+server status instead.
+
+### Payment URL behavior
+
+The response `paymentUrl` is passed through `toSafePaymentUrl`, which
+accepts only absolute `http(s)` URLs. `javascript:`, `data:`, relative,
+and protocol-relative values are refused outright. The accepted URL is
+opened with `openExternalLink` (the Telegram Mini App link opener inside
+Telegram; a `noopener,noreferrer` new tab on Web/PWA) — it is never
+rendered as HTML, never injected into the DOM, and the provider page is
+never manipulated. A refused or absent URL degrades to status observation.
+
+### Server-authoritative status
+
+The owner-scoped `GET /api/subscription/purchases/[id]` endpoint is the
+single source of truth for client payment state. The client may observe
+INITIALIZED, PENDING, SUCCEEDED, FAILED, CANCELED, and EXPIRED but can
+never cause a transition: the status client performs GET reads only.
+
+### Polling
+
+`usePurchaseStatus` runs ONE bounded loop per purchase (a timer ref
+prevents stacked loops):
+
+- cadence: one read every 3 seconds (the 2–4s band), never hammering the
+  API;
+- stops on the first polling-terminal status (SUCCEEDED, FAILED, CANCELED,
+  EXPIRED) — PENDING and INITIALIZED keep polling;
+- pauses while the tab is hidden and resumes with an immediate check on
+  visibility;
+- aborts in-flight requests and clears timers on unmount, request
+  cancellation, or when the user leaves the flow;
+- transient network errors keep the loop alive (they prove nothing),
+  while auth/not-found errors stop it because polling cannot fix them.
+
+### Polling timeout
+
+The polling window is bounded at 8 minutes (the 5–10 minute band, chosen
+against the payment attempt TTL). When it expires the UI shows:
+
+> Payment is still being processed. You can check your Spark balance later.
+
+It never claims “payment failed” unless the server reports FAILED, and
+never claims success unless the server reports SUCCEEDED. The manual
+“Check status” action restarts the window.
+
+### Browser redirect limitation
+
+`/subscription/checkout/return` (the `frontendReturnUrl` target) reads NO
+URL query parameter — provider result parameters are navigation context
+only and are never parsed or trusted. The page resolves the purchase id
+from the session-scoped marker written before the payment opened (a lookup
+key only), then loads the purchase status from the server. No browser
+action, redirect, or query string can mark a purchase SUCCEEDED; only the
+S7-B.3 signature-verified callback path settles payments.
+
+### Web/PWA/Telegram parity
+
+One shared `SparkPlanSection` + purchase flow drives every platform
+(`ProfilePageClient` is the single mount point). The only
+platform-divergent behavior is link opening, delegated to the existing
+`useTelegramWebApp().openExternalLink`; the flow, messages, and server
+endpoints are identical everywhere.
+
+### Success refresh
+
+Only when the server reports SUCCEEDED does the client show success
+messaging, clear the session marker, dispatch the shared
+`snappy:spark-usage-updated` event (consumed by `useSparkUsage`), and call
+`router.refresh()`. The client never locally adds Sparks, never flips the
+plan, and never mutates balances — it re-fetches authoritative server
+data. A page refresh mid-flow resumes observing the same purchase via the
+session marker (never a new purchase).
+
+### Renewal
+
+Renewal, auto-renewal, refunds, and additional providers remain deferred  to later milestones. An active subscription simply blocks new purchases
+  with a clear server-derived state.
+
+
+### Tests
+
+`npm run test:spark-s7b4` (`scripts/spark-s7b4.test.ts`), 39 tests:
+source-level checks (plan selection sends only the plan identifier; no
+client price constants or duplicated plan configuration; double-submit
+and retry-key protection; payment init with no body and no
+money/provider fields; safe URL handling; bounded single-loop polling;
+browser-return URL-parameter blindness; authoritative success refresh;
+shared-UI parity), pure unit tests of the status client (URL safety,
+neutral status copy, terminal sets), and live-DB tests (server-derived
+pricing for every paid plan, idempotent replay, idempotency-conflict,
+FREE rejection, active-subscription blocking, stub-provider payment
+initialization with server-derived inputs, PENDING replay without
+re-hitting the provider, fail-closed provider errors, terminal-purchase
+protection, cross-user opaque rejection, and safe-field-only status
+reads).
+
+## S7-B.5 — Payment Reconciliation & Orphan Recovery
+
+Status: **BLOCKED — provider reconciliation capability not verified.**
+This milestone makes NO code changes: the documented Pay with Wave
+Payment Gateway (WPPG) contract provides no authoritative server-side
+payment lookup, so an orphan-recovery path cannot be implemented without
+inventing provider behavior. Per the milestone stop condition the orphan
+scenario remains fail-closed exactly as S7-B.3 left it.
+
+### Exact orphan scenario
+
+The reconciliation target is precisely one state:
+
+- `purchase.status = INITIALIZED` AND `purchase.providerReferenceId IS
+  NULL`, while the provider may already have accepted the payment (the
+  process died between provider acceptance and local persistence, or the
+  signed callback was never delivered).
+
+Normal PENDING purchases are not orphans (they carry a persisted provider
+reference and the signed callback identifies them). SUCCEEDED, FAILED,
+CANCELED, and EXPIRED are never reopened. In the orphan state the signed
+callback cannot identify the purchase (its `paymentRequestId` matches no
+persisted reference), so `lib/payment-callback-service.ts` fails closed
+with `purchase_not_found` and fulfills nothing.
+
+### Provider lookup capability: documented surface only
+
+The full documented WPPG merchant surface consists of exactly three
+operations (verified against the repo adapter, the complete official
+integration document, and the original provider specification):
+
+1. `POST /payment` — create a payment request (form-encoded, documented
+   request hash). Documented responses: 200 (created, returns a redirect
+   handle), 409 ("Record already exists"), 400 (invalid hash), 422
+   (invalid fields), 404 (invalid merchant account).
+2. `GET /authenticate?transaction_id=…` — the customer payment screen.
+3. Signed JSON callback to `backend_result_url` — the ONLY documented
+   channel that reports payment outcomes (`PAYMENT_CONFIRMED` is the only
+   success; all other statuses are reporting outcomes).
+
+There is NO documented server-to-server transaction status, inquiry, or
+lookup endpoint — nothing queryable by `order_id`,
+`merchant_reference_id`, `paymentRequestId`, or `transactionId`. There is
+no documented callback re-send/replay mechanism. The transport boundary
+(`lib/payment/http-transport.ts`) accordingly supports only form POSTs.
+
+### What capability is missing
+
+An authoritative server-side lookup that answers, for the deterministic
+purchase identity (`order_id` = `orderReferenceId`,
+`merchant_reference_id` = `purchase.id`) or for `paymentRequestId`:
+
+- the payment status (success vs pending/failed/canceled/expired),
+- the amount and currency,
+- the `paymentRequestId` and `transactionId`,
+
+and whose answer is provider-authenticated (HMAC-signed like the
+callback, or served over a mutually-authenticated channel) so it can
+replace a callback as verification evidence.
+
+### Why no substitute is acceptable
+
+- Re-POSTing the identical `/payment` request returns 409 "Record already
+  exists": it proves a request exists and says nothing about the payment
+  outcome, amount, or transaction identity.
+- Browser redirects and result URLs are navigation context only, never
+  payment proof.
+- Client-supplied transaction ids or statuses are client-attested and
+  inadmissible.
+- Amount/plan/user/order matching alone never binds a payment to the
+  exact purchase and is explicitly forbidden.
+- A callback replay cannot be requested and would arrive without
+  re-verifiable provider identity beyond what is already rejected today.
+
+### Behavior retained (unchanged)
+
+Orphan purchases stay INITIALIZED and fail closed; no fulfillment path
+was added, removed, or altered; the S7-B.3 verification and S7-A branded
+fulfillment boundaries are untouched; the FAILED → SUCCEEDED
+`reconciliation` transition in `lib/payment/payment-state.ts` remains
+reserved for a future verified reconciliation and is still unused;
+normal `GET /api/subscription/purchases/[id]` polling remains a local DB
+read that never contacts the provider; no schema change, no UI change,
+no renewal logic.
+
+### What unblocks S7-B.5
+
+Any one of:
+
+1. a documented, provider-authenticated transaction status/inquiry
+   endpoint keyed by order identity or `paymentRequestId`;
+2. a documented callback re-send/replay mechanism merchants can trigger;
+3. a signed merchant-portal reconciliation export usable server-side.
+
+When one exists, the design is already reserved: `PaymentProvider` gains
+a provider-neutral `reconcilePayment(...)` whose response is verified
+inside the adapter and flows through the SAME private branded
+verification + fulfillment boundary as S7-B.3 (never a second
+fulfillment path), with exact identity checks (order reference, merchant
+reference, provider reference when present), exact amount/currency
+checks, fail-closed unknown statuses, and a server-side cooldown so
+reconciliation can never hammer the provider.
+
+## S7-C — Payment Production Readiness
+
+Status: **code hardening and deployment procedure documented; production
+configuration and live-provider verification remain operational tasks.**
+This milestone does not implement S7-B.5 or claim a production payment has
+been tested. It changes neither plan pricing/grants/period semantics nor the
+callback verification and fulfillment boundary.
+
+### Configuration inventory and safety
+
+The payment adapter reads these required server environment variables:
+
+| Variable | Purpose | Validation / exposure |
+|---|---|---|
+| `PAYMENT_PROVIDER` | Selects the existing `wavepay` adapter | Required; only `wavepay` accepted; resolved on the server during payment initialization |
+| `PAYMENT_ENVIRONMENT` | Declares `test` or `production` | Required; checked against the configured Wave endpoint family |
+| `PAYMENT_MERCHANT_ID` | Provider-issued merchant identity | Required; server-side HMAC and provider request only |
+| `PAYMENT_MERCHANT_NAME` | Provider payment-screen display name | Required; provider request only |
+| `PAYMENT_MERCHANT_SECRET` | Provider-issued HMAC key | Required; server-side HMAC only; never returned or logged |
+| `PAYMENT_API_BASE_URL` | Wave API origin | Required absolute HTTPS origin; no credentials/path/query/fragment |
+| `PAYMENT_CALLBACK_BASE_URL` | Optional explicit HTTPS callback origin | If set, invalid value fails closed; callback route path is appended server-side |
+| `SNAPPY_PUBLIC_URL` | Explicit public app origin for return URL and default callback origin | If set, must be HTTPS; request Host/browser origin is never consulted |
+| `VERCEL_PROJECT_PRODUCTION_URL` | Host-only deployment-origin fallback when `SNAPPY_PUBLIC_URL` is absent | Normalized to HTTPS; never accepted from a request |
+
+These values are server configuration, not `NEXT_PUBLIC_*`; payment
+configuration and provider factory are imported only by server payment
+routes/services. The browser receives only the safe purchase projection or
+payment-initialization result. There is no hardcoded credential fallback.
+Configuration is resolved lazily at payment initialization, so missing
+credentials do not prevent unrelated application features from booting.
+Missing/invalid payment settings fail the payment-init request with a generic
+503 response. A purchase intent may exist in `INITIALIZED` if a user creates
+one before payment setup is available; it is never represented as provider
+accepted/PENDING and cannot fulfill without the signed callback.
+
+`PAYMENT_ENVIRONMENT` + `PAYMENT_API_BASE_URL` are strictly paired with the
+verified project endpoints: `production` accepts only
+`https://payments.wavemoney.io`; `test` accepts only
+`https://testpayments.wavemoney.io:8107`. Other hosts, ports, and mismatched
+environment labels fail configuration validation. This checks endpoint and
+environment selection, not merchant credential provenance: operators must
+verify the issued merchant ID/secret with Wave and provision the matching
+credentials in the target environment. Do not copy production credentials
+into a test deployment or vice versa.
+
+### URL and transport hardening
+
+Provider HTTP calls use HTTPS only, bounded timeout and response size, no
+redirects, and no retry loop. Callback and return origins come only from
+explicit server environment configuration or the server-provided Vercel
+production hostname. Invalid explicitly configured origins fail closed
+instead of falling back. Neither untrusted `Host`, browser origin, nor query
+parameters influence the callback. Wave receives the exact endpoint
+`POST /api/payments/wave/callback`; the frontend return URL remains
+navigation-only and cannot assert success. No payment URL is persisted, and
+an initialization replay does not return an old provider redirect URL. The
+first successful initialization response is private/no-store; purchase
+creation and status reads also set `Cache-Control: private, no-store`.
+
+### Callback, fulfillment, and API boundaries re-verified
+
+The callback remains POST-only, requires JSON, bounds the raw request body at
+64 KiB, preserves its contents for adapter signature verification, and
+verifies HMAC with timing-safe comparison before database matching or
+mutation. Malformed signatures/payloads, unknown statuses, and foreign
+merchants are rejected. The callback route logs only static categories or
+error codes, never the raw body, signature, or provider response. There is no
+second fulfillment route: a verified success still flows through the
+module-private `verificationBrand` capability and the existing transactional
+fulfillment service.
+
+Purchase creation and payment initialization require the authenticated app
+user, are owner-scoped, and use best-effort per-process per-user mutation
+rate limiting (shared existing limiter: 30 attempts per 60 seconds per
+instance). This limiter is not distributed across serverless instances and
+is not represented as a global abuse-control guarantee. Status GET is an
+owner-scoped local database read; it never contacts Wave. Purchase API errors
+do not log raw database/provider exception objects; callback errors remain
+detail-free to callers. The safe purchase projection excludes provider
+references and idempotency hashes. The init response is limited to purchase
+id, PENDING status, one-time payment URL, and server expiry.
+
+The server sets the Wave TTL (600 seconds); the client cannot supply or
+extend it. No payment URL is persisted, and it is returned only on initial
+provider acceptance rather than on a later initialization replay.
+
+### Deployment checklist (all items unverified here)
+
+Leave each item unchecked until the named operational verification is
+performed in the target environment. A code test is not evidence of account
+approval, secret provisioning, network reachability, or a live transaction.
+
+- [ ] Production `PAYMENT_PROVIDER=wavepay` and `PAYMENT_ENVIRONMENT=production` configured in the deployment secret manager.
+- [ ] Production merchant ID, name, and secret provisioned by Wave and verified outside source control; secret is not committed or placed in a `NEXT_PUBLIC_*` variable.
+- [ ] `PAYMENT_API_BASE_URL` is the approved production HTTPS origin `https://payments.wavemoney.io`.
+- [ ] `SNAPPY_PUBLIC_URL` (or the deployment hostname fallback) resolves to the intended public HTTPS application origin.
+- [ ] Optional `PAYMENT_CALLBACK_BASE_URL`, if used, is the intended HTTPS callback origin.
+- [ ] Configured callback target is `POST /api/payments/wave/callback` and matches the URL registered with Wave.
+- [ ] Wave merchant account is approved and enabled for production.
+- [ ] Production callback endpoint reachability has been verified without sending a real payment.
+- [ ] Provider-generated payment URL/domain has been checked against Wave's approved domain.
+- [ ] Sandbox/test payment has been completed and the signed callback, one-time grant, replay idempotency, and profile refresh have been observed.
+- [ ] Production payment URL and callback behavior have been verified with Wave/operator-approved non-customer test arrangements.
+- [ ] Support/operations know that lost callback/orphan payments have no implemented authoritative reconciliation path; escalation is through Wave's documented merchant support process, not a fabricated API.
+
+### Production smoke procedure (do not run with real funds without approval)
+
+Use a Wave-approved sandbox first. For production, use only an explicitly
+approved test transaction/account and obtain authorization before any real
+charge. Record purchase id, timestamps, observed status, and grant outcome;
+never record secrets, signatures, or raw callback bodies in the test report.
+
+1. Sign in as a test user and select a paid Spark plan. Confirm the browser
+   sends only the plan identifier and idempotency key; the server creates an
+   owner-scoped `INITIALIZED` purchase and derives amount/currency from
+   server plan configuration.
+2. Initialize payment. Confirm the provider receives the server-derived
+   amount, MMK currency, order/purchase references, 600-second TTL, and
+   configured callback/return URLs. The accepted result becomes `PENDING`;
+   it is not success.
+3. Confirm the response payment URL opens the expected Wave HTTPS domain.
+   Do not treat the browser return or URL parameters as payment evidence.
+4. Complete the sandbox/approved payment through Wave. Confirm the signed
+   callback reaches `POST /api/payments/wave/callback`, passes verification,
+   and the owner-scoped status read reports `SUCCEEDED`.
+5. Verify the subscription activates with the expected existing plan/period
+   semantics and exactly the configured Spark grant, then refresh the
+   profile and confirm its displayed plan and balance come from the server.
+6. Replay the same provider callback only through a provider-supported
+   mechanism/test fixture; verify the purchase remains succeeded and the
+   grant is not duplicated. Do not fabricate a callback or assume Wave
+   supports callback replay in production.
+7. Verify another user's status request cannot read the purchase, and verify
+   status polling remains provider-free. Verify logs contain no credentials,
+   HMAC signature, raw callback body, or provider payload.
+
+Known recovery limitation: `provider accepts payment but local persistence or
+the callback is lost → no authoritative reconciliation currently available`.
+The purchase can remain stuck and funds may require provider-assisted
+investigation. It is recoverable only if Wave supplies a documented,
+authoritative reconciliation mechanism; do not infer success from a redirect,
+re-POST conflict, client-provided ID, or matching amount. **S7-B.5 remains
+BLOCKED. No reconciliation endpoint was invented. No provider inquiry API
+was assumed.**
+
+### Validation and scope
+
+S7-C's deterministic source/config tests cover fail-closed configuration,
+endpoint/environment pairing, HTTPS callback-origin construction, callback
+route security invariants, no-store API behavior, best-effort rate limiting,
+exception-log safety, owner-scoped/provider-free status, and absence of server
+secrets or fulfillment/reconciliation access in client code. Existing
+S7-B.1–B.4 and S7-A behavior remains subject to the regression suite. No
+schema or migration change is part of S7-C. No provider credentials were
+added. No live-money transaction is performed by this milestone.
+
+Code verification, deployment environment configuration, Wave account
+approval, endpoint reachability, sandbox acceptance, and live payment testing
+are separate gates; only the code/test gates can be assessed from this
+checkout.
+
+### Explicitly unchanged
+
+No price, grant amount, billing period, renewal, refund, provider selection,
+profile-photo payment, callback verifier, signature rule, or fulfillment
+path is changed. The S7-B.5 blocker remains intact: **no reconciliation
+endpoint was invented and no provider inquiry API was assumed.**
+
+### S7-C test command
+
+`npm run test:spark-s7c` runs deterministic local tests only. It does not
+contact Wave or require real credentials.
+
+### Final audit evidence
+
+- S7-C config/source suite: 10/10 passed.
+- Requested 14-suite regression sweep: 152 non-database tests passed; 63 database-dependent tests skipped because `DATABASE_URL` was not set for the final sweep. Including S7-C's 10 passing tests, 162 tests passed across 15 suites. An earlier configured Neon attempt could not connect, so live database results are unverified.
+- TypeScript: `npx tsc --noEmit` passed.
+- Lint: passed with three warnings in untouched `MessageList.tsx` and `CameraSplash.tsx`.
+- `git diff --check`: passed.
+- Production environment, provider account, reachability, sandbox/live payment: unverified; no live payment run.
+- Schema/migration: unchanged. Credentials: none added. Commit/push: none.
+- S7-B.5 remains **BLOCKED**; no reconciliation endpoint was invented and no provider inquiry API was assumed.
+
+The deployment checklist above intentionally remains unchecked until each item is operationally verified.
+
+## S8 — Payment Production Verification & Deployment Readiness
+
+S7-C is APPROVED/LOCKED. S8 is an **operational verification** milestone:
+an audit/documentation-only pass with **no code changes**. Every locked
+boundary — S7-B.3 callback verification, `verificationBrand`, the fulfillment
+transaction, Spark grant logic, subscription activation logic, S7-B.4 UI,
+and the S7-B.5 blocker — is untouched. No provider capability was added or
+assumed.
+
+Three gates are kept strictly separate and every item below carries exactly
+one status:
+
+- **VERIFIED** — checked directly in this checkout (code, configuration
+  logic, deterministic or live tests where noted).
+- **NOT VERIFIED** — requires a deployed environment or live traffic this
+  checkout cannot reach.
+- **REQUIRES PROVIDER/WAVE ACCOUNT ACTION** — depends on Wave merchant
+  onboarding or sandbox provisioning outside this repository.
+
+### 1. Environment audit
+
+| Variable | Consumed in | Purpose |
+| --- | --- | --- |
+| `PAYMENT_PROVIDER` | `lib/payment/payment-config.ts` | must be `wavepay` |
+| `PAYMENT_ENVIRONMENT` | `lib/payment/payment-config.ts` | `test`/`production`, bound to the endpoint family |
+| `PAYMENT_MERCHANT_ID` | config → Wave adapter | merchant id (HMAC input) |
+| `PAYMENT_MERCHANT_NAME` | config → Wave adapter | name on the provider payment screen |
+| `PAYMENT_MERCHANT_SECRET` | config → `lib/payment/wave-signature.ts` | HMAC key; never leaves the server |
+| `PAYMENT_API_BASE_URL` | config → adapter/transport | Wave API origin (HTTPS only) |
+| `SNAPPY_PUBLIC_URL` | `lib/payment/payment-urls.ts` | public HTTPS origin (callback + return URLs) |
+| `PAYMENT_CALLBACK_BASE_URL` (optional) | `lib/payment/payment-urls.ts` | dedicated callback origin when set |
+| `VERCEL_PROJECT_PRODUCTION_URL` (fallback) | `lib/payment/payment-urls.ts` | host-only fallback when `SNAPPY_PUBLIC_URL` is unset |
+
+- **VERIFIED** — payment secrets are server-only: payment config, URL
+  derivation, provider factory/adapter, and payment services are imported
+  only from `app/api/**` server routes; no client component imports them; no
+  `NEXT_PUBLIC_*` payment variable exists anywhere in the codebase.
+- **VERIFIED** — no secret value is logged, committed, exposed to client
+  bundles, or returned by any API. Configuration errors carry variable NAMES
+  only; payment routes log static categories or error codes only; the HTTP
+  transport performs no logging at all. `.env*` files are gitignored; only
+  the name-only `.env.example` template is tracked.
+- **VERIFIED** — no hardcoded fallback secret: missing or invalid
+  configuration throws, and payment requests fail closed (503 "Payment is
+  not available") while the rest of the app stays usable.
+- **NOT VERIFIED** — the actual environment values configured in the
+  deployment (none are present in this checkout; none were fabricated).
+
+### 2. Wave configuration
+
+- **VERIFIED** — endpoint/environment pairing is enforced against the Wave
+  hosts already established in this project's documentation: `production` →
+  `https://payments.wavemoney.io` (no port), `test` →
+  `https://testpayments.wavemoney.io:8107`. Any other host, port, or
+  mismatched pair is rejected before any provider call. No host was invented.
+- **VERIFIED** — the callback URL sent to Wave is exactly
+  `<origin>/api/payments/wave/callback`, matching the S7-B.3 route.
+- **VERIFIED** — HTTPS requirements: `PAYMENT_API_BASE_URL` must be an HTTPS
+  origin (no credentials, path, query, or fragment), the fetch transport
+  rejects non-HTTPS URLs and never follows redirects, and public/callback
+  origins are HTTPS-only with fail-closed behavior on invalid explicit
+  values. No silent HTTP downgrade exists.
+- **REQUIRES PROVIDER/WAVE ACCOUNT ACTION** — confirm issued credentials
+  belong to the intended environment, and that Wave can reach/allow-list the
+  production callback URL.
+
+### 3. Deployment configuration (Vercel/server)
+
+- **VERIFIED** — public callback URL construction is server-side only:
+  `SNAPPY_PUBLIC_URL` (or the Vercel production-host fallback) plus the
+  optional `PAYMENT_CALLBACK_BASE_URL`. Request `Host`, browser origin, and
+  query parameters are never consulted; invalid explicit values fail closed
+  (503) instead of silently falling back.
+- **VERIFIED** — payment initialization runs through the existing provider
+  adapter chain (`payment-provider-factory` → `wave-payment-provider` →
+  `FetchHttpTransport`); amount, currency, plan, and references are all
+  server-derived from the persisted purchase.
+- **VERIFIED** — `GET /api/subscription/purchases/[id]` (owner-scoped local
+  DB read) remains the client's sole source of truth; the checkout return
+  page reads no URL parameter and mutates nothing — only the signed callback
+  path can change payment state.
+- **VERIFIED** — API responses expose only the safe purchase projection (no
+  provider reference, no idempotency hash, no secrets); payment init returns
+  only `{purchaseId, status, paymentUrl, expiresAt}`; the callback route
+  answers with detail-free bodies. Purchase/payment responses carry
+  `Cache-Control: private, no-store`.
+- **VERIFIED** — logging is limited to static categories and error codes; no
+  exception objects, secrets, signatures, or raw provider payloads reach
+  application logs.
+- **VERIFIED** — best-effort per-user rate limiting guards purchase creation
+  and payment initialization (in-memory, per instance).
+- **NOT VERIFIED** — real deployment environment variables, deployed
+  configuration, and runtime reachability of the callback URL from Wave's
+  network.
+
+### 4. Sandbox smoke procedure (documented — NOT executed)
+
+S8 ran **no real-money and no sandbox payment**: no provider credentials are
+configured in this checkout and no Wave sandbox account is provisioned here.
+Execute the following against the Wave sandbox (test environment pairing)
+before any production cutover:
+
+1. **Purchase creation** — sign in, pick a paid plan; `POST
+   /api/subscription/purchases` returns 201 with an `INITIALIZED` purchase
+   and the server-derived amount. Replaying the same `Idempotency-Key`
+   returns the same purchase; the same key with a different plan → 409.
+2. **Payment initialization** — `POST
+   /api/subscription/purchases/[id]/payment` moves the purchase to `PENDING`
+   exactly once (request body ignored); a second call is a safe replay and
+   never creates a second provider payment.
+3. **Payment URL** — the returned `paymentUrl` opens the sandbox payment
+   screen; it is exposed only through this response (never persisted,
+   cached, or re-derivable) while the purchase is valid.
+4. **Callback delivery** — after paying on the sandbox screen, Wave POSTs
+   the signed callback to `/api/payments/wave/callback`; the server verifies
+   the signature before any state change and logs no body or signature.
+5. **Successful fulfillment** — the purchase becomes `SUCCEEDED`; the
+   subscription activates with the existing period semantics; exactly the
+   configured Spark grant is recorded once.
+6. **Duplicate callback** — re-deliver the same verified callback (through a
+   provider-supported mechanism or test fixture only): the purchase stays
+   `SUCCEEDED` and activation/grant are NOT duplicated.
+7. **Failed/canceled payment** — a `BILL_COLLECTION_FAILED` /
+   `PAYMENT_REQUEST_CANCELLED` sandbox outcome transitions the purchase to
+   `FAILED`/`CANCELED`, activating and granting nothing.
+8. **Purchase status polling** — `GET /api/subscription/purchases/[id]`
+   reflects each state from the local DB without touching the provider; a
+   different user receives 404.
+9. **Subscription activation** — the profile shows the new plan from the
+   server.
+10. **Spark grant** — the balance increases by exactly the configured grant.
+11. **Exactly-once** — across steps 5–6 the `SUBSCRIPTION_GRANT` row exists
+    exactly once for the billing period; repeated callbacks never double
+    grant.
+
+**Sandbox smoke-test result: NOT EXECUTED (NOT VERIFIED)** — provider
+sandbox account/credentials are not available in this environment.
+
+Known recovery limitation: `provider accepts payment but local persistence or
+the callback is lost → no authoritative reconciliation currently available`.
+Such a purchase is recoverable only if Wave supplies a documented,
+authoritative reconciliation mechanism. **S7-B.5 remains BLOCKED. No
+reconciliation endpoint was invented. No provider inquiry API was assumed.**
+
+### 5. Production checklist status
+
+| Item | Status |
+| --- | --- |
+| Payment secrets server-only; never logged/committed/exposed | VERIFIED (code) |
+| No secrets in API responses, logs, or client bundle | VERIFIED (code) |
+| Environment ↔ Wave endpoint pairing enforced | VERIFIED (code) |
+| Callback URL exactly `/api/payments/wave/callback` | VERIFIED (code) |
+| HTTPS-only provider/callback/public URLs | VERIFIED (code) |
+| Payment init via existing provider adapter; server-derived amounts | VERIFIED (code) |
+| Purchase status sole client source of truth; browser return read-only | VERIFIED (code) |
+| Safe API responses and logging | VERIFIED (code) |
+| Duplicate callback exactly-once (idempotent fulfillment) | VERIFIED (code + deterministic tests) |
+| Expired/terminal purchases cannot be re-opened or re-initialized | VERIFIED (code + deterministic tests) |
+| `PAYMENT_*` variables configured in the deployment | NOT VERIFIED (deployment-side) |
+| `SNAPPY_PUBLIC_URL` / callback HTTPS origin configured | NOT VERIFIED (deployment-side) |
+| `PAYMENT_ENVIRONMENT` matches the environment the credentials were issued for | REQUIRES PROVIDER/WAVE ACCOUNT ACTION |
+| Wave merchant account approved, credentials issued | REQUIRES PROVIDER/WAVE ACCOUNT ACTION |
+| Sandbox smoke procedure executed end-to-end | NOT VERIFIED (needs sandbox account) |
+| Production callback reachable from Wave's servers | NOT VERIFIED (needs deployment) |
+| Live payment tested | NOT VERIFIED (needs provider + explicit approval) |
+| Deployment log-sink audit (no secrets/signatures) | NOT VERIFIED (deployment-side) |
+| Production observability, DB backups, runbook | NOT VERIFIED (deployment-side) |
+
+### 6. Locked boundaries preserved
+
+S8 changed no code at all, so trivially: no change to S7-B.3 callback
+verification, `verificationBrand`, the fulfillment transaction, Spark grant
+logic, subscription activation logic, S7-B.4 UI, profile-photo payment,
+pricing, grant amounts, or period semantics. No reconciliation/inquiry
+workaround, renewal, auto-renewal, refund, second provider, or payment-state
+redesign was implemented. The S7-B.5 blocker stands.
+
+### 7. Test & validation evidence (S8)
+
+- No code change was required, so no S8 test suite was created (per the
+  milestone rule). The S7-C suite remains the deterministic payment guard:
+  10/10 passing.
+- Full `test:*` sweep: 36 suites run; 32 green. 4 failures, all pre-existing
+  and outside payment scope (each in committed/untouched files):
+  - `test:auth` and `test:spark` require `DATABASE_URL` (npm scripts do not
+    load `.env.local`) and crash at Prisma import without it.
+  - `test:spark` with the live DB: 11/35 pass — shared test-DB residue
+    (`createTestUser` unique `name` collisions cascade), one daily-cap
+    date-boundary assertion, and one `getYangonDayDate` expectation vs.
+    implementation mismatch.
+  - `test:telegram-mini-app-home` asserts that the preserved untracked
+    `components/telegram/TelegramSnapFeed.tsx` does not exist; it fails
+    because that known-unrelated file exists and must remain untouched.
+  - `test:social-s8` asserts the newest migration is
+    `20260924120000_social_user_presence`; S7-A's committed
+    `20260927120000_subscription_purchase_foundation` migration postdates
+    it. Stale social-milestone assertion.
+- Live database: connection **VERIFIED** this session (`SELECT 1`);
+  `auth-logic` 5/5 and `spark-s7a` (purchase foundation) 11/11 pass against
+  the live DB; `spark-service` DB results as classified above.
+- TypeScript (`npx tsc --noEmit`): passed. Lint: 0 errors, 3 pre-existing
+  warnings (`MessageList.tsx` ×2, `CameraSplash.tsx`). `git diff --check`:
+  passed.
+- Schema/migrations: unchanged by S8 (24 migrations; none added).
+- Code verification, deployment environment configuration, Wave account
+  approval, endpoint reachability, sandbox acceptance, and live payment
+  testing remain separate gates. Only the code/test gates plus live-DB
+  connectivity could be assessed from this checkout.
