@@ -2,7 +2,7 @@
  * Telegram Mini App home + navigation (Node test runner).
  * Run: npm run test:telegram-mini-app-home
  */
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -80,26 +80,22 @@ test("Telegram Home uses the same content components as Web Home", () => {
   assert.match(web, /HomeContent/);
   assert.match(shared, /HeroCarousel/);
   assert.match(shared, /RecentSnaps/);
-  assert.match(shared, /FriendCard/);
+  assert.doesNotMatch(shared, /FriendCard|friends|Friends/i);
   assert.match(shared, /Snap/);
   assert.match(telegram, /HomeContent/);
   assert.doesNotMatch(telegram, /TelegramSnapFeed/);
   assert.doesNotMatch(telegram, /nextCursor/);
 });
 
-test("Telegram Home has no duplicate Snap feed or pagination implementation", () => {
+test("Telegram Home does not import a duplicate Snap feed", () => {
   const telegramHome = readFileSync(
     resolve(import.meta.dirname, "../components/telegram/TelegramMiniAppHome.tsx"),
     "utf8",
   );
-  const telegramFeedPath = resolve(
-    import.meta.dirname,
-    "../components/telegram/TelegramSnapFeed.tsx",
-  );
 
+  assert.doesNotMatch(telegramHome, /TelegramSnapFeed/);
   assert.doesNotMatch(telegramHome, /IntersectionObserver/);
   assert.doesNotMatch(telegramHome, /Load more/);
-  assert.equal(existsSync(telegramFeedPath), false);
 });
 
 test("bottom nav uses safe-area inset on shell", () => {

@@ -39,7 +39,7 @@ export default function Error({
             Something went wrong
           </h2>
           <p className="text-muted-foreground text-sm sm:text-base mb-6 sm:mb-8">
-            We encountered an error loading your friends.
+            We encountered an error loading Home.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center">
             <GlowButton

@@ -1,3 +1,4 @@
+import RecentSnapsSkeleton from '@/components/home/RecentSnapsSkeleton';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export default function Loading() {
@@ -16,24 +17,9 @@ export default function Loading() {
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
-        {/* Section Header Skeleton */}
-        <div className="mb-4 sm:mb-6">
-          <Skeleton className="h-7 w-32 sm:h-8 sm:w-40 bg-muted" />
-        </div>
-
-        {/* Friends Grid Skeleton */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 sm:gap-6">
-          {[...Array(10)].map((_, i) => (
-            <div key={i} className="bg-card border border-border rounded-xl p-3 sm:p-6">
-              <div className="flex flex-col items-center text-center">
-                <Skeleton className="w-16 h-16 sm:w-24 sm:h-24 rounded-full bg-muted mb-2 sm:mb-4" />
-                <Skeleton className="h-4 w-20 sm:h-5 sm:w-24 bg-muted" />
-              </div>
-            </div>
-          ))}
-        </div>
+        <Skeleton className="mb-8 aspect-[16/9] w-full rounded-xl bg-muted sm:mb-10" />
+        <RecentSnapsSkeleton />
       </main>
     </div>
   );

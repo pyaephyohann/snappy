@@ -28,6 +28,19 @@ test("automatic carousel contains birthday and latest-snap fallback branches", (
   assert.match(carousel, /take: 5/);
 });
 
+test("Home keeps the bounded user query but renders only the Snap feed", () => {
+  const homeData = read("../lib/home-data.ts");
+  const homePage = read("../app/home/page.tsx");
+  const shared = read("../components/home/HomeContent.tsx");
+
+  assert.match(homeData, /listUsersForViewer/);
+  assert.match(homeData, /limit: HOME_FRIENDS_LIMIT/);
+  assert.match(homeData, /excludeUserId: userId/);
+  assert.match(homePage, /snaps={homeData\.snaps}/);
+  assert.match(shared, /RecentSnaps/);
+  assert.doesNotMatch(shared, /FriendCard|friends|Friends/i);
+});
+
 test("shared Web/PWA Snap home feed remains horizontal", () => {
   const feed = read("../components/home/RecentSnaps.tsx");
   assert.match(feed, /overflow-x-auto/);
@@ -42,7 +55,7 @@ test("Telegram Home reuses the shared Web Home content", () => {
   const telegram = read("../components/telegram/TelegramMiniAppHome.tsx");
   assert.match(shared, /HeroCarousel/);
   assert.match(shared, /RecentSnaps/);
-  assert.match(shared, /FriendCard/);
+  assert.doesNotMatch(shared, /FriendCard|friends|Friends/i);
   assert.match(shared, /Snap/);
   assert.match(telegram, /HomeContent/);
   assert.doesNotMatch(telegram, /TelegramSnapFeed/);
