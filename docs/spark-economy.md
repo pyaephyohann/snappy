@@ -2192,3 +2192,166 @@ redesign was implemented. The S7-B.5 blocker stands.
   approval, endpoint reachability, sandbox acceptance, and live payment
   testing remain separate gates. Only the code/test gates plus live-DB
   connectivity could be assessed from this checkout.
+
+## S8.4 — Subscription payment sandbox smoke harness
+
+### Purpose
+
+`scripts/spark-s8.4-smoke.ts` is a single runnable harness that walks the
+existing subscription purchase flow end to end and prints **which stage
+fails**: purchase creation → payment initialization → provider reference →
+callback → fulfillment → terminal state → subscription activation → Spark
+grant → replay/idempotency → cleanup. It is a verification harness, not a new
+payment architecture: it reuses the production purchase service, payment
+provider factory, Wave adapter, initialization service, callback service,
+state machine, and fulfillment boundary, and duplicates none of their logic.
+
+### Command
+
+```bash
+npm run test:spark-s84        # the harness
+npm run test:spark-s84-unit   # focused deterministic checks (no provider)
+```
+
+Exit codes: `0` = PASS, `1` = FAIL, `2` = BLOCKED. **BLOCKED is never a
+success** — a skipped provider tier can never produce PASS.
+
+### Required environment
+
+Nothing is required for the deterministic tier beyond the normal local setup
+(`DATABASE_URL`, and a resolvable HTTPS `SNAPPY_PUBLIC_URL`/callback origin).
+The live tier additionally requires, all positively established:
+
+```text
+PAYMENT_PROVIDER=wavepay
+PAYMENT_ENVIRONMENT=test            # production is refused unconditionally
+PAYMENT_MERCHANT_ID / PAYMENT_MERCHANT_NAME / PAYMENT_MERCHANT_SECRET
+PAYMENT_API_BASE_URL=https://testpayments.wavemoney.io:8107
+SMOKE_LIVE_SANDBOX=1                # explicit opt-in for the live tier
+```
+
+`PAYMENT_ENVIRONMENT=production` is refused before anything else runs. There
+is deliberately **no flag that enables production payment traffic**.
+
+### Safe / unsafe execution boundaries
+
+Safe (deterministic tier): runs the real adapter and the real callback
+verifier against an in-process transport and a synthetic, run-scoped secret,
+with test data isolated by a per-run `RUN_ID`. No network, no real credential.
+
+Unsafe / out of scope: real-money payments, production configuration, forged
+callbacks presented as provider verification, reconciliation or inquiry
+endpoints, refunds, and renewal. None are implemented here; S7-B.5 stays
+blocked.
+
+### Stages
+
+| # | Stage | Deterministic tier | Live tier |
+| --- | --- | --- | --- |
+| 1 | Configuration / readiness | PASS/BLOCKED | same |
+| 2 | Create subscription purchase | PASS (server-derived amount, idempotent replay) | same |
+| 3 | Initialize provider payment | PASS (documented request fields present) | real provider call |
+| 4 | Confirm provider payment reference | PASS (persisted reference, initiation time, expiry) | plus the live Wave interaction |
+| 5 | Callback | PASS (real verifier + HMAC; tamper rejected) | PASS only on a genuine provider callback |
+| 6 | Fulfill purchase | PASS (SUCCEEDED, subscription linked, period set) | same |
+| 7 | Terminal state | PASS | same |
+| 8 | Subscription activation | PASS (plan, ACTIVE, period end) | same |
+| 9 | Subscription Sparks grant | PASS (exactly one, deterministic reference) | same |
+| 10 | Replay / idempotency | PASS (same provider event replayed; no duplicate grant/subscription/transaction) | exactly-once counts verified |
+| 11 | Final summary + cleanup | PASS (only this run's records) | same |
+
+### Result semantics
+
+`PASS` — stage verified. `FAIL` — stage verified and wrong. `SKIPPED` — stage
+could not run (e.g. no live sandbox access). `BLOCKED` — a mandatory stage did
+not pass, so the run is inconclusive. When provider access is unavailable the
+deterministic stages report PASS, the provider stages report SKIPPED, and the
+overall result is:
+
+```text
+S8.4 RESULT: BLOCKED — Wave sandbox unavailable
+```
+
+### Example output (no secrets)
+
+```text
+S8.4 — subscription payment sandbox smoke harness
+RUN_ID: s84_20260930165646_8980b335
+MODE: LOCAL_DETERMINISTIC
+
+[01] Configuration / readiness...... PASS  sandbox config established: no | callback origin configured: yes | database configured: yes
+[02] Create subscription purchase... PASS  plan=SPARK_PLUS | amount=29000 MMK (server-derived) | currency=MMK | idempotent replay: yes
+[03] Initialize provider payment.... PASS  purchase status=PENDING | payment URL: https://testpayments.wavemoney.io:8107/authenticate?<redacted>
+[04] Confirm payment reference...... PASS  reference persisted: yes (s84-…35 (len 34)) | owner-scoped service status: PENDING
+[04] LIVE provider interaction...... SKIPPED  SKIPPED — LIVE WAVE SANDBOX NOT AVAILABLE
+[05] Callback verification.......... PASS  real adapter + HMAC verified (synthetic key); tamper rejected: yes
+[06] Fulfill purchase............... PASS  purchase status=SUCCEEDED | subscription linked: yes
+[07] Terminal state................. PASS  status=SUCCEEDED
+[08] Subscription activation........ PASS  plan=SPARK_PLUS | status=ACTIVE
+[09] Sparks grant................... PASS  grant count=1 | amount=100 | deterministic reference: yes
+[10] Replay / idempotency........... PASS  replay of the same provider event: acknowledged | grants after replay=1 | new transactions=0
+[11] Final summary.................. PASS  purchase=SUCCEEDED | subscription=ACTIVE | duplicate grants=0
+[12] Cleanup (this run only)........ PASS  removed transactions=1, subscriptions=1, purchases=1, users=1
+
+S8.4 RESULT: BLOCKED — Wave sandbox unavailable
+```
+
+### Cleanup
+
+Cleanup targets only rows owned by this run's smoke user (`smoke_s84_<RUN_ID>`)
+and refuses to delete anything if that identity cannot be verified; no unscoped
+`deleteMany` exists in the harness. Residue from an interrupted run is inert
+because identities are run-scoped.
+
+### Callback re-delivery observation (documented contract; not an S8.4 failure)
+
+**Same provider event replay is supported and idempotent.** Re-submitting the
+identical verified callback is acknowledged, the purchase stays `SUCCEEDED`,
+and no duplicate subscription, Spark grant, or ledger transaction is created.
+The harness exercises exactly this, using a pinned verification clock in the
+same way the locked S7-B.3 suite does.
+
+**A genuinely later verification timestamp for the same payment currently
+reaches `payment_verification_mismatch`** inside the locked fulfiller. In that
+case:
+
+- the purchase remains `SUCCEEDED`;
+- no duplicate subscription is created;
+- no duplicate Spark grant is created;
+- no duplicate ledger transaction is created;
+- the later re-delivery is currently **not acknowledged** — it is rejected
+  rather than answered as a successful replay.
+
+This is a **known follow-up issue, not an S8.4 failure**: the harness documents
+it here instead of asserting a fix, and the behaviour is pinned by a
+characterization test so any future change becomes visible.
+
+Scope note: this describes only how our own verification-time handling behaves.
+It makes **no claim about Wave's retry behaviour** (which is not documented
+here) and assumes no provider retry, replay, or reconciliation semantics.
+Correcting it would change S7-A/S7-B.3 (`verificationBrand` minting and the
+fulfillment transaction), so it is explicitly out of scope for this milestone:
+the fulfillment logic, payment state machine, and S7-B.5 all remain untouched.
+
+### TODO — future callback-idempotency investigation
+
+Investigate whether a re-delivered callback carrying a genuinely later
+verification timestamp should be treated as the same provider event — for
+example by deriving the billing period from a stable, documented
+provider-supplied event identity/time instead of the server verification clock
+— and whether the locked fulfiller should then acknowledge the re-delivery
+instead of rejecting it. This needs a product decision plus an explicit,
+documented provider event-time rule; no such rule may be inferred. S7-B.5
+(provider reconciliation) is **BLOCKED** and is not part of this investigation.
+
+### Explicit limits
+
+**S7-B.5 remains BLOCKED.** No reconciliation endpoint was invented and no
+provider inquiry API was assumed.
+
+This harness does **not** prove production readiness: it does not establish
+that Wave approved the merchant, that the deployed credentials are valid, that
+the production callback endpoint is reachable, or that a real payment settles.
+A successful **sandbox** callback test does not establish production merchant
+approval or production payment readiness — those remain separate operational
+gates requiring provider/account access.
