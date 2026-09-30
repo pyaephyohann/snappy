@@ -24,6 +24,7 @@
     "test:spark-s82": "node --import tsx --test scripts/spark-s82.test.ts",
     "test:spark-s84": "node --env-file-if-exists=.env.local --import tsx scripts/spark-s8.4-smoke.ts",
     "test:spark-s84-unit": "node --env-file-if-exists=.env.local --import tsx --test scripts/spark-s8.4.test.ts",
+    "test:spark-s85": "node --import tsx --test scripts/spark-s8.5.test.ts",
     "seed": "tsx prisma/seed.ts",
     "telegram:setup": "tsx scripts/setup-telegram-webhook.ts",
     "telegram:verify-production": "tsx scripts/verify-telegram-production.ts",

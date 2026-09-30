@@ -2355,3 +2355,143 @@ the production callback endpoint is reachable, or that a real payment settles.
 A successful **sandbox** callback test does not establish production merchant
 approval or production payment readiness — those remain separate operational
 gates requiring provider/account access.
+
+## S8.5 — Deployment hygiene & reachability preparation
+
+Status: **deployment/configuration hygiene only.** No payment logic changed.
+S7-A, S7-B.1–B.5, S7-C, the S8.3 readiness route, and the S8.4 harness are
+untouched; no schema, no migration, no new provider capability, and no live
+provider request or real payment was made. This milestone makes the deployment
+configuration explicit and runnable without credentials.
+
+### Required payment environment variables
+
+Names only — values are server-side secrets and are never committed. These are
+read from the existing resolvers `lib/payment/payment-config.ts` (S7-B.1) and
+`lib/payment/payment-urls.ts` (S7-B.2); no variable was invented here.
+
+| Variable | Required | Consumed by | Purpose / validation |
+| --- | --- | --- | --- |
+| `PAYMENT_PROVIDER` | Yes | `payment-config.ts` | Only `wavepay` is accepted |
+| `PAYMENT_ENVIRONMENT` | Yes | `payment-config.ts` | `test` or `production`; bound to the endpoint family below |
+| `PAYMENT_MERCHANT_ID` | Yes | `payment-config.ts` → adapter | Provider-issued merchant id (HMAC input) |
+| `PAYMENT_MERCHANT_NAME` | Yes | `payment-config.ts` → adapter | Display name on the provider payment screen |
+| `PAYMENT_MERCHANT_SECRET` | Yes | `payment-config.ts` → `wave-signature.ts` | Provider-issued HMAC key; never leaves the server |
+| `PAYMENT_API_BASE_URL` | Yes | `payment-config.ts` → transport | Absolute HTTPS origin; no credentials/path/query/fragment |
+| `SNAPPY_PUBLIC_URL` | Effectively (see below) | `payment-urls.ts` | Explicit public HTTPS app origin (return URL + default callback origin) |
+| `PAYMENT_CALLBACK_BASE_URL` | Optional | `payment-urls.ts` | Dedicated HTTPS callback origin; invalid value fails closed |
+| `VERCEL_PROJECT_PRODUCTION_URL` | Fallback only | `payment-urls.ts` | Host-only origin provided by Vercel when `SNAPPY_PUBLIC_URL` is unset |
+
+`.env.example` now documents the server-side payment variables with safe
+placeholders only (`PAYMENT_PROVIDER="wavepay"`, every secret left empty).
+`SNAPPY_PUBLIC_URL` and `VERCEL_PROJECT_PRODUCTION_URL` are documented there in
+context rather than re-declared, so no duplicate key is introduced.
+
+### Server-only secret handling
+
+- All payment variables are **server-only**. None may be prefixed with
+  `NEXT_PUBLIC_`; there is no `NEXT_PUBLIC_PAYMENT*` variable anywhere in the
+  codebase, and none is introduced here.
+- The payment config, URL resolver, provider factory/adapter, and payment
+  services are imported only from server routes; no client component imports
+  them. Configuration errors carry variable **names** only, never values.
+- The committed `.env.example` template carries names/placeholders only.
+  `.env*` is gitignored (`.env.local` is not tracked); only the template is
+  tracked, and it must never contain a real credential.
+- Secrets (`PAYMENT_MERCHANT_SECRET`, and any future provider token) are held
+  only in the resolved server config object and fed into HMAC computation.
+  They are never returned by an API, logged, or placed in a client bundle.
+
+### Production / test endpoint pairing
+
+`PAYMENT_ENVIRONMENT` and `PAYMENT_API_BASE_URL` are validated together —
+provided by the code, documented here, never inferred:
+
+| `PAYMENT_ENVIRONMENT` | Accepted `PAYMENT_API_BASE_URL` |
+| --- | --- |
+| `production` | `https://payments.wavemoney.io` (no port) |
+| `test` | `https://testpayments.wavemoney.io:8107` |
+
+Any other host/port, or a mismatched pair (for example `environment=test` with
+the production origin), fails `resolveWaveProviderConfig` before any provider
+call. Operators must provision the credentials issued for the matching
+environment and must not copy production credentials into a test deployment or
+vice versa. `PAYMENT_ENVIRONMENT=production` is refused by the S8.4 harness
+unconditionally; that harness behavior is unchanged by this milestone.
+
+### Callback origin and the canonical-domain question
+
+How the code derives the origins (all from `lib/payment/payment-urls.ts`):
+
+1. **Public origin** — `SNAPPY_PUBLIC_URL` when present; otherwise
+   `VERCEL_PROJECT_PRODUCTION_URL` (host-only, normalized to HTTPS). Request
+   `Host`, browser origin, and query parameters are never consulted.
+2. **Callback origin** — `PAYMENT_CALLBACK_BASE_URL` when set, otherwise the
+   public origin above.
+3. **Wave callback URL** — exactly
+   `<callbackOrigin>/api/payments/wave/callback` (the S7-B.3 route).
+4. **Browser return URL** — `<publicOrigin>/subscription/checkout/return`
+   (navigation only; never proof of payment).
+
+Invalid explicit values fail closed: no origin means the payment-init request
+returns a generic 503 rather than falling back to a different deployment.
+
+**Canonical origin — UNRESOLVED, deliberately not decided here.** The
+repository contains no authoritative canonical-domain convention for the
+payment callback, and two hosts appear in existing configuration/documentation:
+
+- `snapppy.info` (no `www`): `docs/telegram.md` states the production
+  environment as `https://snapppy.info/` and gives the Mini App deep-link
+  example `https://snapppy.info/telegram/app?…`; the configured
+  `SNAPPY_PUBLIC_URL` value is `https://snapppy.info`.
+- `www.snapppy.info`: the configured Telegram webhook origin is
+  `https://www.snapppy.info/api/telegram/webhook`.
+
+Because no source of truth exists in the repository, this milestone does
+**not** choose a canonical host, does **not** modify any callback or origin
+behavior, and does **not** guess. The discrepancy is recorded so deployment
+configuration can resolve it explicitly: the operator must set
+`SNAPPY_PUBLIC_URL` (and/or `PAYMENT_CALLBACK_BASE_URL`) to whichever host is
+actually registered with Wave. No redirect exists, so a mismatch between the
+origin registered with Wave and the deployed origin would prevent callback
+delivery.
+
+### Relationship between S8.3 readiness and deployment verification
+
+`GET /api/admin/payments/readiness` is a **configuration-only** diagnostic. It
+is admin-gated, never contacts Wave, never reads the database, and returns only
+booleans and safe category strings.
+
+**`ready: true` from S8.3 does NOT prove deployment reachability or Wave
+sandbox/production readiness.** `ready: true` means only that the server-side
+payment configuration is internally valid and the deployment configuration is
+ready to be checked. It does **not** establish any of the following, all of
+which remain separate operational gates:
+
+- Wave merchant approval has been granted;
+- the provisioned credentials are valid or accepted by Wave;
+- the deployment is reachable from the public internet;
+- a signed callback can actually be delivered;
+- a sandbox payment has succeeded;
+- production is ready for real payments.
+
+So a green readiness probe and a deployed `SNAPPY_PUBLIC_URL` still do not
+prove that Wave can reach `POST /api/payments/wave/callback`, nor that a real
+payment settles.
+
+### No live credential testing
+
+This milestone added no credential and made no network call to Wave: no
+merchant secret, API token, cookie, or real Wave credential was requested,
+added, printed, or stored, and no real payment was attempted. The
+configuration checks are source/config-only and run without any credential.
+
+### Explicit limits
+
+**S7-B.5 remains BLOCKED.** No reconciliation endpoint was invented and no
+provider inquiry API was assumed.
+
+**S8.4 remains BLOCKED for live sandbox access** (missing Wave sandbox
+configuration, not a code failure). Confirming the deployment's real origins
+and endpoint reachability, and any live sandbox payment, still require
+deployment/provider access and are not claimed here.
