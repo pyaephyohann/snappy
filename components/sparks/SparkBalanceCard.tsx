@@ -85,28 +85,23 @@ export default function SparkBalanceCard() {
         Sparks
       </h3>
 
-      <dl className="mt-4 grid grid-cols-3 gap-x-4 gap-y-3">
-        <div>
-          <dt className="text-xs text-muted-foreground">Total</dt>
-          <dd className="mt-1 text-lg font-semibold text-foreground">
-            {usage.balance} ✨
-          </dd>
+      {/* Balance first and prominent (like a lightweight app currency),
+          rendered exactly as the server reports it — including 0. */}
+      <p className="mt-2 text-3xl font-semibold text-foreground">
+        {usage.balance} ✨
+      </p>
+
+      <dl className="mt-4 divide-y divide-border text-sm">
+        <div className="flex items-center justify-between gap-3 py-2">
+          <dt className="text-muted-foreground">Earned</dt>
+          <dd className="font-medium text-foreground">{usage.earnedSparks} ✨</dd>
         </div>
-        <div>
-          <dt className="text-xs text-muted-foreground">Earned</dt>
-          <dd className="mt-1 text-lg font-semibold text-foreground">
-            {usage.earnedSparks} ✨
-          </dd>
-        </div>
-        <div>
-          <dt className="text-xs text-muted-foreground">Subscription</dt>
-          <dd className="mt-1 text-lg font-semibold text-foreground">
+        <div className="flex items-center justify-between gap-3 py-2">
+          <dt className="text-muted-foreground">Subscription</dt>
+          <dd className="font-medium text-foreground">
             {usage.subscriptionSparks} ✨
           </dd>
         </div>
-      </dl>
-
-      <dl className="mt-4 divide-y divide-border text-sm">
         <div className="flex items-center justify-between gap-3 py-2">
           <dt className="text-muted-foreground">Plan</dt>
           <dd className="font-medium text-foreground">{planLabel}</dd>

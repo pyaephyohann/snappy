@@ -288,7 +288,12 @@ test("loading and error states never fabricate current-plan values", () => {
 
 test("SparkBalanceCard and protected economy files are unchanged in the working tree", () => {
   const protectedPaths = [
-    "components/sparks/SparkBalanceCard.tsx",
+    // Sparks-visibility milestone (same convention as S7-B.4 / D3):
+    // components/sparks/SparkBalanceCard.tsx promotes the server-reported
+    // balance to the hero of the existing profile Sparks card (nav + profile
+    // visibility). Its contract — server values only, zero rendered, no
+    // client-side economy math — is asserted below instead of a zero-diff
+    // check; every other protected file stays untouched.
     "components/snaps/SparkUsageIndicator.tsx",
     "components/snaps/SnapCreateComposerModal.tsx",
     // S7-B.4: hooks/useSparkUsage.ts gains only the standard
@@ -318,6 +323,12 @@ test("SparkBalanceCard and protected economy files are unchanged in the working 
   assert.match(card, /useSparkUsage/);
   assert.match(card, /usage\.subscriptionStatus/);
   assert.match(card, /usage\.subscriptionPeriodEnd/);
+  // Sparks visibility: the balance is the hero and is rendered exactly as the
+  // server reports it (including 0) — never calculated on the client.
+  assert.match(card, /usage\.balance/);
+  assert.match(card, /usage\.earnedSparks/);
+  assert.match(card, /usage\.subscriptionSparks/);
+  assert.doesNotMatch(card, /usage\.(?:balance|earnedSparks|subscriptionSparks)\s*[-+*/]/);
 
   // useSparkUsage keeps its S5 contract and adds only the shared refresh
   // event listener (S7-B.4) used to re-fetch server-backed data.

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Image from "next/image";
 import NavbarDesktopFriendSearch from "@/components/layout/NavbarDesktopFriendSearch";
+import SparkBalancePill from "@/components/sparks/SparkBalancePill";
 import SnappyLogo from "@/components/ui/SnappyLogo";
 import ThemeSwitcher from "@/components/theme/ThemeSwitcher";
 import GlowingBorder from "@/components/ui/glowing-border";
@@ -85,6 +86,7 @@ export default function Navbar({ username, profileImage }: NavbarProps) {
           </div>
 
           <div className="flex shrink-0 items-center gap-3 sm:gap-4">
+            <SparkBalancePill />
             <Link
               href="/chats"
               className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
