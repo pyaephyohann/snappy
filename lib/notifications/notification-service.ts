@@ -6,6 +6,10 @@ import {
   webpush,
 } from "@/lib/notifications/vapid";
 import { sanitizeNotificationUrl } from "@/lib/notifications/internal-url";
+import {
+  filterPushableSubscriptions,
+  shouldPushNotification,
+} from "@/lib/notifications/notification-preferences";
 
 /** Notification preview is bounded by Unicode code points, not UTF-16 units. */
 export const MAX_NOTIFICATION_PREVIEW_CODE_POINTS = 160;
@@ -138,7 +142,11 @@ export async function broadcastNewSnap({
     createdAt,
   };
 
-  const subscriptions = await prisma.pushSubscription.findMany();
+  // Broadcasts are muted per subscription owner (user-level preference).
+  const subscriptions = await filterPushableSubscriptions(
+    await prisma.pushSubscription.findMany(),
+    "NEW_SNAP",
+  );
 
   if (subscriptions.length === 0) {
     console.warn("[Web Push] Broadcast skipped: 0 subscriptions");
@@ -223,6 +231,13 @@ export async function notifySnapInteraction({
       body: notificationBody,
     },
   });
+
+  // Mute preference: the Notification row above is always created and stays
+  // in the in-app history; only Web Push delivery is suppressed when the Snap
+  // owner muted this category.
+  if (!(await shouldPushNotification({ userId: snap.userId, type }))) {
+    return;
+  }
 
   if (!isWebPushConfigured()) {
     return;
@@ -341,6 +356,18 @@ export async function createNewMessageNotification({
     throw error;
   }
 
+  // Mute preference: the Notification row above is always created and stays
+  // in the in-app history; only Web Push delivery is suppressed when the
+  // recipient muted messages.
+  if (
+    !(await shouldPushNotification({
+      userId: recipient.userId,
+      type: "NEW_MESSAGE",
+    }))
+  ) {
+    return;
+  }
+
   if (!isWebPushConfigured()) {
     return;
   }
@@ -429,6 +456,18 @@ export async function notifyFollowEvent({
         actorId: follow.followerId,
       },
     });
+
+    // Mute preference: the Notification row above is always created and stays
+    // in the in-app history; only Web Push delivery is suppressed when the
+    // recipient muted this follow category.
+    if (
+      !(await shouldPushNotification({
+        userId: follow.followingId,
+        type,
+      }))
+    ) {
+      return;
+    }
 
     if (!isWebPushConfigured()) {
       return;
@@ -574,7 +613,11 @@ export async function sendBirthdayNotificationIfDue({
     createdAt: notification.createdAt.toISOString(),
   };
 
-  const subscriptions = await prisma.pushSubscription.findMany();
+  // Broadcasts are muted per subscription owner (user-level preference).
+  const subscriptions = await filterPushableSubscriptions(
+    await prisma.pushSubscription.findMany(),
+    "BIRTHDAY",
+  );
 
   if (subscriptions.length === 0) {
     return;

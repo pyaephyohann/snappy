@@ -2,6 +2,7 @@ import { getSession } from "@/lib/auth";
 import Navbar from "@/components/layout/Navbar";
 import { getCurrentUserProfileImage } from "@/lib/user-profile";
 import NotificationSettings from "@/components/notifications/NotificationSettings";
+import NotificationCategorySettings from "@/components/notifications/NotificationCategorySettings";
 import NotificationsPageClient from "@/components/notifications/NotificationsPageClient";
 
 export default async function NotificationsPage() {
@@ -19,6 +20,7 @@ export default async function NotificationsPage() {
           Notifications
         </h1>
         <NotificationSettings />
+        <NotificationCategorySettings />
         <NotificationsPageClient />
       </main>
     </div>

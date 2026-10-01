@@ -213,9 +213,11 @@ test("S8 adds no migration and leaves S7 thresholds untouched", () => {
   // Social notification hygiene: the additive FOLLOW (20261002120000) and
   // FOLLOW_ACCEPTED (20261002130000) notification type migrations advance
   // the tip again; the assertion still detects any further migration.
+  // N1 hygiene: the notification push preferences table (20261002150000)
+  // advances the tip again; the assertion still detects any further migration.
   assert.equal(
     migrations[migrations.length - 1],
-    "20261002130000_social_follow_accepted_notifications",
+    "20261002150000_notification_push_preferences",
   );
 
   const presence = read("lib/presence.ts");
