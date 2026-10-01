@@ -42,7 +42,9 @@ export default function SnapCommentsSheet({
   onCommentAdded,
 }: SnapCommentsSheetProps) {
   const [comments, setComments] = useState<SnapCommentItem[]>([]);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [sending, setSending] = useState(false);
   const [draft, setDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -64,12 +66,14 @@ export default function SnapCommentsSheet({
         const result = (await response.json()) as {
           error?: string;
           comments?: SnapCommentItem[];
+          nextCursor?: string | null;
         };
         if (cancelled) return;
         if (!response.ok) {
           throw new Error(result.error ?? "Failed to load comments");
         }
         setComments(result.comments ?? []);
+        setNextCursor(result.nextCursor ?? null);
       } catch (loadError) {
         if (cancelled) return;
         setError(
@@ -87,6 +91,37 @@ export default function SnapCommentsSheet({
       cancelled = true;
     };
   }, [open, snapId]);
+
+  const loadOlder = useCallback(async () => {
+    if (!nextCursor || loadingMore) return;
+    setLoadingMore(true);
+    setError(null);
+    try {
+      const response = await fetch(
+        `/api/snaps/${snapId}/comments?cursor=${encodeURIComponent(nextCursor)}`,
+        { credentials: "include" },
+      );
+      const result = (await response.json()) as {
+        error?: string;
+        comments?: SnapCommentItem[];
+        nextCursor?: string | null;
+      };
+      if (!response.ok) {
+        throw new Error(result.error ?? "Failed to load comments");
+      }
+      // Newest-first list: older pages append after the current ones.
+      setComments((current) => [...current, ...(result.comments ?? [])]);
+      setNextCursor(result.nextCursor ?? null);
+    } catch (loadError) {
+      setError(
+        loadError instanceof Error
+          ? loadError.message
+          : "Failed to load comments",
+      );
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [nextCursor, loadingMore, snapId]);
 
   useEffect(() => {
     if (!open) return;
@@ -227,6 +262,16 @@ export default function SnapCommentsSheet({
                   ))}
                 </ul>
               )}
+              {nextCursor && !loading ? (
+                <button
+                  type="button"
+                  onClick={() => void loadOlder()}
+                  disabled={loadingMore}
+                  className="mt-4 flex min-h-[40px] w-full cursor-pointer items-center justify-center rounded-xl border border-border bg-card px-4 py-2 text-sm font-medium text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {loadingMore ? "Loading…" : "Load more comments"}
+                </button>
+              ) : null}
             </div>
 
             {error ? (
