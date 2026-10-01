@@ -1,11 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   NOTIFICATIONS_UPDATED_EVENT,
   notifyNotificationsUpdated,
 } from "@/lib/local-notifications";
+import {
+  groupNotifications,
+  type NotificationGroup,
+} from "@/lib/notifications/notification-grouping";
 
 type NotificationItem = {
   id: string;
@@ -58,6 +62,41 @@ function notificationBody(item: NotificationItem): string | null {
   return null;
 }
 
+// Grouped rows name the first two actors and compress the rest; the verb
+// stays per-type so the wording remains truthful for what happened. Only
+// REACTION / COMMENT / FOLLOW / FOLLOW_ACCEPTED ever form multi-item groups
+// (see lib/notifications/notification-grouping.ts).
+const GROUP_VERB: Record<NotificationItem["type"], string> = {
+  NEW_SNAP: "uploaded a new Snap",
+  NEW_MESSAGE: "sent you a message",
+  REACTION: "reacted to your Snap",
+  COMMENT: "commented on your Snap",
+  BIRTHDAY: "has a birthday today",
+  FOLLOW: "followed you",
+  FOLLOW_ACCEPTED: "accepted your follow",
+};
+
+function groupTitle(group: NotificationGroup<NotificationItem>): string {
+  const names: string[] = [];
+  for (const member of group.notifications) {
+    if (!names.includes(member.actor.name)) {
+      names.push(member.actor.name);
+    }
+  }
+  if (names.length <= 1) {
+    // Degenerate multi-item group (same actor): fall back to the exact
+    // single-notification wording.
+    return notificationTitle(group.primaryNotification);
+  }
+  const verb = GROUP_VERB[group.type];
+  if (names.length === 2) {
+    return `${names[0]} and ${names[1]} ${verb}`;
+  }
+  const others = names.length - 2;
+  const suffix = others === 1 ? "1 other" : `${others} others`;
+  return `${names[0]}, ${names[1]} and ${suffix} ${verb}`;
+}
+
 function targetUrl(item: NotificationItem, miniAppPrefix?: string): string {
   if (item.type === "NEW_MESSAGE" && item.conversationId) {
     const path = `/chats/${encodeURIComponent(item.conversationId)}`;
@@ -80,6 +119,56 @@ function targetUrl(item: NotificationItem, miniAppPrefix?: string): string {
   return miniAppPrefix ? `${miniAppPrefix}/alerts` : "/notifications";
 }
 
+function NotificationRow({
+  title,
+  body,
+  createdAt,
+  unread,
+  onOpen,
+}: {
+  title: string;
+  body: string | null;
+  createdAt: string;
+  unread: boolean;
+  onOpen: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className={`flex w-full cursor-pointer gap-3 px-4 py-4 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset ${
+        unread ? "bg-primary/5" : ""
+      }`}
+    >
+      <span
+        className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${
+          unread ? "bg-primary" : "bg-muted-foreground/40"
+        }`}
+        aria-hidden="true"
+      />
+      <span className="min-w-0 flex-1">
+        <span
+          className={`block text-sm ${
+            unread
+              ? "font-semibold text-foreground"
+              : "font-medium text-foreground"
+          }`}
+        >
+          {title}
+        </span>
+        {body ? (
+          <span className="mt-0.5 block text-sm text-muted-foreground">
+            {body}
+          </span>
+        ) : null}
+        <span className="mt-1 block text-xs text-muted-foreground">
+          {formatRelativeTime(createdAt)}
+        </span>
+      </span>
+    </button>
+  );
+}
+
 export default function NotificationsPageClient({
   miniAppPrefix,
 }: {
@@ -89,6 +178,9 @@ export default function NotificationsPageClient({
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Presentation grouping recomputes from whatever is loaded — the feed
+  // never invents knowledge about records it has not fetched.
+  const groups = useMemo(() => groupNotifications(items), [items]);
 
   const reload = useCallback(async () => {
     try {
@@ -141,6 +233,36 @@ export default function NotificationsPageClient({
     router.push(targetUrl(item, miniAppPrefix));
   };
 
+  const handleOpenGroup = (group: NotificationGroup<NotificationItem>) => {
+    const unreadMembers = group.notifications.filter((item) => !item.read);
+    if (unreadMembers.length > 0) {
+      const unreadIds = new Set(unreadMembers.map((item) => item.id));
+      setItems((prev) =>
+        prev.map((n) => (unreadIds.has(n.id) ? { ...n, read: true } : n)),
+      );
+      // Same contract as handleOpen, batched: one PATCH per unread member
+      // through the existing per-notification API, then a single badge
+      // refresh once any mutation is confirmed. The server unread count
+      // still reflects underlying rows, never visual groups.
+      void Promise.all(
+        unreadMembers.map((item) =>
+          fetch(`/api/notifications/${item.id}/read`, {
+            method: "PATCH",
+          }),
+        ),
+      )
+        .then((responses) => {
+          if (responses.some((res) => res.ok)) {
+            notifyNotificationsUpdated();
+          }
+        })
+        .catch(() => undefined);
+    }
+    // A group shares one destination: the primary (newest) notification's
+    // existing target. No new route is invented.
+    router.push(targetUrl(group.primaryNotification, miniAppPrefix));
+  };
+
   if (loading) {
     return (
       <div className="rounded-xl border border-border bg-card px-6 py-12 text-center">
@@ -171,44 +293,39 @@ export default function NotificationsPageClient({
 
   return (
     <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
-      {items.map((item) => {
-        const unread = !item.read;
-        const body = notificationBody(item);
-        return (
-          <li key={item.id}>
-            <button
-              type="button"
-              onClick={() => handleOpen(item)}
-              className={`flex w-full cursor-pointer gap-3 px-4 py-4 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset ${
-                unread ? "bg-primary/5" : ""
-              }`}
-            >
-              <span
-                className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${
-                  unread ? "bg-primary" : "bg-muted-foreground/40"
-                }`}
-                aria-hidden="true"
+      {groups.map((group) => {
+        if (group.notifications.length === 1) {
+          // Single notifications keep the exact existing row behavior.
+          const item = group.notifications[0];
+          const unread = !item.read;
+          return (
+            <li key={item.id}>
+              <NotificationRow
+                title={notificationTitle(item)}
+                body={notificationBody(item)}
+                createdAt={item.createdAt}
+                unread={unread}
+                onOpen={() => handleOpen(item)}
               />
-              <span className="min-w-0 flex-1">
-                <span
-                  className={`block text-sm ${
-                    unread
-                      ? "font-semibold text-foreground"
-                      : "font-medium text-foreground"
-                  }`}
-                >
-                  {notificationTitle(item)}
-                </span>
-                {body ? (
-                  <span className="mt-0.5 block text-sm text-muted-foreground">
-                    {body}
-                  </span>
-                ) : null}
-                <span className="mt-1 block text-xs text-muted-foreground">
-                  {formatRelativeTime(item.createdAt)}
-                </span>
-              </span>
-            </button>
+            </li>
+          );
+        }
+        // A group is unread while any underlying notification is unread;
+        // the server unread count (N2) still reflects underlying rows.
+        const primary = group.primaryNotification;
+        const unread = group.unreadCount > 0;
+        return (
+          <li key={group.key}>
+            <NotificationRow
+              title={groupTitle(group)}
+              // The body is the primary (newest) member's body. Reaction
+              // groups share one emoji by key, so the line is exact; comment
+              // groups show the newest comment preview.
+              body={notificationBody(primary)}
+              createdAt={primary.createdAt}
+              unread={unread}
+              onOpen={() => handleOpenGroup(group)}
+            />
           </li>
         );
       })}
