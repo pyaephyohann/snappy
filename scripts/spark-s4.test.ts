@@ -13,6 +13,7 @@
  *
  * Run: npm run test:spark-s4
  */
+import "./test-db-guard";
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";

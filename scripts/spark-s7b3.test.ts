@@ -8,6 +8,7 @@
  *
  * Run: npm run test:spark-s7b3
  */
+import "./test-db-guard";
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";

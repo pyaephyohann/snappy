@@ -2,6 +2,7 @@
  * Focused auth logic tests (Node built-in test runner — no extra test framework).
  * Run: npm run test:auth
  */
+import "./test-db-guard";
 import test from "node:test";
 import assert from "node:assert/strict";
 import bcrypt from "bcryptjs";

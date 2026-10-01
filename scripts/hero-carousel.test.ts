@@ -10,6 +10,7 @@
  *
  * Run: node --import tsx --test scripts/hero-carousel.test.ts
  */
+import "./test-db-guard";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFileSync } from "node:fs";

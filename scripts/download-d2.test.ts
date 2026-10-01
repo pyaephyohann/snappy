@@ -15,6 +15,7 @@
  * Run: npm run test:download-d2
  */
 
+import "./test-db-guard";
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";

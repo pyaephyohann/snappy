@@ -6,6 +6,7 @@
  *
  * Run: npm run test:spark-s3
  */
+import "./test-db-guard";
 import test, { after } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
