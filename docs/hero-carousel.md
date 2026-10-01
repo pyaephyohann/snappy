@@ -6,18 +6,36 @@ The Hero Carousel on the user app home page is **fully automatic**. Admin no lon
 
 ## Overview
 
-The carousel operates in one of two modes:
+The carousel resolves its content on every page load with a deterministic
+precedence:
 
-| Mode | Title | Images |
-|------|-------|--------|
-| **Birthday** | `Happy Birthday <username>` | ALL snaps uploaded by the birthday user |
-| **Latest Snaps** | `Latest Snaps` | Latest 5 snaps by creation date |
+| Priority | Mode | Title | Images |
+|----------|------|-------|--------|
+| 1 | **Birthday** | `Happy Birthday <username>` | ALL snaps uploaded by the birthday user |
+| 2 | **Admin-configured** | `HeroCarouselConfig.title` (optional) | The `HeroCarouselSlide` rows managed in Admin → Hero Carousel |
+| 3 | **Latest Snaps** (automatic fallback) | `Latest Snaps` | Latest 5 snaps by creation date |
 
-The mode is determined server-side on every page load based on the current date and user birthday data.
+Rules:
+
+- During an active 3-day birthday window, birthday mode wins — but only when
+  the birthday user(s) have at least one renderable snap.
+- Outside the birthday window, the admin configuration is the primary banner
+  source of truth. Whenever at least one configured slide is renderable, the
+  Home banner shows exactly those slides (in their configured order) with the
+  configured title.
+- The automatic Latest Snaps mode is only a fallback for when neither of the
+  above applies.
+- Every mode drops slide records with missing or invalid image URLs (anything
+  that is not a root-relative path or an `https://` URL), so a malformed row
+  can never crash the carousel.
+
+The mode is determined server-side on every page load by
+`getAutomaticHeroCarousel()` in `lib/hero-carousel.ts`, the single canonical
+banner resolver shared by the Web Home page and the Telegram Mini App home API.
 
 ---
 
-## Birthday Mode
+## Birthday Mode (highest priority)
 
 ### Detection
 
@@ -60,14 +78,33 @@ If a birthday user has no uploaded Snaps, the carousel **falls back to Latest Sn
 
 ---
 
-## Latest Snaps Mode
+## Admin-Configured Mode
 
-When no birthday window is active, the carousel shows:
+Outside the birthday window, the carousel renders the slides configured in
+**Admin → Hero Carousel**:
+
+- **Title:** the `HeroCarouselConfig.title` (optional; hidden when empty)
+- **Images:** the `HeroCarouselSlide` rows ordered by `sortOrder`
+
+Admin can add, reorder, and remove slides and edit the title through the
+existing admin UI (`components/admin/HeroCarouselPageClient.tsx` and the
+`/api/admin/hero-carousel/*` routes). Changes take effect on the next page
+load — there is no cache to invalidate.
+
+Slides whose Snap has a missing or invalid image URL are skipped; the
+remaining configured slides are preserved in order. If no configured slide is
+renderable, the banner falls through to Latest Snaps mode.
+
+## Latest Snaps Mode (Automatic Fallback)
+
+When no birthday window is active and no admin slide is configured, the
+carousel shows:
 
 - **Title:** `Latest Snaps`
 - **Images:** The 5 most recent Snaps by `createdAt` descending
 
-If fewer than 5 Snaps exist in the database, all available Snaps are shown.
+If fewer than 5 Snaps exist in the database (or some of the newest Snaps have
+invalid image URLs and are dropped), all renderable Snaps are shown.
 
 ---
 
@@ -139,13 +176,17 @@ Production deployments must apply migrations before the Next.js build/runtime st
 
 ---
 
-## Old Manual Hero Carousel
+## Admin Hero Carousel (primary source of truth)
 
-The previous manual Hero Carousel system (`HeroCarouselConfig`, `HeroCarouselSlide` models) is **deprecated** for the user app but remains in the database schema to avoid migration risk.
+The manual Hero Carousel system (`HeroCarouselConfig`, `HeroCarouselSlide`
+models) is **live again** as the primary banner source of truth outside the
+birthday window (Milestone B1).
 
-- Admin can still access the old carousel management page
-- The user app no longer reads from `HeroCarouselConfig` or `HeroCarouselSlide`
-- The old manual system has no effect on the automatic carousel
+- Admin manages the carousel at the existing Hero Carousel management page
+- The user app reads `HeroCarouselConfig` and `HeroCarouselSlide` on every
+  Home render (Web and Telegram alike)
+- Birthday mode still outranks the admin configuration during its 3-day
+  window; the automatic Latest Snaps mode is the last-resort fallback
 
 ---
 
@@ -154,23 +195,31 @@ The previous manual Hero Carousel system (`HeroCarouselConfig`, `HeroCarouselSli
 ### Data Flow
 
 ```
-User visits /home
+User visits /home (or Telegram GET /api/telegram/mini-app/home)
         ↓
-getAutomaticHeroCarousel()
+getHomeDataForUser() → getAutomaticHeroCarousel()
         ↓
-Check Users with birthday set
-        ↓
-Is today in any user's 3-day window?
+Is today in any user's 3-day birthday window (Asia/Yangon)?
         ↓
 YES → Birthday mode
         ↓
-Query ALL snaps uploaded by birthday user(s)
+Query ALL snaps uploaded by birthday user(s) → validate image URLs
         ↓
-Return { title: "Happy Birthday <name>", slides: [...] }
+At least one renderable snap?
+        ↓
+YES → Return { title: "Happy Birthday <name>", slides: [...] }
+        ↓
+NO → fall through
+        ↓
+Admin-configured mode: query HeroCarouselConfig + HeroCarouselSlide
+        ↓
+At least one renderable configured slide?
+        ↓
+YES → Return { title: <config title>, slides: [configured slides] }
         ↓
 NO → Latest Snaps mode
         ↓
-Query latest 5 snaps by createdAt desc
+Query latest 5 snaps by createdAt desc → validate image URLs
         ↓
 Return { title: "Latest Snaps", slides: [...] }
 ```
@@ -189,15 +238,16 @@ No explicit cache invalidation is needed:
 - The home page is a Next.js server component that fetches data on each request
 - `getAutomaticHeroCarousel()` queries the database fresh every time
 - Birthday mode changes automatically at midnight (Yangon time)
-- Admin birthday changes take effect on the next page load
+- Admin slide/title/birthday changes take effect on the next page load
 - New Snap uploads are immediately visible in Latest Snaps mode
 
 ### Performance
 
-- Normal mode: 1 query for latest 5 snaps (indexed on `createdAt`)
+- Fallback mode: 1 query for latest 5 snaps (indexed on `createdAt`)
+- Admin mode: 1 combined query for config + slides
 - Birthday mode: 1 query for users with birthday + 1 query for their snaps
 - Birthday notification deduplication: 1 query per birthday user per page load
-- No unnecessary data is fetched
+- Image URL validity is checked in application code (no per-render HTTP requests)
 
 ---
 
@@ -205,7 +255,8 @@ No explicit cache invalidation is needed:
 
 | File | Purpose |
 |------|---------|
-| `lib/hero-carousel.ts` | Automatic carousel logic (`getAutomaticHeroCarousel`) |
+| `lib/hero-carousel.ts` | Canonical banner resolver (`getAutomaticHeroCarousel`): birthday → admin slides → Latest Snaps, with slide validation |
+| `lib/hero-carousel-admin.ts` | Admin CRUD helpers for `HeroCarouselConfig` / `HeroCarouselSlide` |
 | `lib/birthday-notifications.ts` | Birthday notification trigger |
 | `lib/notifications/notification-service.ts` | `sendBirthdayNotificationIfDue` (dedup + push) |
 | `app/home/page.tsx` | Home page — uses automatic carousel |

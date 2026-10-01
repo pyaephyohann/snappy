@@ -1,18 +1,27 @@
 import { prisma } from "@/lib/prisma";
+import {
+  extractMonthDay,
+  isInBirthdayWindow,
+  toValidatedSlides,
+  type PublicHeroCarouselData,
+} from "@/lib/hero-carousel-slides";
 
 export const HERO_CAROUSEL_CONFIG_ID = "default";
 
-export interface PublicHeroCarouselSlide {
-  id: string;
-  imageUrl: string;
-  altText: string;
-  sortOrder: number;
-}
+const LATEST_SNAPS_TITLE = "Latest Snaps";
 
-export interface PublicHeroCarouselData {
-  title: string | null;
-  slides: PublicHeroCarouselSlide[];
-}
+// Pure slide/birthday helpers and public types live in hero-carousel-slides.ts
+// (no Prisma import) and are re-exported here as the canonical banner API.
+export {
+  extractMonthDay,
+  isInBirthdayWindow,
+  isValidSlideImageUrl,
+  toValidatedSlides,
+} from "@/lib/hero-carousel-slides";
+export type {
+  PublicHeroCarouselData,
+  PublicHeroCarouselSlide,
+} from "@/lib/hero-carousel-slides";
 
 /**
  * Get today's date components in Asia/Yangon timezone (UTC+6:30).
@@ -30,61 +39,15 @@ function getTodayInYangon(): { year: number; month: number; day: number } {
 }
 
 /**
- * Check if today falls within the 3-day birthday window.
- *
- * Window: birthday day, birthday+1, birthday+2 (calendar days).
- * Example: birthday = Sep 19
- *   Sep 19 → active (day 1)
- *   Sep 20 → active (day 2)
- *   Sep 21 → active (day 3)
- *   Sep 22 → not active
- */
-function isInBirthdayWindow(
-  birthdayMonth: number,
-  birthdayDay: number,
-  today: { month: number; day: number },
-): boolean {
-  // Build the 3-day window starting from the birthday date
-  const birthdayBase = new Date(2000, birthdayMonth - 1, birthdayDay);
-
-  for (let offset = 0; offset < 3; offset++) {
-    const d = new Date(birthdayBase);
-    d.setDate(d.getDate() + offset);
-    const windowMonth = d.getMonth() + 1;
-    const windowDay = d.getDate();
-    if (windowMonth === today.month && windowDay === today.day) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
-/**
- * Extract month (1-12) and day (1-31) from a Date stored as birthday.
- * The year is ignored — only month+day matters for birthday comparison.
- */
-function extractMonthDay(birthday: Date): { month: number; day: number } {
-  // Use UTC to avoid timezone drift on the stored date
-  return {
-    month: birthday.getUTCMonth() + 1,
-    day: birthday.getUTCDate(),
-  };
-}
-
-/**
- * Resolve the automatic Hero Carousel state.
- *
  * Birthday mode (3-day window):
  *   - Title: "Happy Birthday <username>" (or "Happy Birthday <user1> & <user2>" for multiples)
  *   - Slides: ALL snaps uploaded by the birthday user(s)
- *   - Falls back to Latest Snaps if birthday user has no snaps
  *
- * Normal mode:
- *   - Title: "Latest Snaps"
- *   - Slides: Latest 5 snaps by createdAt desc
+ * Returns null when no birthday window is active, or when the birthday
+ * user(s) have no renderable snaps, so the caller falls through to the next
+ * banner source instead of rendering an empty birthday carousel.
  */
-export async function getAutomaticHeroCarousel(): Promise<PublicHeroCarouselData> {
+async function getBirthdayCarousel(): Promise<PublicHeroCarouselData | null> {
   const today = getTodayInYangon();
 
   // Find all users with a birthday set
@@ -109,45 +72,82 @@ export async function getAutomaticHeroCarousel(): Promise<PublicHeroCarouselData
       birthdayUsers.push({ id: user.id, name: user.name });
     }
   }
+  if (birthdayUsers.length === 0) return null;
 
-  // Birthday mode: if at least one user has a birthday window active
-  if (birthdayUsers.length > 0) {
-    // Collect ALL snaps uploaded by all birthday users
-    const birthdayUserIds = birthdayUsers.map((u) => u.id);
-    const birthdaySnaps = await prisma.snap.findMany({
-      where: {
-        uploadedById: { in: birthdayUserIds },
+  // Collect ALL snaps uploaded by all birthday users
+  const birthdayUserIds = birthdayUsers.map((u) => u.id);
+  const birthdaySnaps = await prisma.snap.findMany({
+    where: {
+      uploadedById: { in: birthdayUserIds },
+    },
+    orderBy: { createdAt: "desc" },
+    select: {
+      id: true,
+      imageUrl: true,
+      caption: true,
+    },
+  });
+
+  const slides = toValidatedSlides(birthdaySnaps, "Birthday snap");
+  if (slides.length === 0) return null;
+
+  const title =
+    birthdayUsers.length === 1
+      ? `Happy Birthday ${birthdayUsers[0].name}`
+      : `Happy Birthday ${birthdayUsers.map((u) => u.name).join(" & ")}`;
+
+  return { title, slides };
+}
+
+/**
+ * Admin-configured mode: the HeroCarouselSlide rows managed in
+ * Admin → Hero Carousel (ordered by sortOrder), with the optional
+ * HeroCarouselConfig title. This is the primary banner source of truth —
+ * whatever the admin curated is what the Home banner shows.
+ *
+ * Returns null when no renderable slide is configured, so the caller can fall
+ * back to the automatic Latest Snaps mode.
+ */
+async function getAdminCarousel(): Promise<PublicHeroCarouselData | null> {
+  const [config, slideRows] = await Promise.all([
+    prisma.heroCarouselConfig.findUnique({
+      where: { id: HERO_CAROUSEL_CONFIG_ID },
+    }),
+    prisma.heroCarouselSlide.findMany({
+      orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
+      include: {
+        snap: {
+          select: {
+            imageUrl: true,
+            caption: true,
+          },
+        },
       },
-      orderBy: { createdAt: "desc" },
-      select: {
-        id: true,
-        imageUrl: true,
-        caption: true,
-      },
-    });
+    }),
+  ]);
 
-    // If birthday user(s) have snaps, show birthday carousel
-    if (birthdaySnaps.length > 0) {
-      const title =
-        birthdayUsers.length === 1
-          ? `Happy Birthday ${birthdayUsers[0].name}`
-          : `Happy Birthday ${birthdayUsers.map((u) => u.name).join(" & ")}`;
+  const slides = toValidatedSlides(
+    slideRows.map((row) => ({
+      id: row.id,
+      imageUrl: row.snap?.imageUrl,
+      altText: row.altText,
+      caption: row.snap?.caption,
+      sortOrder: row.sortOrder,
+    })),
+  );
+  if (slides.length === 0) return null;
 
-      return {
-        title,
-        slides: birthdaySnaps.map((snap, index) => ({
-          id: snap.id,
-          imageUrl: snap.imageUrl,
-          altText: snap.caption?.trim() || "Birthday snap",
-          sortOrder: index,
-        })),
-      };
-    }
+  return {
+    title: config?.title?.trim() || null,
+    slides,
+  };
+}
 
-    // Birthday user(s) exist but have no snaps — fall through to Latest Snaps
-  }
-
-  // Normal mode: Latest 5 snaps
+/**
+ * Automatic fallback: the newest five Snaps by createdAt, used only when
+ * neither a birthday window nor admin-configured slides apply.
+ */
+async function getLatestSnapsCarousel(): Promise<PublicHeroCarouselData> {
   const latestSnaps = await prisma.snap.findMany({
     orderBy: { createdAt: "desc" },
     take: 5,
@@ -159,14 +159,37 @@ export async function getAutomaticHeroCarousel(): Promise<PublicHeroCarouselData
   });
 
   return {
-    title: "Latest Snaps",
-    slides: latestSnaps.map((snap, index) => ({
-      id: snap.id,
-      imageUrl: snap.imageUrl,
-      altText: snap.caption?.trim() || "Snappy hero banner",
-      sortOrder: index,
-    })),
+    title: LATEST_SNAPS_TITLE,
+    slides: toValidatedSlides(latestSnaps),
   };
+}
+
+/**
+ * Canonical Home banner resolver — the single source of banner data for both
+ * the Web Home page and the Telegram Mini App home API (via
+ * `getHomeDataForUser`). Deterministic precedence:
+ *
+ *   1. Birthday mode — an active 3-day birthday window (Asia/Yangon "today",
+ *      month/day extracted in UTC from the stored birthday) wins whenever the
+ *      birthday user(s) have at least one renderable snap.
+ *   2. Admin-configured slides — HeroCarouselSlide rows (with the optional
+ *      HeroCarouselConfig title). The admin configuration is the primary
+ *      banner source of truth outside the birthday window.
+ *   3. Automatic "Latest Snaps" fallback — the newest five snaps.
+ *
+ * Every mode drops slide records with missing or invalid image URLs.
+ *
+ * (The "Automatic" name is kept for the existing home-data contract; this
+ * function resolves the full banner precedence above.)
+ */
+export async function getAutomaticHeroCarousel(): Promise<PublicHeroCarouselData> {
+  const birthday = await getBirthdayCarousel();
+  if (birthday) return birthday;
+
+  const admin = await getAdminCarousel();
+  if (admin) return admin;
+
+  return getLatestSnapsCarousel();
 }
 
 /**
