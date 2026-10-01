@@ -2,7 +2,10 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { NOTIFICATIONS_UPDATED_EVENT } from "@/lib/local-notifications";
+import {
+  NOTIFICATIONS_UPDATED_EVENT,
+  notifyNotificationsUpdated,
+} from "@/lib/local-notifications";
 
 type NotificationItem = {
   id: string;
@@ -125,7 +128,15 @@ export default function NotificationsPageClient({
       );
       void fetch(`/api/notifications/${item.id}/read`, {
         method: "PATCH",
-      }).catch(() => undefined);
+      })
+        .then((res) => {
+          // Confirmed server mutation: let the nav badge re-read the
+          // authoritative unread count.
+          if (res.ok) {
+            notifyNotificationsUpdated();
+          }
+        })
+        .catch(() => undefined);
     }
     router.push(targetUrl(item, miniAppPrefix));
   };

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireSession } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
 import { resolveUserFromSession } from "@/lib/session-user";
+import { countUnreadNotifications } from "@/lib/notifications/unread-count";
 
 export async function GET() {
   try {
@@ -15,9 +15,7 @@ export async function GET() {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    const count = await prisma.notification.count({
-      where: { userId: user.id, readAt: null },
-    });
+    const count = await countUnreadNotifications(user.id);
 
     return NextResponse.json({ count });
   } catch (error) {
