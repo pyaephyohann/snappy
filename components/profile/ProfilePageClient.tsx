@@ -8,6 +8,7 @@ import { motion } from "framer-motion";
 import ProfileSnapPicker from "@/components/profile/ProfileSnapPicker";
 import SparkBalanceCard from "@/components/sparks/SparkBalanceCard";
 import SparkPlanSection from "@/components/sparks/SparkPlanSection";
+import SparkTransferSoonCard from "@/components/sparks/SparkTransferSoonCard";
 import ProfileLogoutButton from "@/components/profile/ProfileLogoutButton";
 import TelegramDisconnectButton from "@/components/profile/TelegramDisconnectButton";
 import TelegramConnectButton from "@/components/telegram/TelegramConnectButton";
@@ -190,6 +191,8 @@ export default function ProfilePageClient({
             ) : null}
 
             <SparkBalanceCard />
+
+            <SparkTransferSoonCard />
 
             <SparkPlanSection />
 
