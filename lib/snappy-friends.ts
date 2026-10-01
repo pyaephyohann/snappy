@@ -5,27 +5,32 @@ export type SnappyFriendSummary = {
   name: string;
 };
 
-/** Maximum number of bot "friends" returned in a single invocation. */
-export const SNAPPY_FRIENDS_PAGE_SIZE = 50;
+/** Maximum number of upload recipients returned in a single invocation. */
+export const SNAPPY_RECIPIENTS_PAGE_SIZE = 50;
 
 /**
- * Canonical Snappy "friends" list: other active users (same as home / users list API).
+ * Canonical Snap **recipient** list for upload targeting: other active users
+ * (same model as `/api/users/list`), NOT the mutual-follow friend list.
+ *
+ * Upload targeting is a discovery surface — any active Snappy user may receive
+ * a Snap addressed to their profile. Actual friends (mutual follows) come from
+ * `listFriendsForUser` in `lib/relationships.ts` / `GET /api/friends`.
  *
  * Bounded on purpose: this used to load the entire active-user table into a bot
  * invocation. Callers that need a specific name pass `query`, which filters in
  * the database, so any user stays reachable without a full table scan.
  */
-export async function listSnappyFriendsForUser(
+export async function listSnappyRecipientsForUser(
   userId: string,
   options: {
     query?: string | null;
     limit?: number;
   } = {},
 ): Promise<SnappyFriendSummary[]> {
-  const requestedLimit = options.limit ?? SNAPPY_FRIENDS_PAGE_SIZE;
+  const requestedLimit = options.limit ?? SNAPPY_RECIPIENTS_PAGE_SIZE;
   const limit = Math.min(
-    Math.max(Number.isInteger(requestedLimit) ? requestedLimit : SNAPPY_FRIENDS_PAGE_SIZE, 1),
-    SNAPPY_FRIENDS_PAGE_SIZE,
+    Math.max(Number.isInteger(requestedLimit) ? requestedLimit : SNAPPY_RECIPIENTS_PAGE_SIZE, 1),
+    SNAPPY_RECIPIENTS_PAGE_SIZE,
   );
   const query = options.query?.trim() ?? "";
 
@@ -48,7 +53,7 @@ export async function listSnappyFriendsForUser(
 
 /**
  * Exact membership check for bot flows that validate a previously selected
- * target (e.g. the Telegram upload target stored in chat state).
+ * upload recipient (e.g. the target stored in Telegram chat state).
  *
  * A targeted lookup replaces "load every user and `.some()`" so validation stays
  * exact for any user base instead of depending on a bounded list.

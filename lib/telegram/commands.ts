@@ -7,6 +7,7 @@ import {
 } from "./keyboards";
 import {
   beginFindFriendsFlow,
+  beginMyFriendsFlow,
   handleFindFriendsNameMessage,
 } from "./find-friends";
 import {
@@ -79,6 +80,11 @@ export function registerTelegramHandlers(bot: Bot): void {
   bot.callbackQuery(TELEGRAM_CALLBACK.findFriends, async (ctx) => {
     await ctx.answerCallbackQuery();
     await beginFindFriendsFlow(ctx);
+  });
+
+  bot.callbackQuery(TELEGRAM_CALLBACK.friends, async (ctx) => {
+    await ctx.answerCallbackQuery();
+    await beginMyFriendsFlow(ctx);
   });
 
   bot.callbackQuery(TELEGRAM_CALLBACK.upload, async (ctx) => {

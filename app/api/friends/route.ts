@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedAppUser } from "@/lib/auth";
-import { listFriendsForUser } from "@/lib/relationships";
+import {
+  decodeUserListCursor,
+  listFriendsForUser,
+} from "@/lib/relationships";
 
 function parseLimit(raw: string | null): number {
   if (!raw) return 24;
@@ -11,18 +14,17 @@ function parseLimit(raw: string | null): number {
   return parsed;
 }
 
-function isValidCursor(value: string): boolean {
-  return /^[A-Za-z0-9_-]{1,64}$/.test(value);
-}
-
 export async function GET(request: NextRequest) {
   const viewer = await getAuthenticatedAppUser();
   if (!viewer) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // Validate with the shared decoder (same contract as `/api/users/list`):
+  // F1 cursors are opaque base64url JSON and legitimately exceed 64 chars,
+  // so a length-based regex would reject valid page-2 cursors.
   const cursor = request.nextUrl.searchParams.get("cursor");
-  if (cursor && !isValidCursor(cursor)) {
+  if (cursor && !decodeUserListCursor(cursor)) {
     return NextResponse.json({ error: "Invalid cursor" }, { status: 400 });
   }
 

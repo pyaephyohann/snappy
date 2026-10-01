@@ -220,25 +220,51 @@ export type FriendPage = {
   nextCursor: string | null;
 };
 
-/** Return only active users who mutually follow viewerId. */
+/**
+ * Return only active users who mutually follow viewerId.
+ *
+ * This is the canonical Friends query: A and B are friends exactly when both
+ * directed follows exist (`A → B` and `B → A`). One-directional follows are
+ * not friendship. Consumers:
+ * - `GET /api/friends` (the canonical friends API)
+ * - the `/friends` page and the Telegram bot `/find_friends` Friends list
+ *
+ * Ordering is `(name asc, id asc)` so the list is stable across pages; the
+ * cursor is the last row's id, guarded by `not: viewerId` so the viewer can
+ * never appear as their own friend even if follow rows ever allowed it.
+ */
 export async function listFriendsForUser({
   viewerId,
   cursor,
   limit = 24,
+  query,
 }: {
   viewerId: string;
   cursor?: string | null;
   limit?: number;
+  query?: string | null;
 }): Promise<FriendPage> {
   const pageSize = Math.min(Math.max(limit, 1), 50);
+  const decodedCursor = decodeUserListCursor(cursor ?? null);
+  const trimmedQuery = query?.trim() ?? "";
+
   const users = await prisma.user.findMany({
     where: {
       isActive: true,
-      id: cursor
-        ? { gt: cursor, not: viewerId }
-        : { not: viewerId },
+      id: { not: viewerId },
       followers: { some: { followerId: viewerId } },
       following: { some: { followingId: viewerId } },
+      ...(trimmedQuery
+        ? { name: { contains: trimmedQuery, mode: "insensitive" as const } }
+        : {}),
+      ...(decodedCursor
+        ? {
+            OR: [
+              { name: { gt: decodedCursor.name } },
+              { name: decodedCursor.name, id: { gt: decodedCursor.id } },
+            ],
+          }
+        : {}),
     },
     select: {
       id: true,
@@ -253,17 +279,20 @@ export async function listFriendsForUser({
         select: { id: true },
       },
     },
-    orderBy: { id: "asc" },
+    orderBy: [{ name: "asc" }, { id: "asc" }],
     take: pageSize + 1,
   });
 
   const hasMore = users.length > pageSize;
   const page = hasMore ? users.slice(0, pageSize) : users;
-  const nextCursor = hasMore ? page[page.length - 1].id : null;
+  const last = page[page.length - 1];
 
   return {
     users: page.map(toRelationshipUser),
-    nextCursor,
+    nextCursor:
+      hasMore && last
+        ? encodeUserListCursor({ name: last.name, id: last.id })
+        : null,
   };
 }
 

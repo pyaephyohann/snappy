@@ -12,7 +12,9 @@ export default async function SearchPage() {
   }
 
   const [friendsPage, profileImage] = await Promise.all([
-    listUsersForViewerPage({ viewerId: user.id }),
+    // Discovery surface: other active users to follow. The viewer is excluded
+    // in the query so their own account is never offered as a person to follow.
+    listUsersForViewerPage({ viewerId: user.id, excludeUserId: user.id }),
     getCurrentUserProfileImage(user.id),
   ]);
 

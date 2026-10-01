@@ -70,6 +70,29 @@ export const FIND_FRIENDS_NOT_FOUND_MESSAGE = [
   "Try typing their name again.",
 ].join("\n");
 
+/**
+ * Bot "My Friends" reply: numbered canonical-friends list plus an optional
+ * Mini App deep link that opens the Friends screen.
+ */
+export function formatMyFriendsList(
+  friendNames: string[],
+  friendsDeepLink: string | null,
+): string {
+  const lines = ["👥 Your friends", ""];
+  const maxListed = 40;
+  const listed = friendNames.slice(0, maxListed);
+  listed.forEach((name, index) => {
+    lines.push(`${index + 1}. ${name}`);
+  });
+  if (friendNames.length > maxListed) {
+    lines.push(`…and ${friendNames.length - maxListed} more`);
+  }
+  if (friendsDeepLink) {
+    lines.push("", "Open the Friends screen in Snappy:", friendsDeepLink);
+  }
+  return lines.join("\n");
+}
+
 export function formatFindFriendsPageIntro(friendName: string): string {
   return `I found ${friendName}.`;
 }

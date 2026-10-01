@@ -7,6 +7,7 @@ export const TELEGRAM_MINI_APP_ROUTES = {
   upload: `${TELEGRAM_MINI_APP_ROOT}/upload`,
   alerts: `${TELEGRAM_MINI_APP_ROOT}/alerts`,
   chats: `${TELEGRAM_MINI_APP_ROOT}/chats`,
+  friends: `${TELEGRAM_MINI_APP_ROOT}/friends`,
   profile: `${TELEGRAM_MINI_APP_ROOT}/profile`,
   // Kept for existing Snap-code deep links; Search is the primary nav surface.
   find: `${TELEGRAM_MINI_APP_ROOT}/find`,

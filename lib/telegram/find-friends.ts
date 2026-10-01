@@ -1,7 +1,9 @@
 import type { Context } from "grammy";
 import { isTelegramCommandText } from "@/lib/snap-code";
 import { matchFriendsByNamePartial } from "@/lib/friends-search";
-import { listSnappyFriendsForUser } from "@/lib/snappy-friends";
+import { listFriendsForUser } from "@/lib/relationships";
+import { buildTelegramMiniAppDeepLink } from "./mini-app-deep-link";
+import { formatMyFriendsList } from "./messages";
 import { getLinkedAccountByTelegramUserId } from "./account";
 import {
   beginFindFriendsBrowse,
@@ -44,7 +46,11 @@ export async function beginFindFriendsFlow(ctx: Context): Promise<void> {
 
   let friends;
   try {
-    friends = await listSnappyFriendsForUser(linked.userId);
+    // Canonical mutual-follow friends: A → B and B → A. One-directional
+    // follows are not friendship and never appear in this list.
+    friends = await listFriendsForUser({ viewerId: linked.userId, limit: 50 }).then(
+      (page) => page.users,
+    );
   } catch (error) {
     console.error(
       "[TELEGRAM] Find friends list failed:",
@@ -61,6 +67,52 @@ export async function beginFindFriendsFlow(ctx: Context): Promise<void> {
 
   await beginFindFriendsBrowse(identity.chatId);
   await ctx.reply(formatFindFriendsIntro(friends.map((friend) => friend.name)));
+}
+
+/**
+ * Bot "My Friends" list: the canonical mutual-follow friends of the linked
+ * user, with a Mini App deep link for follow/discovery. This is the same
+ * canonical list the web `/friends` page and `GET /api/friends` serve.
+ */
+export async function beginMyFriendsFlow(ctx: Context): Promise<void> {
+  const identity = getTelegramIdentity(ctx);
+  if (!identity?.chatId) {
+    await ctx.reply(FIND_FRIENDS_LOOKUP_ERROR_MESSAGE);
+    return;
+  }
+
+  const linked = await getLinkedAccountByTelegramUserId(identity.telegramUserId);
+  if (!linked) {
+    await ctx.reply(FIND_FRIENDS_NOT_LINKED_MESSAGE);
+    return;
+  }
+
+  let friends;
+  try {
+    // Canonical mutual-follow friends: A → B and B → A.
+    friends = await listFriendsForUser({ viewerId: linked.userId, limit: 50 }).then(
+      (page) => page.users,
+    );
+  } catch (error) {
+    console.error(
+      "[TELEGRAM] My friends list failed:",
+      sanitizeTelegramError(error),
+    );
+    await ctx.reply(FIND_FRIENDS_LOOKUP_ERROR_MESSAGE);
+    return;
+  }
+
+  if (friends.length === 0) {
+    await ctx.reply(FIND_FRIENDS_NO_FRIENDS_MESSAGE);
+    return;
+  }
+
+  await ctx.reply(
+    formatMyFriendsList(
+      friends.map((friend) => friend.name),
+      buildTelegramMiniAppDeepLink({ screen: "friends" }),
+    ),
+  );
 }
 
 export async function handleFindFriendsNameMessage(
@@ -89,9 +141,14 @@ export async function handleFindFriendsNameMessage(
 
   let friends;
   try {
-    // Server-side partial-name filter: keeps the query bounded while still
-    // matching users beyond the first page of the friend list.
-    friends = await listSnappyFriendsForUser(linked.userId, { query: text });
+    // Server-side partial-name filter over the canonical mutual-follow friend
+    // list: keeps the query bounded while still matching friends beyond the
+    // first page. Non-friends are never matchable here.
+    friends = await listFriendsForUser({
+      viewerId: linked.userId,
+      limit: 50,
+      query: text,
+    }).then((page) => page.users);
   } catch (error) {
     console.error(
       "[TELEGRAM] Find friends lookup failed:",

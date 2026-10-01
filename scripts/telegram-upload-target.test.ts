@@ -45,7 +45,7 @@ test("Telegram upload uses selected target and linked uploader separately", () =
     "utf8",
   );
 
-  assert.match(source, /listSnappyFriendsForUser\(linked\.userId\)/);
+  assert.match(source, /listSnappyRecipientsForUser\(linked\.userId\)/);
   assert.match(source, /getAwaitingSnapUploadTarget/);
   assert.match(source, /targetUserId,\s*uploadedById: linked\.userId/);
   assert.match(source, /setAwaitingSnapUploadForTarget/);

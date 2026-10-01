@@ -140,7 +140,7 @@ test("home keeps its friend cap and reads a bounded page", () => {
 
 test("bot friend lookups are bounded and validated by targeted lookup", () => {
   const friends = read("lib/snappy-friends.ts");
-  assert.match(friends, /SNAPPY_FRIENDS_PAGE_SIZE = 50/);
+  assert.match(friends, /SNAPPY_RECIPIENTS_PAGE_SIZE = 50/);
   assert.match(friends, /name: \{ contains: query, mode: "insensitive" as const \}/);
   assert.match(friends, /export async function getSnappyFriendTarget/);
   assert.match(friends, /export async function isSnappyFriendTarget/);
@@ -150,11 +150,18 @@ test("bot friend lookups are bounded and validated by targeted lookup", () => {
   const upload = read("lib/telegram/upload-snap.ts");
   assert.match(upload, /getSnappyFriendTarget/);
   assert.match(upload, /isSnappyFriendTarget/);
-  assert.match(upload, /listSnappyFriendsForUser\(linked\.userId\)/);
+  assert.match(upload, /listSnappyRecipientsForUser\(linked\.userId\)/);
   assert.doesNotMatch(upload, /\.some\(\(friend\) => friend\.id === targetUserId\)/);
 
+  // Milestone F1: the bot's actual Friends list is the canonical mutual-follow
+  // query; upload targeting keeps the named all-active-users recipient list.
+  const snappyFriends = read("lib/snappy-friends.ts");
+  assert.match(snappyFriends, /export async function listSnappyRecipientsForUser/);
+  assert.doesNotMatch(snappyFriends, /listSnappyFriendsForUser/);
+
   const findFriends = read("lib/telegram/find-friends.ts");
-  assert.match(findFriends, /listSnappyFriendsForUser\(linked\.userId, \{ query: text \}\)/);
+  assert.match(findFriends, /listFriendsForUser\(\{\s*viewerId: linked\.userId/);
+  assert.doesNotMatch(findFriends, /listSnappyRecipientsForUser|listUsersForViewer/);
 });
 
 test("user-list clients load further pages", () => {

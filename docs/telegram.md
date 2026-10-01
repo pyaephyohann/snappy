@@ -188,7 +188,7 @@ No automatic matching by Telegram username. No bot token in URLs. Expired or reu
 ## Upload flow
 
 1. Linked user sends `/upload`.
-2. Bot loads the linked user's active Snappy friends and shows inline recipient buttons; typed friend names are also supported.
+2. Bot loads the linked user's active Snappy **upload recipients** (all other active users — the same discovery model as `/api/users/list`) and shows inline recipient buttons; typed recipient names are also supported.
 3. The selected recipient's database user ID is stored in the chat-scoped Telegram state. The bot then waits for a photo.
 4. User sends a **photo** (largest Telegram size), optionally with a **Telegram caption** on the same message.
 5. Server revalidates that the stored recipient is still an allowed friend, downloads via **Telegram Bot API** (`getFile` + official file URL), validates bytes (max **10 MB**, JPEG/PNG/WebP/GIF — same as web uploader), runs the shared `lib/image-optimization.ts` pipeline (EXIF auto-orientation, proportional max 4096px resize, WebP quality 82), uploads the resulting WebP through **`lib/cloudinary-server-upload`**, and creates a Snap with `userId` equal to the selected friend and `uploadedById` equal to the linked Telegram user's Snappy ID.
@@ -235,7 +235,7 @@ Continue 3 at a time until exhausted
 
 ### Friend search
 
-- Search runs **only** among the authenticated user's friends (same canonical list as web home / users list: other **active** Snappy users).
+- Search runs **only** among the authenticated user's canonical friends (**mutual follows**: A → B and B → A). One-directional follows are not friendship. This is the same canonical list as the web `/friends` page and `GET /api/friends` (Milestone F1; previously this flow used the broader all-active-users list).
 - **Case-insensitive** matching; **partial** names match (e.g. `pyae` can match `Pyae Phyo`).
 - If the typed text **exactly** matches one friend's full name, that friend is chosen even when partial matches would include others.
 - **Multiple** partial matches → numbered list; user is asked to type the full name.
@@ -336,7 +336,7 @@ npm run test:telegram-hardening
 
 ## Shared components and APIs
 
-The Mini App reuses `RecentSnaps`, `SnapGallery`, `SnapViewer`, `SnapCameraCapture`, `SnapCreateComposerModal`, `BottomNavCameraFlow`, `FriendsPickerPanel`, `NotificationsPageClient`, `ProfilePageClient`, `ChatListPageClient`, `ChatWorkspace`, `PresenceIndicator`, `PresenceHeartbeat`, `snap-upload-client`, `/api/snaps`, `/api/users/list`, `/api/notifications`, `/api/chats`, `/api/presence`, `/api/cloudinary/optimize`, and `/api/cloudinary/sign`. No new dependencies are required for parity; the S7 presence column ships with the additive `20260924120000_social_user_presence` migration.
+The Mini App reuses `RecentSnaps`, `SnapGallery`, `SnapViewer`, `SnapCameraCapture`, `SnapCreateComposerModal`, `BottomNavCameraFlow`, `FriendsPickerPanel`, `NotificationsPageClient`, `ProfilePageClient`, `ChatListPageClient`, `ChatWorkspace`, `PresenceIndicator`, `PresenceHeartbeat`, `snap-upload-client`, `/api/snaps`, `/api/users/list`, `/api/friends` (Friends screen), `/api/notifications`, `/api/chats`, `/api/presence`, `/api/cloudinary/optimize`, and `/api/cloudinary/sign`. No new dependencies are required for parity; the S7 presence column ships with the additive `20260924120000_social_user_presence` migration.
 
 ## Deferred (post T6)
 

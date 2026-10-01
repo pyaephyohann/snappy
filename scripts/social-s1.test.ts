@@ -68,7 +68,8 @@ test("friends query requires both directed follow records and active users", () 
   assert.match(relationships, /followers: \{ some: \{ followerId: viewerId \} \}/);
   assert.match(relationships, /following: \{ some: \{ followingId: viewerId \} \}/);
   assert.match(relationships, /take: pageSize \+ 1/);
-  assert.match(relationships, /orderBy: \{ id: "asc" \}/);
+  // F1: stable (name asc, id asc) ordering with the shared keyset cursor.
+  assert.match(relationships, /orderBy: \[\{ name: "asc" \}, \{ id: "asc" \}\]/);
 });
 
 test("web and Telegram profile surfaces use shared relationship state", () => {

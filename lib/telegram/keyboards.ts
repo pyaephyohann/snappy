@@ -5,12 +5,14 @@ import { getSnappyPublicUrl } from "./public-url";
 
 export const TELEGRAM_CALLBACK = {
   findFriends: "find_friends",
+  friends: "friends",
   upload: "upload",
   uploadTargetPrefix: "upload_target:",
 } as const;
 
 export type TelegramCallbackAction =
   | "find_friends"
+  | "friends"
   | "upload"
   | `${typeof TELEGRAM_CALLBACK.uploadTargetPrefix}${string}`;
 
@@ -31,6 +33,7 @@ export function isTelegramCallbackAction(
 ): value is TelegramCallbackAction {
   return (
     value === TELEGRAM_CALLBACK.findFriends ||
+    value === TELEGRAM_CALLBACK.friends ||
     value === TELEGRAM_CALLBACK.upload ||
     parseUploadTargetCallback(value) !== null
   );
@@ -53,6 +56,7 @@ export function buildMainKeyboard(
   publicUrl: string | null = getSnappyPublicUrl(),
 ): InlineKeyboard {
   const keyboard = new InlineKeyboard()
+    .text("👥 My Friends", TELEGRAM_CALLBACK.friends)
     .text("👥 Find Friends", TELEGRAM_CALLBACK.findFriends)
     .text("📤 Upload Snap", TELEGRAM_CALLBACK.upload);
 

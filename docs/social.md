@@ -10,7 +10,7 @@ The existing term "friends" is currently a product/UI label rather than a mutual
 
 - `lib/snappy-friends.ts` returns every other active user except the current user.
 - `/api/users/list` returns all users and is used by web search and friend-picker surfaces.
-- The web search page and `FriendsPickerPanel` navigate to a user's profile but do not create a relationship.
+- The web search page and `FriendsPickerPanel` navigate to a user's profile but do not create a relationship. Search excludes the viewer's own account from the discovery list (Milestone F1).
 - Telegram bot find-friends and upload-target flows use the same broad active-user list, with server-side validation against that list.
 - Friend profile pages display a user's Snaps and currently do not require mutual-follow authorization.
 
@@ -25,7 +25,7 @@ Implemented APIs:
 - `POST /api/users/:userId/follow`
 - `DELETE /api/users/:userId/follow`
 - `GET /api/users/:userId/relationship`
-- `GET /api/friends?cursor=<id>&limit=<1-50>`
+- `GET /api/friends?cursor=<opaque>&limit=<1-50>` — the cursor is the same opaque `encodeUserListCursor()` token as `/api/users/list` and is validated with the shared `decodeUserListCursor()` decoder (F1).
 
 The web profile, web search, Home Friends section, Telegram profile, and Telegram search now use server-derived relationship state. Snap upload targeting and Telegram bot upload/find-friends behavior remain unchanged.
 
@@ -87,8 +87,8 @@ Use the existing `getAuthenticatedAppUser`/`resolveUserFromSession` identity hel
 The implementation uses the existing navigation and surfaces. Relationship state is integrated at these locations:
 
 - A relationship action on `FriendProfileClient` / profile headers.
-- The existing Home Friends section now lists mutual-follow friends only.
-- A standalone Friends screen and follower/following counts remain future UI work.
+- The Home Friends section was intentionally removed (commit `0a48f5e`); Home remains Snap-feed-only.
+- Milestone F1 adds the standalone Friends surface: the web `/friends` page and the Telegram Mini App Friends screen, both fed by the canonical mutual-follow query (`listFriendsForUser` / `GET /api/friends`). The Telegram bot `/find_friends` Friends list and the bot "My Friends" list use the same canonical query; Snap upload targeting keeps its intentional all-active-users recipient list (`listSnappyRecipientsForUser`). Follower/following counts remain future UI work.
 - Search results showing relationship state and a Follow/Following action.
 - Telegram Mini App Search/Profile using the same relationship APIs and shared relationship state components.
 

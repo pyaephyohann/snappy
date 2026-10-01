@@ -101,7 +101,7 @@ test("camera recipient picker requests the viewer-excluded list on every page", 
   assert.match(flow, /uploadSnapForUser/);
 });
 
-test("search surfaces keep the full user list (no global viewer removal)", () => {
+test("search surfaces keep discovery semantics (server excludes the viewer)", () => {
   for (const file of [
     "components/layout/NavbarDesktopFriendSearch.tsx",
     "components/search/FriendsSearchClient.tsx",
@@ -109,10 +109,11 @@ test("search surfaces keep the full user list (no global viewer removal)", () =>
   ]) {
     assert.doesNotMatch(read(file), /excludeSelf/, file);
   }
-  // The server-side search page keeps listing every active user.
+  // F1: search stays a discovery surface, but the viewer's own account is
+  // excluded server-side so it is never offered as a person to follow.
   const searchPage = read("app/search/page.tsx");
   assert.match(searchPage, /listUsersForViewerPage/);
-  assert.doesNotMatch(searchPage, /excludeUserId/);
+  assert.match(searchPage, /excludeUserId: user\.id/);
 });
 
 // ===========================================================================

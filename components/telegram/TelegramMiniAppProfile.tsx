@@ -1,9 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import ProfilePageClient from "@/components/profile/ProfilePageClient";
 import TelegramMiniAppReconnect from "@/components/telegram/TelegramMiniAppReconnect";
 import { useTelegramMiniAppAuth } from "@/components/telegram/TelegramMiniAppAuthProvider";
+import { TELEGRAM_MINI_APP_ROUTES } from "@/lib/telegram/mini-app-routes";
 import type { MiniAppProfilePayload } from "@/lib/telegram/mini-app-profile";
 
 type LoadState =
@@ -60,6 +62,22 @@ export default function TelegramMiniAppProfile() {
   const { profile } = state;
   return (
     <div className="px-4 pb-8 pt-4">
+      {/* Friends entry (mutual follows) — opens the Mini App Friends screen */}
+      <section aria-label="Friends" className="mb-4">
+        <Link
+          href={TELEGRAM_MINI_APP_ROUTES.friends}
+          className="flex w-full items-center justify-between rounded-xl border border-border bg-card px-4 py-3 transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <span className="flex items-center gap-2">
+            <span aria-hidden>👥</span>
+            <span className="font-medium text-foreground">Friends</span>
+          </span>
+          <span className="text-muted-foreground" aria-hidden>
+            →
+          </span>
+        </Link>
+      </section>
+
       <ProfilePageClient
         initial={{
           id: profile.id,

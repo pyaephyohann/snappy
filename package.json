@@ -52,6 +52,7 @@
     "test:social-s7": "node --import tsx --test scripts/social-s7.test.ts",
     "test:social-s8": "node --import tsx --test scripts/social-s8.test.ts",
     "test:social-integration": "node --import tsx --test scripts/social-integration.test.ts",
+    "test:friends-contract": "node --import tsx --test scripts/friends-contract.test.ts",
     "test:home-regression": "node --import tsx --test scripts/home-regression.test.ts",
     "test:image-optimization": "node --import tsx --test scripts/image-optimization.test.ts"
   },

@@ -11,7 +11,7 @@ import { matchFriendsByNamePartial } from "@/lib/friends-search";
 import {
   getSnappyFriendTarget,
   isSnappyFriendTarget,
-  listSnappyFriendsForUser,
+  listSnappyRecipientsForUser,
 } from "@/lib/snappy-friends";
 import { buildFriendProfileUrl } from "@/lib/notifications/internal-url";
 import { buildAbsoluteSnappyUrl } from "@/lib/snap-telegram";
@@ -96,7 +96,9 @@ export async function beginUploadSnapFlow(ctx: Context): Promise<void> {
 
   let friends;
   try {
-    friends = await listSnappyFriendsForUser(linked.userId);
+    // Upload targeting is a discovery surface: any active Snappy user may
+    // receive a Snap (not just mutual-follow friends).
+    friends = await listSnappyRecipientsForUser(linked.userId);
   } catch (error) {
     console.error(
       "[TELEGRAM] Upload recipient list failed:",
@@ -129,7 +131,7 @@ async function listUploadRecipients(
   if (!linked) return null;
   return {
     linked,
-    friends: await listSnappyFriendsForUser(linked.userId, {
+    friends: await listSnappyRecipientsForUser(linked.userId, {
       query: options.query,
     }),
   };
