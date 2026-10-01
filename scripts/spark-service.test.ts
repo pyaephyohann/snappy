@@ -5,7 +5,17 @@
  * Requires DATABASE_URL to be set; tests skip gracefully otherwise.
  *
  * Run: npm run test:spark
+ *
+ * Database isolation: this suite imports scripts/test-db-guard.ts FIRST, so
+ * Prisma binds TEST_DATABASE_URL (a dedicated test database) when set, and
+ * the suite refuses to run when only the application DATABASE_URL is
+ * configured (that silent reuse is how the 2026-09-30 residue incident
+ * happened — see scripts/cleanup-spark-test-residue.ts). With no database
+ * configured at all the suite still fails at the `lib/prisma` import
+ * (pre-existing behavior, unchanged). The run-scoped fixture names and
+ * per-run `after` cleanup below are kept regardless.
  */
+import "./test-db-guard";
 import test, { after } from "node:test";
 import assert from "node:assert/strict";
 import { PrismaClient } from "@prisma/client";

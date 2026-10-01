@@ -2547,3 +2547,82 @@ provider inquiry API was assumed.
 configuration, not a code failure). Confirming the deployment's real origins
 and endpoint reachability, and any live sandbox payment, still require
 deployment/provider access and are not claimed here.
+
+## Test database isolation (2026-10-02)
+
+### The incident
+
+Two interrupted `npm run test:spark` runs (2026-09-30 ~20:53 UTC and
+2026-10-01 ~17:30 UTC) left fixture users named `spark_t_<label>_<runId>` and
+their placeholder snaps (`https://res.cloudinary.com/test/image/upload/test.jpg`,
+which does not exist on Cloudinary) in the shared application database.
+Because Home's Recent Snaps feed is a global newest-first query, the test
+snaps occupied the user-facing Home strip on Web and Telegram with broken
+images (`spark_t_earn_reset_muol0q2k_xv517s` was the visible offender).
+The per-run `after()` cleanup is correct but cannot run when the process is
+interrupted, which is why the residue accumulated across runs.
+
+Remediation: `scripts/cleanup-spark-test-residue.ts` (one-off, prefix-locked
+to `spark_t_`, dry-run audit by default, `--apply` refuses to delete while
+any external reference exists, single-transaction deletion;
+`npm run cleanup:spark-residue [-- --apply]`). Final state:
+0 `spark_t_*` users, 0 `test.jpg` snaps; Home feeds real content again.
+
+### The guard convention (`scripts/test-db-guard.ts`)
+
+DB-touching suites must import the guard **before** importing `lib/prisma`
+or any service module (services share the `lib/prisma` singleton, so the
+first import binds the process-wide database):
+
+```ts
+import "./test-db-guard";          // first import in the suite
+import { ... } from "../lib/spark-service";
+```
+
+Behavior:
+
+- `TEST_DATABASE_URL` set → it replaces `DATABASE_URL` before any Prisma
+  client is constructed. Refused if it equals the application `DATABASE_URL`
+  or looks like a shared/production database (contains "prod").
+- Only `DATABASE_URL` set → the guard throws. Integration tests must never
+  reuse the application database; this is the fail-closed rule.
+- Neither set → no-op; suites keep their existing behavior for machines with
+  no database configured.
+
+`npm run test:spark` is wired this way. Other DB-touching suites
+(`test:download-d2`, `test:download-d3`, the notification suites, …) still
+bind `DATABASE_URL` directly and carry the same interrupted-run risk; adopt
+the same one-line guard when they are next touched.
+
+### Setting up the dedicated test database (operator steps)
+
+1. Create a Postgres database for tests (any private instance — local
+   Postgres, a second cloud database, a branch database). It must not be the
+   application database.
+2. Add to `.env.local` (never commit real values; `.env*` is gitignored):
+
+   ```
+   TEST_DATABASE_URL=postgresql://<user>:<password>@<host>:<port>/<test_db>
+   ```
+
+3. Apply the schema to it once (the datasource also declares `directUrl`, so
+   both variables must be overridden for the migration to target the test
+   database):
+
+   ```
+   DATABASE_URL="$TEST_DATABASE_URL" DIRECT_URL="$TEST_DATABASE_URL" npx prisma migrate deploy
+   ```
+
+4. Run `npm run test:spark` — the guard logs
+   `[test-db-guard] Prisma bound to TEST_DATABASE_URL`. Without that variable
+   set, the suite now refuses to run instead of silently writing to the
+   shared database.
+
+### Fallback while no dedicated test database exists
+
+If a suite must run against a real database before a dedicated one is
+provisioned, the residue risk is managed by (a) the existing run-scoped
+fixture names plus per-run `after` cleanup (never replace them with unscoped
+`deleteMany({})` — that wiped other teams' rows once already), and (b) the
+sweeper pattern: re-run `npm run cleanup:spark-residue` (dry-run audit;
+add `-- --apply` to delete) after an interrupted run.

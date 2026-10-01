@@ -10,6 +10,7 @@
     "lint": "eslint",
     "test:auth": "node --env-file-if-exists=.env.local --import tsx --test scripts/auth-logic.test.ts",
     "test:spark": "node --env-file-if-exists=.env.local --import tsx --test scripts/spark-service.test.ts",
+    "cleanup:spark-residue": "tsx --env-file-if-exists=.env.local scripts/cleanup-spark-test-residue.ts",
     "test:download-d2": "node --env-file-if-exists=.env.local --import tsx --test scripts/download-d2.test.ts",
     "test:download-d3": "node --env-file-if-exists=.env.local --import tsx --test scripts/download-d3.test.ts",
     "test:spark-s2": "node --import tsx --test scripts/spark-s2.test.ts",
