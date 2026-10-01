@@ -1,15 +1,15 @@
 'use client';
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
 import SnapShareMenu from '@/components/friends/SnapShareMenu';
 import SnapSocialBar from '@/components/snaps/SnapSocialBar';
 import GlowingBorder from '@/components/ui/glowing-border';
 import { GlowButton } from '@/components/ui/glow-button';
-import { buildSnapFilename, downloadImage } from '@/lib/download-image';
-import { shouldShowAd, incrementDownloadCount, resetDownloadCount } from '@/lib/download-ad';
-import AdModal from '@/components/ui/AdModal';
+import { buildSnapFilename } from '@/lib/download-image';
+import { useSnapDownload } from '@/hooks/useSnapDownload';
+import DownloadSparkConfirmModal from '@/components/snaps/DownloadSparkConfirmModal';
 
 interface SnapCardProps {
   id: string;
@@ -35,13 +35,26 @@ export default function SnapCard({
   interactive = false,
   onClick,
 }: SnapCardProps) {
-  const [isDownloading, setIsDownloading] = useState(false);
-  const [downloadError, setDownloadError] = useState<string | null>(null);
-  const [showAdModal, setShowAdModal] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
-  const pendingDownloadRef = useRef<{ imageUrl: string; filename: string } | null>(null);
 
-  
+  // Server-authoritative download flow (D3): the server decides whether the
+  // download is free or costs a Spark; the card only runs the shared client
+  // flow and renders the confirmation when the server asks for one.
+  const downloadFilename = buildSnapFilename(friendName, snapIndex, imageUrl);
+  const {
+    isDownloading,
+    downloadError,
+    pendingSpark,
+    isConfirmingSpark,
+    sparkConfirmError,
+    startDownload,
+    confirmSparkDownload,
+    cancelSparkDownload,
+  } = useSnapDownload({
+    imageUrl,
+    filename: downloadFilename,
+    failureMessage: 'Download failed',
+  });
 
   const formatDate = (date: Date | string) => {
     const dateObj = typeof date === 'string' ? new Date(date) : date;
@@ -51,33 +64,6 @@ export default function SnapCard({
       year: 'numeric',
     });
   };
-
-  const performDownload = useCallback(
-    async (url: string, fname: string) => {
-      setIsDownloading(true);
-      setDownloadError(null);
-
-      try {
-        await downloadImage(url, fname);
-        incrementDownloadCount();
-      } catch {
-        setDownloadError('Download failed');
-      } finally {
-        setIsDownloading(false);
-      }
-    },
-    [],
-  );
-
-  const handleAdContinue = useCallback(() => {
-    setShowAdModal(false);
-    resetDownloadCount();
-    const pending = pendingDownloadRef.current;
-    if (pending) {
-      pendingDownloadRef.current = null;
-      void performDownload(pending.imageUrl, pending.filename);
-    }
-  }, [performDownload]);
 
   const getSnapUrl = () => {
     if (typeof window !== 'undefined') {
@@ -91,22 +77,11 @@ export default function SnapCard({
   };
 
   const handleDownload = useCallback(
-    async (event: React.MouseEvent) => {
+    (event: React.MouseEvent) => {
       event.stopPropagation();
-
-      if (isDownloading) return;
-
-      const filename = buildSnapFilename(friendName, snapIndex, imageUrl);
-
-      if (shouldShowAd()) {
-        pendingDownloadRef.current = { imageUrl, filename };
-        setShowAdModal(true);
-        return;
-      }
-
-      void performDownload(imageUrl, filename);
+      void startDownload();
     },
-    [friendName, snapIndex, imageUrl, isDownloading, performDownload],
+    [startDownload],
   );
 
   return (
@@ -231,7 +206,13 @@ export default function SnapCard({
         </div>
       </GlowingBorder>
 
-      <AdModal open={showAdModal} onContinue={handleAdContinue} />
+      <DownloadSparkConfirmModal
+        pending={pendingSpark}
+        confirming={isConfirmingSpark}
+        error={sparkConfirmError}
+        onConfirm={() => void confirmSparkDownload()}
+        onCancel={cancelSparkDownload}
+      />
     </motion.div>
   );
 }

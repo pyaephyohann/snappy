@@ -358,6 +358,58 @@ Response:
 
 ---
 
+## Snap Downloads
+
+Every user receives **3 free Snap downloads per day**.
+
+- Resets at **00:00 Asia/Yangon** (UTC+6:30)
+- Tracked via `DailyDownloadCounter` (atomic `UPDATE ... WHERE count < limit`)
+- Unused free downloads do **not** roll over
+- Accounting is per-user and server-authoritative — no client-side counter
+
+### Spending rule
+
+| Action | Cost |
+|--------|------|
+| Snap download (beyond 3/day free) | 1 Spark |
+
+- Flat cost on every plan (`SPARK_DOWNLOAD_COST = 1` in `lib/spark-service.ts`)
+- The user must confirm before the Spark is spent; the server independently
+  re-verifies authentication, the exhausted free allowance, the plan, and the
+  Spark balance — `confirmed: true` is intent, never authority
+- The debit goes through the existing ledger as `SNAP_DOWNLOAD`
+  (`source: SNAP`, `referenceType: snap`) with subscription Sparks spent first
+- Idempotent on the client's download key (`(userId, type, referenceId)`):
+  retries and concurrent confirms replay the existing charge instead of
+  charging twice
+
+### API
+
+1. `GET /api/downloads/usage` — today's free-download usage (auth required)
+2. `POST /api/downloads/authorize` — validates the idempotency key, consumes a
+   free slot when one remains, otherwise (only with `confirmed: true`) spends
+   1 Spark. `SPARK_REQUIRED` asks the client to confirm; `403` +
+   `insufficient_sparks` means nothing was charged
+3. Image bytes transfer through the unchanged `lib/download-image.ts` +
+   `/api/download-image` proxy only after authorization succeeds
+
+### Known limitations
+
+- A lost response on a **free** download can consume one extra free slot if
+  the user starts a new logical request; the atomic cap still guarantees at
+  most 3 free downloads per day.
+- The browser cannot prove file receipt, so a failed image transfer after a
+  confirmed charge retries with the same idempotency key — no refund and no
+  second charge.
+- Image bytes come from public CDN URLs; gating the byte layer itself
+  (signed URLs) is a future enhancement — authorization governs the product
+  download flow, not raw URL access.
+- Rate limiting for the authorize endpoint is a future hardening item;
+  authentication, atomic accounting, the Spark ledger, and idempotency are the
+  primary protections.
+
+---
+
 ## S2 — Snap Integration (user-facing)
 
 > S2 does **not** change any S1 accounting rule. It surfaces the existing,

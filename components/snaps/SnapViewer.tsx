@@ -1,17 +1,17 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
 import SnapShareMenu from '@/components/friends/SnapShareMenu';
 import SnapSocialBar from '@/components/snaps/SnapSocialBar';
 import GlowingBorder from '@/components/ui/glowing-border';
 import { GlowButton } from '@/components/ui/glow-button';
-import { buildSnapFilename, downloadImage } from '@/lib/download-image';
-import { shouldShowAd, incrementDownloadCount, resetDownloadCount } from '@/lib/download-ad';
+import { buildSnapFilename } from '@/lib/download-image';
 import { SNAP_MAX_CAPTION_LENGTH } from '@/lib/snap-media';
-import AdModal from '@/components/ui/AdModal';
 import { useSparkUsage } from '@/hooks/useSparkUsage';
+import { useSnapDownload } from '@/hooks/useSnapDownload';
+import DownloadSparkConfirmModal from '@/components/snaps/DownloadSparkConfirmModal';
 import type { SparkUsageSummary } from '@/lib/spark-usage';
 
 function generateCaptionEditIdempotencyKey(): string {
@@ -82,11 +82,28 @@ export default function SnapViewer({
   onCaptionSaved,
 }: SnapViewerProps) {
   const closeButtonRef = useRef<HTMLDivElement>(null);
-  const [isDownloading, setIsDownloading] = useState(false);
-  const [downloadError, setDownloadError] = useState<string | null>(null);
-  const [showAdModal, setShowAdModal] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
-  const pendingDownloadRef = useRef<{ imageUrl: string; filename: string } | null>(null);
+
+  // Server-authoritative download flow (D3): the server decides free vs
+  // Spark-paid; the viewer shows the daily allowance and the shared
+  // confirmation dialog when the server asks for one.
+  const downloadFilename = buildSnapFilename(friendName, snapIndex, imageUrl);
+  const {
+    isDownloading,
+    downloadError,
+    pendingSpark,
+    isConfirmingSpark,
+    sparkConfirmError,
+    usage: downloadUsage,
+    startDownload,
+    confirmSparkDownload,
+    cancelSparkDownload,
+  } = useSnapDownload({
+    imageUrl,
+    filename: downloadFilename,
+    trackUsage: true,
+    failureMessage: 'Download failed. Please try again.',
+  });
 
   // Caption editing (profile "My Snaps" only). The viewer is keyed by snap id,
   // so this state starts fresh for each opened Snap.
@@ -208,47 +225,6 @@ export default function SnapViewer({
     };
   }, [isOpen, onClose]);
 
-  const performDownload = useCallback(
-    async (url: string, fname: string) => {
-      setIsDownloading(true);
-      setDownloadError(null);
-
-      try {
-        await downloadImage(url, fname);
-        incrementDownloadCount();
-      } catch {
-        setDownloadError('Download failed. Please try again.');
-      } finally {
-        setIsDownloading(false);
-      }
-    },
-    [],
-  );
-
-  const handleAdContinue = useCallback(() => {
-    setShowAdModal(false);
-    resetDownloadCount();
-    const pending = pendingDownloadRef.current;
-    if (pending) {
-      pendingDownloadRef.current = null;
-      void performDownload(pending.imageUrl, pending.filename);
-    }
-  }, [performDownload]);
-
-  const handleDownload = useCallback(async () => {
-    if (isDownloading) return;
-
-    const filename = buildSnapFilename(friendName, snapIndex, imageUrl);
-
-    if (shouldShowAd()) {
-      pendingDownloadRef.current = { imageUrl, filename };
-      setShowAdModal(true);
-      return;
-    }
-
-    void performDownload(imageUrl, filename);
-  }, [friendName, snapIndex, imageUrl, isDownloading, performDownload]);
-
   const getSnapUrl = () => {
     if (typeof window !== 'undefined') {
       return `${window.location.origin}/friends/${encodeURIComponent(friendName)}`;
@@ -303,7 +279,7 @@ export default function SnapViewer({
                   )}
                   <motion.div whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.94 }}>
                     <GlowButton
-                      onClick={handleDownload}
+                      onClick={() => void startDownload()}
                       disabled={isDownloading}
                       radius="full"
                       glowClassName="inline-block"
@@ -378,6 +354,16 @@ export default function SnapViewer({
                   </motion.div>
                 </div>
               </div>
+
+              {downloadUsage && (
+                <p
+                  className="text-xs text-muted-foreground mb-1 sm:mb-2"
+                  data-testid="download-usage-indicator"
+                >
+                  Free downloads today: {downloadUsage.freeDownloadsUsed} / {downloadUsage.freeDailyDownloads}
+                  {downloadUsage.isFreeExhausted ? ' — downloads now cost Sparks ✨' : ''}
+                </p>
+              )}
 
               {downloadError && (
                 <p className="text-xs text-destructive mb-2 sm:hidden" role="alert">
@@ -621,7 +607,13 @@ export default function SnapViewer({
         </div>
       ) : null}
 
-      <AdModal open={showAdModal} onContinue={handleAdContinue} />
+      <DownloadSparkConfirmModal
+        pending={pendingSpark}
+        confirming={isConfirmingSpark}
+        error={sparkConfirmError}
+        onConfirm={() => void confirmSparkDownload()}
+        onCancel={cancelSparkDownload}
+      />
     </>
   );
 }

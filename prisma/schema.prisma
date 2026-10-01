@@ -63,6 +63,7 @@ model User {
   subscriptionPurchases        SubscriptionPurchase[]
   uploadUsages                 UploadUsage[]
   dailyUploadCounters          DailyUploadCounter[]
+  dailyDownloadCounters        DailyDownloadCounter[]
   dailySparkEarnCounters       DailySparkEarnCounter[]
   snapUploadOperations         SnapUploadOperation[]
 
@@ -304,6 +305,8 @@ enum SparkTransactionType {
   EXTRA_SNAP_UPLOAD
   /// Sparks spent on a caption edit.
   CAPTION_EDIT
+  /// Sparks spent on a Snap download beyond the free daily download allowance.
+  SNAP_DOWNLOAD
   /// Expired subscription Sparks removed from available balance.
   SUBSCRIPTION_EXPIRATION
   /// Manual adjustment by an administrator.
@@ -470,6 +473,25 @@ model DailyUploadCounter {
 
   @@unique([userId, day])
   @@map("daily_upload_counters")
+}
+
+/// Atomic daily download counter per user. The single source of truth for
+/// free daily Snap download limits (3 free downloads per Yangon calendar day).
+/// One row per (user, Yangon calendar day). Updated atomically via
+/// UPDATE ... WHERE count < limit inside Prisma transactions.
+model DailyDownloadCounter {
+  id        String   @id @default(cuid())
+  userId    String
+  /// The Yangon calendar day this counter applies to (date only, no time).
+  day       DateTime
+  /// Number of free downloads consumed on this day.
+  count     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, day])
+  @@map("daily_download_counters")
 }
 
 /// Authoritative idempotency record for a logical Snap upload operation.

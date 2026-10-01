@@ -61,6 +61,15 @@ export const DAILY_SPARK_EARNING_CAP = 10;
 /** Sparks rewarded per eligible Snap upload. */
 export const SPARK_PER_UPLOAD_REWARD = 1;
 
+/**
+ * Sparks charged per Snap download once the free daily download allowance
+ * (3 per Asia/Yangon day, lib/download-service.ts) is exhausted.
+ *
+ * Product-locked flat cost: identical on every plan, so unlike the per-plan
+ * upload/caption costs it is not derived from PLAN_CONFIG.
+ */
+export const SPARK_DOWNLOAD_COST = 1;
+
 /** Sparks cost for an extra Snap upload on the FREE plan (see PLAN_CONFIG). */
 export const EXTRA_UPLOAD_COST_SPARKS = getPlanConfig(DEFAULT_PLAN).extraUploadCost;
 
@@ -521,7 +530,7 @@ export async function atomicSpendSparks(
   tx: Prisma.TransactionClient,
   input: {
     userId: string;
-    type: "EXTRA_SNAP_UPLOAD" | "CAPTION_EDIT";
+    type: "EXTRA_SNAP_UPLOAD" | "CAPTION_EDIT" | "SNAP_DOWNLOAD";
     referenceId: string;
     reason?: string;
   },
@@ -574,6 +583,9 @@ export async function atomicSpendSparks(
       break;
     case "CAPTION_EDIT":
       cost = planConfig.captionEditCost;
+      break;
+    case "SNAP_DOWNLOAD":
+      cost = SPARK_DOWNLOAD_COST;
       break;
     default:
       throw new SparkServiceError(

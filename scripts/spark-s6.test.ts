@@ -291,15 +291,19 @@ test("SparkBalanceCard and protected economy files are unchanged in the working 
     "components/sparks/SparkBalanceCard.tsx",
     "components/snaps/SparkUsageIndicator.tsx",
     "components/snaps/SnapCreateComposerModal.tsx",
-    "components/snaps/SnapViewer.tsx",
     // S7-B.4: hooks/useSparkUsage.ts gains only the standard
     // snappy:spark-usage-updated refresh listener (mirroring the
     // NOTIFICATIONS_UPDATED_EVENT pattern) so every consumer re-fetches
     // server-backed data after a confirmed purchase; its contract is
     // asserted below instead of a zero-diff check.
     "lib/spark-usage.ts",
-    "lib/spark-service.ts",
     "lib/subscription-plans.ts",
+    // D3 re-scope (same convention as S7-B.4): components/snaps/SnapViewer.tsx
+    // gains the shared server-authorized download flow and lib/spark-service.ts
+    // gains only the flat SPARK_DOWNLOAD_COST + SNAP_DOWNLOAD case inside the
+    // existing atomicSpendSparks primitive. Their Spark contracts are asserted
+    // below instead of a zero-diff check; every other protected file stays
+    // untouched.
   ];
   for (const path of protectedPaths) {
     const status = execSync(
@@ -322,6 +326,27 @@ test("SparkBalanceCard and protected economy files are unchanged in the working 
   assert.match(usageHook, /applyUsage/);
   assert.match(usageHook, /SPARK_USAGE_UPDATED_EVENT = "snappy:spark-usage-updated"/);
   assert.match(usageHook, /addEventListener\(SPARK_USAGE_UPDATED_EVENT/);
+
+  // D3: SnapViewer keeps its caption-edit Spark contract while the download
+  // flow moves to the shared server-authorized hook.
+  const viewer = read("components/snaps/SnapViewer.tsx");
+  assert.match(viewer, /useSparkUsage/);
+  assert.match(viewer, /Edit caption for \{usage\.captionEditCost\} Sparks/);
+  assert.match(viewer, /Save for \{usage\.captionEditCost\} Sparks/);
+  assert.match(viewer, /useSnapDownload/);
+
+  // D3: spark-service keeps the locked economy constants, the summary
+  // projection, and row-locked spending; downloads add one flat cost and one
+  // enum case without a second ledger or balance mechanism.
+  const service = read("lib/spark-service.ts");
+  assert.match(service, /export const SPARK_PER_UPLOAD_REWARD = 1;/);
+  assert.match(service, /export async function getSparkUsageSummary/);
+  assert.match(service, /subscriptionSparks:/);
+  assert.match(service, /earnedSparks:/);
+  assert.match(service, /subscriptionPeriodEnd/);
+  assert.match(service, /FOR UPDATE/);
+  assert.match(service, /export const SPARK_DOWNLOAD_COST = 1;/);
+  assert.doesNotMatch(service, /localStorage|points/i);
 });
 
 // ===========================================================================
