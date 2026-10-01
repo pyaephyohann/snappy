@@ -147,7 +147,7 @@ test("per-comment notifications (no aggregation) are the documented behavior", (
   const schema = read("prisma/schema.prisma");
   assert.match(
     schema,
-    /enum NotificationType \{\n  NEW_SNAP\n  NEW_MESSAGE\n  REACTION\n  COMMENT\n  BIRTHDAY\n\}/,
+    /enum NotificationType \{\n  NEW_SNAP\n  NEW_MESSAGE\n  REACTION\n  COMMENT\n  BIRTHDAY\n  FOLLOW\n\}/,
   );
 });
 

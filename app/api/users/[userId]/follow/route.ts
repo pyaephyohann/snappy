@@ -3,6 +3,7 @@ import { getAuthenticatedAppUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getRelationshipState, targetUserExists } from "@/lib/relationships";
 import { isSocialMutationRateLimited } from "@/lib/social-rate-limit";
+import { notifyFollowEvent } from "@/lib/notifications/notification-service";
 
 function isValidUserId(value: string): boolean {
   return /^[A-Za-z0-9_-]{1,64}$/.test(value);
@@ -45,6 +46,7 @@ export async function POST(
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
 
+  let created = false;
   try {
     await prisma.userFollow.create({
       data: {
@@ -52,6 +54,7 @@ export async function POST(
         followingId: targetUserId,
       },
     });
+    created = true;
   } catch (error) {
     if (
       error &&
@@ -67,6 +70,17 @@ export async function POST(
         { status: 500 },
       );
     }
+  }
+
+  // Only a successfully created follow notifies; a retried request (P2002)
+  // or a failed follow never creates a duplicate notification.
+  if (created) {
+    void notifyFollowEvent({
+      followerId: viewer.id,
+      followingId: targetUserId,
+    }).catch((notifyError) => {
+      console.error("[Notification] Follow notification failed:", notifyError);
+    });
   }
 
   return relationshipResponse(viewer.id, targetUserId);

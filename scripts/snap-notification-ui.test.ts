@@ -37,7 +37,7 @@ const page = read("app/notifications/page.tsx");
 test("the existing notification client renders like and comment rows", () => {
   // Generic client — no new notification screen was introduced.
   assert.match(page, /NotificationsPageClient/);
-  assert.match(client, /type: "NEW_SNAP" \| "NEW_MESSAGE" \| "REACTION" \| "COMMENT" \| "BIRTHDAY"/);
+  assert.match(client, /type: "NEW_SNAP" \| "NEW_MESSAGE" \| "REACTION" \| "COMMENT" \| "BIRTHDAY" \| "FOLLOW"/);
 
   // Titles for the two social types.
   assert.match(client, /`?\$\{item\.actor\.name\} reacted to your Snap`?/);

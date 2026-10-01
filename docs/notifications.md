@@ -1,11 +1,12 @@
 # Notifications
 
-Snappy notifications cover four categories:
+Snappy notifications cover five categories:
 
 1. **New Snap broadcast** — pushed to every subscribed device when any Snap is uploaded.
 2. **Snap interaction alerts** — targeted to the Snap owner when another user reacts or comments.
 3. **Birthday notifications** — pushed to every subscribed device when a user's birthday is detected (once per day per user).
 4. **Chat message notifications** — targeted to the other participant after an authorized message is created.
+5. **Follow notifications** — targeted to the followed user when another user follows them.
 
 ---
 
@@ -37,6 +38,26 @@ When **User A comments on User B's Snap**, User B is notified.
 - **Self comments do not notify.**
 - The **comment preview is used as the notification body**.
 - Existing comment behavior (create/list/like) is unchanged.
+
+## Follow Notifications
+
+When **User A follows User B**, User B is notified with `A followed you`.
+
+- **Receiver** = the followed user (derived from the persisted `UserFollow` row).
+- **Actor** = the authenticated follower.
+- **Self follows do not notify** (the route rejects them and the service no-ops).
+- **Only a successfully created follow notifies.** A retried request (unique
+  `(followerId, followingId)` violation) or a failed follow never creates a
+  duplicate notification.
+- Deep link: `/friends/<actor>` (the existing profile route), including the
+  Telegram Mini App prefix where applicable.
+
+There is **no pending follow request state** in Snappy: a follow row is active
+immediately. Acceptance is represented by the follow-back that makes the pair
+mutual; that transition is covered by the follow accepted notification
+(`FOLLOW_ACCEPTED`), which notifies the original follower with
+`<actor> accepted your follow` and supersedes the plain follow notification for
+that event.
 
 ---
 
@@ -86,7 +107,7 @@ See [Hero Carousel documentation](./hero-carousel.md) for full birthday mode det
 | `actorId` | user who reacted/commented (self for birthday) |
 | `snapId` | related Snap |
 | `messageId` | related chat message; unique for `NEW_MESSAGE` |
-| `type` | `NEW_SNAP` \| `NEW_MESSAGE` \| `REACTION` \| `COMMENT` \| `BIRTHDAY` |
+| `type` | `NEW_SNAP` \| `NEW_MESSAGE` \| `REACTION` \| `COMMENT` \| `BIRTHDAY` \| `FOLLOW` |
 | `body` | comment preview / reaction emoji / birthday message |
 | `createdAt` | timestamp |
 
@@ -118,3 +139,4 @@ prisma migrate deploy
 Migrations:
 - `20260918121542_snap_interaction_notifications` — Snap interaction notifications
 - `20260919100000_user_birthday_and_hero_carousel` — User birthday field + BIRTHDAY notification type
+- `20261002120000_social_follow_notifications` — FOLLOW notification type (additive)

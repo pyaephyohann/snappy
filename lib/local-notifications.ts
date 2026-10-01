@@ -3,7 +3,13 @@
 export const LOCAL_NOTIFICATIONS_KEY = "snappy:notifications";
 export const NOTIFICATIONS_UPDATED_EVENT = "snappy:notifications-updated";
 
-export type LocalNotificationType = "NEW_SNAP" | "NEW_MESSAGE" | "REACTION" | "COMMENT" | "BIRTHDAY";
+export type LocalNotificationType =
+  | "NEW_SNAP"
+  | "NEW_MESSAGE"
+  | "REACTION"
+  | "COMMENT"
+  | "BIRTHDAY"
+  | "FOLLOW";
 
 export interface LocalNotification {
   id: string;
@@ -57,6 +63,7 @@ const LOCAL_NOTIFICATION_TYPES: LocalNotificationType[] = [
   "REACTION",
   "BIRTHDAY",
   "COMMENT",
+  "FOLLOW",
 ];
 
 function isLocalNotification(value: unknown): value is LocalNotification {
@@ -163,13 +170,17 @@ export function ingestPushPayload(data: {
       ? data.title
       : type === "NEW_MESSAGE"
         ? "New message on Snappy"
-        : "New Snap on Snappy";
+        : type === "FOLLOW"
+          ? "New follower on Snappy"
+          : "New Snap on Snappy";
   const body =
     typeof data.body === "string"
       ? data.body
       : type === "NEW_MESSAGE"
         ? "You have a new message."
-        : "A new Snap has been uploaded.";
+        : type === "FOLLOW"
+          ? "Someone followed you."
+          : "A new Snap has been uploaded.";
   const targetUrl =
     typeof data.targetUrl === "string"
       ? data.targetUrl

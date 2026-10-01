@@ -24,7 +24,7 @@ export interface PushPayload {
   body: string;
   url: string;
   notificationId: string;
-  type: "NEW_SNAP" | "NEW_MESSAGE" | "REACTION" | "COMMENT" | "BIRTHDAY";
+  type: "NEW_SNAP" | "NEW_MESSAGE" | "REACTION" | "COMMENT" | "BIRTHDAY" | "FOLLOW";
   createdAt: string;
   icon?: string;
   badge?: string;
@@ -363,6 +363,96 @@ export async function createNewMessageNotification({
 
   const subscriptions = await prisma.pushSubscription.findMany({
     where: { userId: recipient.userId },
+  });
+
+  await Promise.all(
+    subscriptions.map((subscription, index) =>
+      sendPushToSubscription(subscription, payload, index),
+    ),
+  );
+}
+
+/**
+ * Notifies a user when another user follows them.
+ *
+ * The persisted `UserFollow` row is the only input identity: actor and
+ * notification target are derived from that record, never from client input.
+ * The service is a no-op when the follow does not exist (failed follow
+ * operations never notify) and never notifies on self-follows.
+ */
+export async function notifyFollowEvent({
+  followerId,
+  followingId,
+}: {
+  /** Authenticated user who performed the follow. */
+  followerId: string;
+  /** Follow target from the route; verified against the persisted row. */
+  followingId: string;
+}): Promise<void> {
+  if (followerId === followingId) {
+    return;
+  }
+
+  const follow = await prisma.userFollow.findUnique({
+    where: {
+      followerId_followingId: { followerId, followingId },
+    },
+    select: { followerId: true, followingId: true },
+  });
+
+  if (!follow) {
+    console.warn("[Notification] Follow not found:", followerId, followingId);
+    return;
+  }
+
+  const actor = await prisma.user.findUnique({
+    where: { id: follow.followerId },
+    select: { name: true },
+  });
+
+  if (!actor) {
+    console.warn("[Notification] Actor not found:", follow.followerId);
+    return;
+  }
+
+  const title = `${actor.name} followed you`;
+
+  const notification = await prisma.notification.create({
+    data: {
+      type: "FOLLOW",
+      userId: follow.followingId,
+      actorId: follow.followerId,
+    },
+  });
+
+  if (!isWebPushConfigured()) {
+    return;
+  }
+
+  ensureWebPushConfigured();
+
+  const targetUrl = sanitizeNotificationUrl(
+    `/friends/${encodeURIComponent(actor.name)}`,
+  );
+  if (!targetUrl) {
+    console.error(
+      "[Web Push] Invalid target URL for follow notification:",
+      notification.id,
+    );
+    return;
+  }
+
+  const payload: PushPayload = {
+    title,
+    body: "",
+    url: targetUrl,
+    notificationId: notification.id,
+    type: "FOLLOW",
+    createdAt: notification.createdAt.toISOString(),
+  };
+
+  const subscriptions = await prisma.pushSubscription.findMany({
+    where: { userId: follow.followingId },
   });
 
   await Promise.all(

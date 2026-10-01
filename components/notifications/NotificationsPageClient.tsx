@@ -6,7 +6,7 @@ import { NOTIFICATIONS_UPDATED_EVENT } from "@/lib/local-notifications";
 
 type NotificationItem = {
   id: string;
-  type: "NEW_SNAP" | "NEW_MESSAGE" | "REACTION" | "COMMENT" | "BIRTHDAY";
+  type: "NEW_SNAP" | "NEW_MESSAGE" | "REACTION" | "COMMENT" | "BIRTHDAY" | "FOLLOW";
   actor: { name: string; image: string };
   snapId: string | null;
   snapOwnerName: string | null;
@@ -39,6 +39,9 @@ function notificationTitle(item: NotificationItem): string {
   if (item.type === "COMMENT") {
     return `${item.actor.name} commented on your Snap`;
   }
+  if (item.type === "FOLLOW") {
+    return `${item.actor.name} followed you`;
+  }
   return item.body ?? "A new Snap has been uploaded";
 }
 
@@ -52,6 +55,10 @@ function notificationBody(item: NotificationItem): string | null {
 function targetUrl(item: NotificationItem, miniAppPrefix?: string): string {
   if (item.type === "NEW_MESSAGE" && item.conversationId) {
     const path = `/chats/${encodeURIComponent(item.conversationId)}`;
+    return miniAppPrefix ? `${miniAppPrefix}${path}` : path;
+  }
+  if (item.type === "FOLLOW") {
+    const path = `/friends/${encodeURIComponent(item.actor.name)}`;
     return miniAppPrefix ? `${miniAppPrefix}${path}` : path;
   }
   if (item.snapOwnerName) {
