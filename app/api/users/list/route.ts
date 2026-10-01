@@ -41,11 +41,18 @@ export async function GET(request: NextRequest) {
     .trim()
     .slice(0, 64);
 
+  // Recipient flows (the Snap camera picker) ask to omit the viewer with
+  // `excludeSelf=1`. The excluded identity is always the server session user —
+  // never a client-supplied id — and exclusion happens in the query so pages
+  // keep their full size. Search surfaces omit the flag and keep the full list.
+  const excludeSelf = request.nextUrl.searchParams.get("excludeSelf") === "1";
+
   const page = await listUsersForViewerPage({
     viewerId: user.id,
     cursor,
     limit: parseLimit(request.nextUrl.searchParams.get("limit")),
     query,
+    ...(excludeSelf ? { excludeUserId: user.id } : {}),
   });
 
   const response = NextResponse.json(page.users);

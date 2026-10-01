@@ -42,7 +42,9 @@ export default function BottomNavCameraFlow({
 
     void (async () => {
       try {
-        const response = await fetch("/api/users/list");
+        // Recipient list: the server omits the viewer (`excludeSelf=1`), so
+        // the current user never appears as their own Snap recipient.
+        const response = await fetch("/api/users/list?excludeSelf=1");
         if (!response.ok) {
           throw new Error("Could not load friends.");
         }
@@ -73,7 +75,7 @@ export default function BottomNavCameraFlow({
     setLoadingMore(true);
     try {
       const response = await fetch(
-        `/api/users/list?cursor=${encodeURIComponent(nextCursor)}`,
+        `/api/users/list?excludeSelf=1&cursor=${encodeURIComponent(nextCursor)}`,
       );
       if (!response.ok) return;
       const data = (await response.json()) as FriendPickerUser[];
