@@ -6,7 +6,7 @@ import { NOTIFICATIONS_UPDATED_EVENT } from "@/lib/local-notifications";
 
 type NotificationItem = {
   id: string;
-  type: "NEW_SNAP" | "NEW_MESSAGE" | "REACTION" | "COMMENT" | "BIRTHDAY" | "FOLLOW";
+  type: "NEW_SNAP" | "NEW_MESSAGE" | "REACTION" | "COMMENT" | "BIRTHDAY" | "FOLLOW" | "FOLLOW_ACCEPTED";
   actor: { name: string; image: string };
   snapId: string | null;
   snapOwnerName: string | null;
@@ -42,6 +42,9 @@ function notificationTitle(item: NotificationItem): string {
   if (item.type === "FOLLOW") {
     return `${item.actor.name} followed you`;
   }
+  if (item.type === "FOLLOW_ACCEPTED") {
+    return `${item.actor.name} accepted your follow`;
+  }
   return item.body ?? "A new Snap has been uploaded";
 }
 
@@ -58,6 +61,12 @@ function targetUrl(item: NotificationItem, miniAppPrefix?: string): string {
     return miniAppPrefix ? `${miniAppPrefix}${path}` : path;
   }
   if (item.type === "FOLLOW") {
+    const path = `/friends/${encodeURIComponent(item.actor.name)}`;
+    return miniAppPrefix ? `${miniAppPrefix}${path}` : path;
+  }
+  // Follow accepted routes to the same destination: the accepting actor's
+  // profile page.
+  if (item.type === "FOLLOW_ACCEPTED") {
     const path = `/friends/${encodeURIComponent(item.actor.name)}`;
     return miniAppPrefix ? `${miniAppPrefix}${path}` : path;
   }

@@ -9,7 +9,8 @@ export type LocalNotificationType =
   | "REACTION"
   | "COMMENT"
   | "BIRTHDAY"
-  | "FOLLOW";
+  | "FOLLOW"
+  | "FOLLOW_ACCEPTED";
 
 export interface LocalNotification {
   id: string;
@@ -64,6 +65,7 @@ const LOCAL_NOTIFICATION_TYPES: LocalNotificationType[] = [
   "BIRTHDAY",
   "COMMENT",
   "FOLLOW",
+  "FOLLOW_ACCEPTED",
 ];
 
 function isLocalNotification(value: unknown): value is LocalNotification {
@@ -172,7 +174,9 @@ export function ingestPushPayload(data: {
         ? "New message on Snappy"
         : type === "FOLLOW"
           ? "New follower on Snappy"
-          : "New Snap on Snappy";
+          : type === "FOLLOW_ACCEPTED"
+            ? "Follow accepted on Snappy"
+            : "New Snap on Snappy";
   const body =
     typeof data.body === "string"
       ? data.body
@@ -180,7 +184,9 @@ export function ingestPushPayload(data: {
         ? "You have a new message."
         : type === "FOLLOW"
           ? "Someone followed you."
-          : "A new Snap has been uploaded.";
+          : type === "FOLLOW_ACCEPTED"
+            ? "Someone accepted your follow."
+            : "A new Snap has been uploaded.";
   const targetUrl =
     typeof data.targetUrl === "string"
       ? data.targetUrl

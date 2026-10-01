@@ -24,7 +24,7 @@ export interface PushPayload {
   body: string;
   url: string;
   notificationId: string;
-  type: "NEW_SNAP" | "NEW_MESSAGE" | "REACTION" | "COMMENT" | "BIRTHDAY" | "FOLLOW";
+  type: "NEW_SNAP" | "NEW_MESSAGE" | "REACTION" | "COMMENT" | "BIRTHDAY" | "FOLLOW" | "FOLLOW_ACCEPTED";
   createdAt: string;
   icon?: string;
   badge?: string;
@@ -415,51 +415,86 @@ export async function notifyFollowEvent({
     return;
   }
 
-  const title = `${actor.name} followed you`;
-
-  const notification = await prisma.notification.create({
-    data: {
-      type: "FOLLOW",
-      userId: follow.followingId,
-      actorId: follow.followerId,
-    },
-  });
-
-  if (!isWebPushConfigured()) {
-    return;
-  }
-
-  ensureWebPushConfigured();
-
-  const targetUrl = sanitizeNotificationUrl(
-    `/friends/${encodeURIComponent(actor.name)}`,
-  );
-  if (!targetUrl) {
-    console.error(
-      "[Web Push] Invalid target URL for follow notification:",
-      notification.id,
-    );
-    return;
-  }
-
-  const payload: PushPayload = {
+  const recordFollow = async ({
+    type,
     title,
-    body: "",
-    url: targetUrl,
-    notificationId: notification.id,
-    type: "FOLLOW",
-    createdAt: notification.createdAt.toISOString(),
+  }: {
+    type: "FOLLOW" | "FOLLOW_ACCEPTED";
+    title: string;
+  }): Promise<void> => {
+    const notification = await prisma.notification.create({
+      data: {
+        type,
+        userId: follow.followingId,
+        actorId: follow.followerId,
+      },
+    });
+
+    if (!isWebPushConfigured()) {
+      return;
+    }
+
+    ensureWebPushConfigured();
+
+    const targetUrl = sanitizeNotificationUrl(
+      `/friends/${encodeURIComponent(actor.name)}`,
+    );
+    if (!targetUrl) {
+      console.error(
+        "[Web Push] Invalid target URL for follow notification:",
+        notification.id,
+      );
+      return;
+    }
+
+    const payload: PushPayload = {
+      title,
+      body: "",
+      url: targetUrl,
+      notificationId: notification.id,
+      type,
+      createdAt: notification.createdAt.toISOString(),
+    };
+
+    const subscriptions = await prisma.pushSubscription.findMany({
+      where: { userId: follow.followingId },
+    });
+
+    await Promise.all(
+      subscriptions.map((subscription, index) =>
+        sendPushToSubscription(subscription, payload, index),
+      ),
+    );
   };
 
-  const subscriptions = await prisma.pushSubscription.findMany({
-    where: { userId: follow.followingId },
+  // Acceptance transition: Snappy has no pending follow-request state — a
+  // follow row is active immediately. A follow that completes a mutual pair
+  // is the acceptance of the other user's earlier follow: the pre-existing
+  // follower is notified once that the new follower accepted. This supersedes
+  // the plain follow notification, so exactly one notification is created per
+  // persisted follow and re-writing the same state never notifies.
+  const reverse = await prisma.userFollow.findUnique({
+    where: {
+      followerId_followingId: {
+        followerId: follow.followingId,
+        followingId: follow.followerId,
+      },
+    },
+    select: { id: true },
   });
 
-  await Promise.all(
-    subscriptions.map((subscription, index) =>
-      sendPushToSubscription(subscription, payload, index),
-    ),
-  );
+  if (reverse) {
+    await recordFollow({
+      type: "FOLLOW_ACCEPTED",
+      title: `${actor.name} accepted your follow`,
+    });
+    return;
+  }
+
+  await recordFollow({
+    type: "FOLLOW",
+    title: `${actor.name} followed you`,
+  });
 }
 
 /**

@@ -52,12 +52,21 @@ When **User A follows User B**, User B is notified with `A followed you`.
 - Deep link: `/friends/<actor>` (the existing profile route), including the
   Telegram Mini App prefix where applicable.
 
+### Follow Accepted Notifications
+
 There is **no pending follow request state** in Snappy: a follow row is active
 immediately. Acceptance is represented by the follow-back that makes the pair
-mutual; that transition is covered by the follow accepted notification
-(`FOLLOW_ACCEPTED`), which notifies the original follower with
-`<actor> accepted your follow` and supersedes the plain follow notification for
-that event.
+mutual. When a newly persisted follow completes a mutual pair, the original
+follower receives a `FOLLOW_ACCEPTED` notification with
+`<actor> accepted your follow`.
+
+- **Trigger** = the non-mutual to mutual transition of a user pair. Re-writing
+  the same state (a retried request) never notifies; an unfollow never notifies.
+- **Receiver** = the pre-existing follower (the original follower/requester).
+- **Actor** = the user who followed back (the accepting user).
+- Exactly one notification is created per persisted follow: an accepting follow
+  sends `FOLLOW_ACCEPTED` instead of a plain `FOLLOW`.
+- Deep link: `/friends/<actor>` (the accepting actor's profile page).
 
 ---
 
@@ -107,7 +116,7 @@ See [Hero Carousel documentation](./hero-carousel.md) for full birthday mode det
 | `actorId` | user who reacted/commented (self for birthday) |
 | `snapId` | related Snap |
 | `messageId` | related chat message; unique for `NEW_MESSAGE` |
-| `type` | `NEW_SNAP` \| `NEW_MESSAGE` \| `REACTION` \| `COMMENT` \| `BIRTHDAY` \| `FOLLOW` |
+| `type` | `NEW_SNAP` \| `NEW_MESSAGE` \| `REACTION` \| `COMMENT` \| `BIRTHDAY` \| `FOLLOW` \| `FOLLOW_ACCEPTED` |
 | `body` | comment preview / reaction emoji / birthday message |
 | `createdAt` | timestamp |
 
@@ -140,3 +149,4 @@ Migrations:
 - `20260918121542_snap_interaction_notifications` — Snap interaction notifications
 - `20260919100000_user_birthday_and_hero_carousel` — User birthday field + BIRTHDAY notification type
 - `20261002120000_social_follow_notifications` — FOLLOW notification type (additive)
+- `20261002130000_social_follow_accepted_notifications` — FOLLOW_ACCEPTED notification type (additive)

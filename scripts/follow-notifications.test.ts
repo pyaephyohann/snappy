@@ -107,7 +107,7 @@ test("the service derives actor and recipient from the persisted follow row", ()
 test("FOLLOW is added to the notification enum additively", () => {
   assert.match(
     schema,
-    /enum NotificationType \{\n  NEW_SNAP\n  NEW_MESSAGE\n  REACTION\n  COMMENT\n  BIRTHDAY\n  FOLLOW\n\}/,
+    /enum NotificationType \{\n  NEW_SNAP\n  NEW_MESSAGE\n  REACTION\n  COMMENT\n  BIRTHDAY\n  FOLLOW\n  FOLLOW_ACCEPTED\n\}/,
   );
   assert.match(migration, /ALTER TYPE "NotificationType" ADD VALUE 'FOLLOW';/);
   assert.doesNotMatch(migration, /DROP TABLE|DROP COLUMN|TRUNCATE|DELETE FROM/i);

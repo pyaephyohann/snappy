@@ -210,9 +210,12 @@ test("S8 adds no migration and leaves S7 thresholds untouched", () => {
   // D3 hygiene: the D2 daily download counter (20261001120000) and the D3
   // additive SNAP_DOWNLOAD ledger enum value (20261001130000) advance the
   // tip; the assertion still detects any further migration.
+  // Social notification hygiene: the additive FOLLOW (20261002120000) and
+  // FOLLOW_ACCEPTED (20261002130000) notification type migrations advance
+  // the tip again; the assertion still detects any further migration.
   assert.equal(
     migrations[migrations.length - 1],
-    "20261001130000_spark_download_transaction_type",
+    "20261002130000_social_follow_accepted_notifications",
   );
 
   const presence = read("lib/presence.ts");

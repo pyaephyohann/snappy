@@ -286,7 +286,7 @@ test("Telegram presence relies on server-side expiry, not unload hooks", () => {
 
 test("presence creates no notification type, record, or push", () => {
   const schema = read("prisma/schema.prisma");
-  assert.match(schema, /enum NotificationType \{\n  NEW_SNAP\n  NEW_MESSAGE\n  REACTION\n  COMMENT\n  BIRTHDAY\n  FOLLOW\n\}/);
+  assert.match(schema, /enum NotificationType \{\n  NEW_SNAP\n  NEW_MESSAGE\n  REACTION\n  COMMENT\n  BIRTHDAY\n  FOLLOW\n  FOLLOW_ACCEPTED\n\}/);
   assert.doesNotMatch(schema, /PRESENCE|ONLINE|LAST_SEEN/);
 
   const route = read("app/api/presence/route.ts");

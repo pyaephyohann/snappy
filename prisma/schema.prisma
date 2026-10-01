@@ -294,6 +294,7 @@ enum NotificationType {
   COMMENT
   BIRTHDAY
   FOLLOW
+  FOLLOW_ACCEPTED
 }
 
 /// Spark transaction types for the Spark economy ledger.
