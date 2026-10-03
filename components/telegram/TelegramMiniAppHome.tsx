@@ -83,6 +83,7 @@ export default function TelegramMiniAppHome() {
           username={state.data.userName}
           profileImage={state.data.profileImage}
           heroCarousel={state.data.heroCarousel}
+          friends={state.data.friends}
           snaps={state.data.snaps}
           showViewAllLink={false}
         />

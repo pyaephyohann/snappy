@@ -121,13 +121,18 @@ test("Friends UI exists on web and Telegram and consumes the canonical API", () 
   assert.match(read("lib/telegram/keyboards.ts"), /My Friends/);
 });
 
-test("Home remains Snap-feed-only with no Friends section", () => {
+test("Home renders canonical mutual friends, never the discovery list", () => {
   const shared = read("components/home/HomeContent.tsx");
   const homePage = read("app/home/page.tsx");
+  const homeData = read("lib/home-data.ts");
+
   assert.match(shared, /RecentSnaps/);
   assert.match(shared, /HeroCarousel/);
-  assert.doesNotMatch(shared, /FriendCard|friends|Friends/i);
-  assert.doesNotMatch(homePage, /friends=\{/);
+  assert.match(shared, /FriendCard/);
+  // Home friendship data must come from the canonical mutual-follow query.
+  assert.match(homeData, /listFriendsForUser/);
+  assert.doesNotMatch(homeData, /listUsersForViewer/);
+  assert.match(homePage, /friends={homeData\.friends}/);
 });
 
 test("chat friendship authorization still requires mutual follows", () => {

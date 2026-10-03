@@ -21,6 +21,7 @@ export default async function HomePage() {
       username={user.name}
       profileImage={homeData.profileImage}
       heroCarousel={homeData.heroCarousel}
+      friends={homeData.friends}
       snaps={homeData.snaps}
     />
   );

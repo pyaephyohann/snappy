@@ -57,7 +57,9 @@ test("Telegram Home API returns shared Home data", () => {
 
   assert.match(homeRoute, /getHomeDataForUser/);
   assert.match(homeData, /getAutomaticHeroCarousel/);
-  assert.match(homeData, /listUsersForViewer/);
+  // Home friends come from the canonical mutual-follow query.
+  assert.match(homeData, /listFriendsForUser/);
+  assert.doesNotMatch(homeData, /listUsersForViewer/);
   assert.match(homeData, /loadRecentSnapsForHome/);
   assert.match(home, /HomeContent/);
   assert.doesNotMatch(homeRoute, /getPaginatedSnapsForMiniApp/);
@@ -80,9 +82,10 @@ test("Telegram Home uses the same content components as Web Home", () => {
   assert.match(web, /HomeContent/);
   assert.match(shared, /HeroCarousel/);
   assert.match(shared, /RecentSnaps/);
-  assert.doesNotMatch(shared, /FriendCard|friends|Friends/i);
+  assert.match(shared, /FriendCard/);
   assert.match(shared, /Snap/);
   assert.match(telegram, /HomeContent/);
+  assert.match(telegram, /friends={state\.data\.friends}/);
   assert.doesNotMatch(telegram, /TelegramSnapFeed/);
   assert.doesNotMatch(telegram, /nextCursor/);
 });
