@@ -50,28 +50,33 @@ function AnimatedCard({ children }: { children: React.ReactNode }) {
  * comparison) inside a staggered Framer Motion container so each card
  * fades in and slides up sequentially after the page heading appears.
  *
+ * The top two utility cards (balance, transfer-soon) are capped at a
+ * comfortable reading width; the plan grid section spans the full
+ * container so all four plan cards can breathe at wider viewports.
+ *
  * No pricing state or logic lives here — all data and purchase flow logic
  * remain inside SparkBalanceCard, SparkTransferSoonCard, and SparkPlanSection.
  */
 export default function PricingPageClient() {
   return (
     <motion.div
-      className="mx-auto max-w-5xl space-y-6"
+      className="space-y-6"
       variants={containerVariants}
       initial="hidden"
       animate="visible"
     >
-      <AnimatedCard>
-        <SparkBalanceCard />
-      </AnimatedCard>
+      {/* Utility cards — narrower so they don't sprawl on ultrawide screens */}
+      <div className="mx-auto max-w-2xl space-y-6">
+        <AnimatedCard>
+          <SparkBalanceCard />
+        </AnimatedCard>
 
-      <AnimatedCard>
-        <SparkTransferSoonCard />
-      </AnimatedCard>
+        <AnimatedCard>
+          <SparkTransferSoonCard />
+        </AnimatedCard>
+      </div>
 
-      {/* SparkPlanSection is itself a <section> element so we wrap it in a
-          plain div to avoid nesting sections while still letting the motion
-          variant cascade correctly. */}
+      {/* Plan comparison — full width so all 4 cards fit comfortably */}
       <AnimatedCard>
         <SparkPlanSection />
       </AnimatedCard>

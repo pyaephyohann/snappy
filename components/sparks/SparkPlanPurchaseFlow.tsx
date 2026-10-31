@@ -417,20 +417,33 @@ export function SparkPlanPurchaseAction({
   const isCurrent = currentPlan !== null && plan === currentPlan;
   if (isCurrent) {
     return (
-      <p className="text-sm font-medium text-muted-foreground">Current plan</p>
+      <div className="flex min-h-[44px] w-full items-center justify-center rounded-xl border border-border px-4 py-2.5">
+        <span className="text-sm font-medium text-muted-foreground">
+          Current plan
+        </span>
+      </div>
     );
   }
   if (plan === "FREE") {
-    // FREE can never be purchased; nothing to offer on this card.
-    return null;
+    // FREE can never be purchased — render a neutral outline so all card
+    // heights stay consistent.
+    return (
+      <div className="flex min-h-[44px] w-full items-center justify-center rounded-xl border border-border px-4 py-2.5">
+        <span className="text-sm font-medium text-muted-foreground">
+          Free forever
+        </span>
+      </div>
+    );
   }
   const subscriptionActive =
     subscriptionStatus === "ACTIVE" && currentPlan !== null && currentPlan !== "FREE";
   if (subscriptionActive) {
     return (
-      <p className="text-sm text-muted-foreground">
-        Unavailable while your current plan is active
-      </p>
+      <div className="flex min-h-[44px] w-full items-center justify-center rounded-xl border border-border px-4 py-2.5">
+        <span className="text-sm text-muted-foreground">
+          Unavailable while plan is active
+        </span>
+      </div>
     );
   }
   return (
@@ -439,9 +452,9 @@ export function SparkPlanPurchaseAction({
       onClick={() => flow.start(plan)}
       disabled={flow.busy}
       aria-label={`Choose ${planLabel}`}
-      className="min-h-[44px] w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+      className="min-h-[44px] w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
     >
-      {flow.busy ? "Please wait…" : "Choose plan"}
+      {flow.busy ? "Please wait…" : `Get ${planLabel}`}
     </button>
   );
 }

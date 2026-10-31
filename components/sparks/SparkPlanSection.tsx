@@ -41,6 +41,9 @@ const PLAN_LABELS: Record<SubscriptionPlan, string> = {
   SPARK_ULTRA: "Spark Ultra",
 };
 
+/** The "most popular" plan to highlight with Cursor-style accent badge. */
+const FEATURED_PLAN: SubscriptionPlan = "SPARK_PRO";
+
 /** Comparison order: Free first, then paid plans in ascending tier. */
 const PLAN_ORDER: SubscriptionPlan[] = [DEFAULT_PLAN, ...PAID_PLANS];
 
@@ -49,6 +52,41 @@ const priceFormatter = new Intl.NumberFormat("en-US");
 /** Pluralizes the Spark unit for display only — never an economy calculation. */
 function sparks(value: number): string {
   return `${value} ${value === 1 ? "Spark" : "Sparks"}`;
+}
+
+/** Thin horizontal rule divider matching Cursor's section separator style. */
+function FeatureGroupLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="flex items-center gap-2 border-b border-border pb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+      {children}
+    </p>
+  );
+}
+
+/** Single feature row with a leading checkmark — mirrors Cursor's ✓ list. */
+function FeatureRow({ children }: { children: React.ReactNode }) {
+  return (
+    <li className="flex items-start gap-2.5">
+      <span
+        className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center"
+        aria-hidden="true"
+      >
+        {/* Checkmark SVG matching Cursor's style */}
+        <svg
+          viewBox="0 0 16 16"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="h-3.5 w-3.5 text-primary"
+        >
+          <polyline points="2.5 8 6 11.5 13.5 4" />
+        </svg>
+      </span>
+      <span className="text-sm text-muted-foreground">{children}</span>
+    </li>
+  );
 }
 
 function PlanCard({
@@ -66,38 +104,50 @@ function PlanCard({
 }) {
   const config = PLAN_CONFIG[plan];
   const isCurrent = currentPlan !== null && plan === currentPlan;
+  const isFeatured = plan === FEATURED_PLAN;
 
   return (
     <li
-      className={
-        isCurrent
-          ? "rounded-xl border border-border bg-background p-4 ring-2 ring-primary"
-          : "rounded-xl border border-border bg-background p-4"
-      }
+      className={[
+        "relative flex flex-col rounded-2xl border p-6 transition-shadow duration-200",
+        isFeatured
+          ? "border-primary/50 bg-primary/5 shadow-lg shadow-primary/10"
+          : "border-border bg-card hover:shadow-md hover:shadow-black/20",
+      ].join(" ")}
+      aria-labelledby={`plan-label-${plan}`}
     >
+      {/* ── Plan header ──────────────────────────────────── */}
       <div className="flex items-center justify-between gap-2">
-        <h4 className="text-sm font-semibold text-foreground">
+        <h4
+          id={`plan-label-${plan}`}
+          className="text-base font-semibold text-foreground"
+        >
           {PLAN_LABELS[plan]}
         </h4>
-        {isCurrent ? (
-          <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
-            Your plan
-          </span>
-        ) : null}
+        <div className="flex shrink-0 items-center gap-1.5">
+          {isCurrent && (
+            <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
+              Your plan
+            </span>
+          )}
+          {isFeatured && !isCurrent && (
+            <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[11px] font-semibold text-primary">
+              Most popular
+            </span>
+          )}
+        </div>
       </div>
 
-      <p className="mt-1 text-sm text-muted-foreground">
-        {priceFormatter.format(config.monthlyPriceMmk)} MMK / month
+      {/* ── Price block ───────────────────────────────────── */}
+      <p className="mt-4 flex items-baseline gap-1">
+        <span className="text-3xl font-bold tracking-tight text-foreground">
+          {priceFormatter.format(config.monthlyPriceMmk)} MMK
+        </span>
+        <span className="text-sm text-muted-foreground">/month</span>
       </p>
 
-      <ul className="mt-3 space-y-1 text-sm text-muted-foreground">
-        <li>{config.subscriptionSparks} subscription Sparks</li>
-        <li>{config.freeUploadsPerDay} free uploads/day</li>
-        <li>{sparks(config.extraUploadCost)} per extra upload</li>
-        <li>{sparks(config.captionEditCost)} per caption edit</li>
-      </ul>
-
-      <div className="mt-4">
+      {/* ── CTA button ────────────────────────────────────── */}
+      <div className="mt-5">
         <SparkPlanPurchaseAction
           plan={plan}
           planLabel={PLAN_LABELS[plan]}
@@ -105,6 +155,38 @@ function PlanCard({
           subscriptionStatus={subscriptionStatus}
           flow={flow}
         />
+      </div>
+
+      {/* ── Divider ───────────────────────────────────────── */}
+      <hr className="my-5 border-border" />
+
+      {/* ── Usage summary (prominent) ─────────────────────── */}
+      <div className="mb-4">
+        <p className="text-xl font-semibold text-foreground">
+          {config.subscriptionSparks.toLocaleString()}
+        </p>
+        <p className="mt-0.5 text-sm text-muted-foreground">
+          subscription Sparks / month
+        </p>
+      </div>
+
+      {/* ── Feature group ─────────────────────────────────── */}
+      <div className="mt-auto space-y-4">
+        <div>
+          <FeatureGroupLabel>Included</FeatureGroupLabel>
+          <ul className="mt-3 space-y-2.5" role="list">
+            <FeatureRow>
+              {config.freeUploadsPerDay} free upload
+              {config.freeUploadsPerDay === 1 ? "" : "s"} per day
+            </FeatureRow>
+            <FeatureRow>
+              {sparks(config.extraUploadCost)} per extra upload
+            </FeatureRow>
+            <FeatureRow>
+              {sparks(config.captionEditCost)} per caption edit
+            </FeatureRow>
+          </ul>
+        </div>
       </div>
     </li>
   );
@@ -120,7 +202,10 @@ function PlanGrid({
   flow: SparkPlanPurchaseFlowState;
 }) {
   return (
-    <ul className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+    <ul
+      className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4"
+      role="list"
+    >
       {PLAN_ORDER.map((plan) => (
         <PlanCard
           key={plan}
@@ -134,15 +219,42 @@ function PlanGrid({
   );
 }
 
+function PlanGridSkeleton() {
+  return (
+    <ul
+      className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4"
+      role="status"
+      aria-label="Loading plans"
+    >
+      {PLAN_ORDER.map((plan) => (
+        <li key={plan} className="rounded-2xl border border-border bg-card p-6">
+          <Skeleton className="h-5 w-24" />
+          <Skeleton className="mt-4 h-8 w-36" />
+          <Skeleton className="mt-5 h-10 w-full rounded-xl" />
+          <hr className="my-5 border-border" />
+          <Skeleton className="h-6 w-16" />
+          <Skeleton className="mt-1 h-4 w-40" />
+          <Skeleton className="mt-6 h-4 w-full" />
+          <Skeleton className="mt-2 h-4 w-5/6" />
+          <Skeleton className="mt-2 h-4 w-4/6" />
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 export default function SparkPlanSection() {
   const { usage, loading } = useSparkUsage();
   const purchaseFlow = useSparkPlanPurchase();
 
   return (
     <section className="rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-6">
-      <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-        Plans
-      </h3>
+      {/* Section header — mirrors Cursor's "Pricing" h1 at a card scale */}
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+          Plans
+        </h3>
+      </div>
       <p className="mt-2 text-sm text-muted-foreground">
         Compare the four Snappy plans. Choose a paid plan to subscribe — the
         price shown is confirmed by Snappy when you start, and your plan is
@@ -150,16 +262,7 @@ export default function SparkPlanSection() {
       </p>
 
       {loading ? (
-        <div
-          className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4"
-          role="status"
-          aria-label="Loading plans"
-        >
-          <Skeleton className="h-36 w-full rounded-xl" />
-          <Skeleton className="h-36 w-full rounded-xl" />
-          <Skeleton className="h-36 w-full rounded-xl" />
-          <Skeleton className="h-36 w-full rounded-xl" />
-        </div>
+        <PlanGridSkeleton />
       ) : !usage ? (
         // Usage could not be fetched: the static authoritative configuration
         // still renders, but no current plan is marked and no value is
