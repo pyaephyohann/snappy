@@ -42,6 +42,11 @@ const DESKTOP_NAV: DesktopNavItem[] = [
     label: "Profile",
     match: (path) => path === "/profile" || path.startsWith("/profile/"),
   },
+  {
+    href: "/pricing",
+    label: "Pricing",
+    match: (path) => path === "/pricing" || path.startsWith("/pricing/"),
+  },
 ];
 
 export default function Navbar({ username, profileImage }: NavbarProps) {
