@@ -3,6 +3,7 @@
 import { useSparkUsage } from "@/hooks/useSparkUsage";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatAdminDate } from "@/lib/admin-types";
+import GlowingBorder from "@/components/ui/glowing-border";
 import type { SubscriptionPlan, SubscriptionStatus } from "@prisma/client";
 
 /**
@@ -17,6 +18,11 @@ import type { SubscriptionPlan, SubscriptionStatus } from "@prisma/client";
  * pricing and no payment functionality (both deferred to S7). While the
  * summary is loading or unavailable the card shows a skeleton or an alert
  * instead of guessing a balance.
+ *
+ * The animated running border reuses the exact same GlowingBorder component
+ * and CSS animation (`glow-border-spin` conic-gradient) used by HeroCarousel
+ * — same timing (3 s), same gradient colours, same blur glow layer, and the
+ * `featured` prop keeps it visible inside `.user-app-shell` on mobile.
  */
 
 const PLAN_LABELS: Record<SubscriptionPlan, string> = {
@@ -40,22 +46,24 @@ export default function SparkBalanceCard() {
 
   if (loading) {
     return (
-      <section
-        className="rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-6"
-        aria-busy="true"
-      >
-        <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-          Sparks
-        </h3>
-        <div
-          className="mt-4 space-y-3"
-          role="status"
-          aria-label="Loading Spark balance"
+      <GlowingBorder radius="2xl" intensity="strong" featured>
+        <section
+          className="rounded-2xl bg-card p-5 shadow-sm sm:p-6"
+          aria-busy="true"
         >
-          <Skeleton className="h-8 w-full" />
-          <Skeleton className="h-4 w-2/3" />
-        </div>
-      </section>
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+            Sparks
+          </h3>
+          <div
+            className="mt-4 space-y-3"
+            role="status"
+            aria-label="Loading Spark balance"
+          >
+            <Skeleton className="h-8 w-full" />
+            <Skeleton className="h-4 w-2/3" />
+          </div>
+        </section>
+      </GlowingBorder>
     );
   }
 
@@ -63,14 +71,16 @@ export default function SparkBalanceCard() {
     // The summary could not be fetched — never invent a balance. The rest of
     // the profile page keeps working; only this card reports the failure.
     return (
-      <section className="rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-6">
-        <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-          Sparks
-        </h3>
-        <p className="mt-3 text-sm text-destructive" role="alert">
-          Couldn&apos;t load your Spark balance right now.
-        </p>
-      </section>
+      <GlowingBorder radius="2xl" intensity="strong" featured>
+        <section className="rounded-2xl bg-card p-5 shadow-sm sm:p-6">
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+            Sparks
+          </h3>
+          <p className="mt-3 text-sm text-destructive" role="alert">
+            Couldn&apos;t load your Spark balance right now.
+          </p>
+        </section>
+      </GlowingBorder>
     );
   }
 
@@ -80,47 +90,49 @@ export default function SparkBalanceCard() {
     : FREE_STATE_LABEL;
 
   return (
-    <section className="rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-6">
-      <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-        Sparks
-      </h3>
+    <GlowingBorder radius="2xl" intensity="strong" featured>
+      <section className="rounded-2xl bg-card p-5 shadow-sm sm:p-6">
+        <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+          Sparks
+        </h3>
 
-      {/* Balance first and prominent (like a lightweight app currency),
-          rendered exactly as the server reports it — including 0. */}
-      <p className="mt-2 text-3xl font-semibold text-foreground">
-        {usage.balance} ✨
-      </p>
+        {/* Balance first and prominent (like a lightweight app currency),
+            rendered exactly as the server reports it — including 0. */}
+        <p className="mt-2 text-3xl font-semibold text-foreground">
+          {usage.balance} ✨
+        </p>
 
-      <dl className="mt-4 divide-y divide-border text-sm">
-        <div className="flex items-center justify-between gap-3 py-2">
-          <dt className="text-muted-foreground">Earned</dt>
-          <dd className="font-medium text-foreground">{usage.earnedSparks} ✨</dd>
-        </div>
-        <div className="flex items-center justify-between gap-3 py-2">
-          <dt className="text-muted-foreground">Subscription</dt>
-          <dd className="font-medium text-foreground">
-            {usage.subscriptionSparks} ✨
-          </dd>
-        </div>
-        <div className="flex items-center justify-between gap-3 py-2">
-          <dt className="text-muted-foreground">Plan</dt>
-          <dd className="font-medium text-foreground">{planLabel}</dd>
-        </div>
-        <div className="flex items-center justify-between gap-3 py-2">
-          <dt className="text-muted-foreground">Status</dt>
-          <dd className="font-medium text-foreground">{statusLabel}</dd>
-        </div>
-        {/* Only shown when the server reports a real billing period — no
-            expiration date is ever fabricated for the Free state. */}
-        {usage.subscriptionPeriodEnd ? (
+        <dl className="mt-4 divide-y divide-border text-sm">
           <div className="flex items-center justify-between gap-3 py-2">
-            <dt className="text-muted-foreground">Renews / ends</dt>
+            <dt className="text-muted-foreground">Earned</dt>
+            <dd className="font-medium text-foreground">{usage.earnedSparks} ✨</dd>
+          </div>
+          <div className="flex items-center justify-between gap-3 py-2">
+            <dt className="text-muted-foreground">Subscription</dt>
             <dd className="font-medium text-foreground">
-              {formatAdminDate(usage.subscriptionPeriodEnd)}
+              {usage.subscriptionSparks} ✨
             </dd>
           </div>
-        ) : null}
-      </dl>
-    </section>
+          <div className="flex items-center justify-between gap-3 py-2">
+            <dt className="text-muted-foreground">Plan</dt>
+            <dd className="font-medium text-foreground">{planLabel}</dd>
+          </div>
+          <div className="flex items-center justify-between gap-3 py-2">
+            <dt className="text-muted-foreground">Status</dt>
+            <dd className="font-medium text-foreground">{statusLabel}</dd>
+          </div>
+          {/* Only shown when the server reports a real billing period — no
+              expiration date is ever fabricated for the Free state. */}
+          {usage.subscriptionPeriodEnd ? (
+            <div className="flex items-center justify-between gap-3 py-2">
+              <dt className="text-muted-foreground">Renews / ends</dt>
+              <dd className="font-medium text-foreground">
+                {formatAdminDate(usage.subscriptionPeriodEnd)}
+              </dd>
+            </div>
+          ) : null}
+        </dl>
+      </section>
+    </GlowingBorder>
   );
 }

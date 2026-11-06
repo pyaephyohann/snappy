@@ -243,7 +243,7 @@ export default function NavbarDesktopFriendSearch() {
   return (
     <div
       ref={rootRef}
-      className="relative hidden min-w-0 flex-1 lg:block lg:max-w-md"
+      className="relative hidden min-w-0 flex-1 lg:order-last lg:block lg:basis-full lg:max-w-md xl:order-none xl:basis-0 xl:mr-auto"
     >
       <label htmlFor={listboxId} className="sr-only">
         Search friends

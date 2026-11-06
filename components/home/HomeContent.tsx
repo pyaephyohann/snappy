@@ -36,22 +36,32 @@ export default function HomeContent({
           slides={heroCarousel.slides}
         />
 
-        {friends.length > 0 ? (
-          <section className="mb-8 sm:mb-10">
-            <div className="mb-4 flex items-center justify-between gap-3">
-              <h2 className="text-xl font-semibold text-foreground sm:text-2xl">
-                Friends
-              </h2>
-              {showViewAllLink ? (
-                <Link
-                  href="/friends"
-                  className="shrink-0 cursor-pointer text-sm font-medium text-primary hover:opacity-90"
-                >
-                  View All →
-                </Link>
-              ) : null}
-            </div>
+        {snaps ? (
+          <RecentSnaps
+            snaps={snaps}
+            showViewAllLink={showViewAllLink}
+          />
+        ) : null}
 
+        <section className="mb-8 sm:mb-10" aria-labelledby="home-friends-heading">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <h2
+              id="home-friends-heading"
+              className="text-xl font-semibold text-foreground sm:text-2xl"
+            >
+              Friends
+            </h2>
+            {showViewAllLink ? (
+              <Link
+                href="/friends"
+                className="shrink-0 cursor-pointer text-sm font-medium text-primary hover:opacity-90"
+              >
+                View All →
+              </Link>
+            ) : null}
+          </div>
+
+          {friends.length > 0 ? (
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-6 lg:grid-cols-4 xl:grid-cols-5">
               {friends.map((friend) => (
                 <FriendCard
@@ -61,15 +71,26 @@ export default function HomeContent({
                 />
               ))}
             </div>
-          </section>
-        ) : null}
-
-        {snaps ? (
-          <RecentSnaps
-            snaps={snaps}
-            showViewAllLink={showViewAllLink}
-          />
-        ) : null}
+          ) : (
+            <div className="rounded-xl border border-border bg-card p-6 text-center shadow-sm sm:p-8">
+              <p className="text-sm font-medium text-foreground">
+                No friends yet
+              </p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Friends appear here when you and another person follow each
+                other.
+              </p>
+              {showViewAllLink ? (
+                <Link
+                  href="/search"
+                  className="mt-4 inline-flex min-h-[44px] items-center justify-center rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  Find people
+                </Link>
+              ) : null}
+            </div>
+          )}
+        </section>
       </main>
     </div>
   );
