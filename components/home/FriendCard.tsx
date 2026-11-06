@@ -9,12 +9,15 @@ interface FriendCardProps {
   name: string;
   profileImage: string;
   profilePathPrefix?: string;
+  /** Preload the avatar. Off for long directories (e.g. the People grid). */
+  priority?: boolean;
 }
 
 export default function FriendCard({
   name,
   profileImage,
   profilePathPrefix = "/friends",
+  priority = true,
 }: FriendCardProps) {
   const router = useRouter();
 
@@ -42,7 +45,7 @@ export default function FriendCard({
                   className="object-cover"
                   sizes="64px, 96px"
                   unoptimized={profileImage.includes('.svg') || profileImage.includes('dicebear')}
-                  priority
+                  priority={priority}
                 />
               </div>
             </GlowingBorder>

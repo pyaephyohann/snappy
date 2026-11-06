@@ -31,9 +31,11 @@ test("profile photo service enforces snap ownership", () => {
   assert.match(service, /status: 403/);
 });
 
-test("desktop navbar includes Profile link and inline friend search", () => {
+test("desktop navbar keeps the profile avatar and inline friend search", () => {
   const navbar = read("components/layout/Navbar.tsx");
-  assert.match(navbar, /href: "\/profile"/);
+  // Nav links were removed; the avatar is the profile entry point.
+  assert.match(navbar, /href="\/profile"/);
+  assert.match(navbar, /aria-label="Go to profile"/);
   assert.match(navbar, /NavbarDesktopFriendSearch/);
   assert.doesNotMatch(navbar, /href: "\/search"/);
   const search = read("components/layout/NavbarDesktopFriendSearch.tsx");

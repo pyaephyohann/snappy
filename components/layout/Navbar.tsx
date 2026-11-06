@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import Image from "next/image";
 import NavbarDesktopFriendSearch from "@/components/layout/NavbarDesktopFriendSearch";
 import SparkBalancePill from "@/components/sparks/SparkBalancePill";
@@ -14,44 +13,7 @@ interface NavbarProps {
   profileImage?: string;
 }
 
-type DesktopNavItem = {
-  href: string;
-  label: string;
-  match: (path: string) => boolean;
-};
-
-const DESKTOP_NAV: DesktopNavItem[] = [
-  {
-    href: "/home",
-    label: "Home",
-    match: (path) => path === "/home" || path.startsWith("/home/"),
-  },
-  {
-    href: "/chats",
-    label: "Chats",
-    match: (path) => path === "/chats" || path.startsWith("/chats/"),
-  },
-  {
-    href: "/notifications",
-    label: "Alerts",
-    match: (path) =>
-      path === "/notifications" || path.startsWith("/notifications/"),
-  },
-  {
-    href: "/profile",
-    label: "Profile",
-    match: (path) => path === "/profile" || path.startsWith("/profile/"),
-  },
-  {
-    href: "/pricing",
-    label: "Pricing",
-    match: (path) => path === "/pricing" || path.startsWith("/pricing/"),
-  },
-];
-
 export default function Navbar({ username, profileImage }: NavbarProps) {
-  const pathname = usePathname();
-
   return (
     <header className="safe-area-pt sticky top-0 z-10 border-b border-border bg-card/50 backdrop-blur-sm">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -63,29 +25,6 @@ export default function Navbar({ username, profileImage }: NavbarProps) {
             >
               <SnappyLogo />
             </Link>
-
-            <nav
-              className="hidden shrink-0 items-center gap-1 lg:flex"
-              aria-label="Main navigation"
-            >
-              {DESKTOP_NAV.map((item) => {
-                const active = item.match(pathname);
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                      active
-                        ? "bg-primary/10 text-primary"
-                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                    }`}
-                    aria-current={active ? "page" : undefined}
-                  >
-                    {item.label}
-                  </Link>
-                );
-              })}
-            </nav>
           </div>
 
           <NavbarDesktopFriendSearch />

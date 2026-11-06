@@ -94,17 +94,17 @@ export default function SnapCard({
     >
       <GlowingBorder radius="xl" className="h-full">
         <div
-          className={`bg-card border border-border rounded-xl overflow-hidden shadow-lg transition-all duration-300 h-full ${
+          className={`flex h-full flex-col overflow-hidden rounded-xl border border-border bg-card shadow-lg transition-all duration-300 ${
             interactive ? 'hover:shadow-xl' : ''
           }`}
         >
-          <div className="relative aspect-square">
+          <div className="relative aspect-square w-full shrink-0">
             <Image
               src={imageUrl}
               alt={caption || 'Snap'}
               fill
               className="object-cover"
-              sizes="(max-width: 768px) 50vw, (max-width: 1200px) 50vw, 33vw"
+              sizes="(max-width: 640px) 90vw, (max-width: 1200px) 45vw, 30vw"
               unoptimized={imageUrl.includes('.svg') || imageUrl.includes('dicebear')}
             />
 
@@ -114,7 +114,7 @@ export default function SnapCard({
             >
               {downloadError && (
                 <p
-                  className="text-[10px] sm:text-xs text-destructive bg-background/90 backdrop-blur-sm px-1.5 py-0.5 rounded max-w-[120px] text-right"
+                  className="max-w-[80%] rounded bg-background/90 px-1.5 py-0.5 text-right text-[10px] text-destructive backdrop-blur-sm sm:text-xs"
                   role="alert"
                 >
                   {downloadError}
@@ -172,24 +172,28 @@ export default function SnapCard({
             </div>
           </div>
 
-          {/* Caption Area */}
-          <div className="p-2 sm:p-4 h-16 sm:h-20 overflow-y-auto overflow-x-hidden caption-scroll">
-            {caption && (
-              <p className="text-foreground text-xs sm:text-sm mb-1 sm:mb-2">{caption}</p>
-            )}
-            {uploaderName ? (
-              <p className="text-muted-foreground text-[11px] sm:text-xs">
-                Uploaded by {uploaderName}
+          {/* Caption + metadata — grows with the text instead of scrolling. */}
+          <div className="flex flex-1 flex-col gap-2 p-3 sm:gap-3 sm:p-4">
+            {caption ? (
+              <p className="text-sm leading-relaxed text-foreground [overflow-wrap:anywhere]">
+                {caption}
               </p>
             ) : null}
-            {createdAt && (
-              <p className="text-muted-foreground text-xs">{formatDate(createdAt)}</p>
-            )}
+
+            <div className="mt-auto flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground sm:text-xs">
+              {uploaderName ? (
+                <span className="[overflow-wrap:anywhere]">Uploaded by {uploaderName}</span>
+              ) : null}
+              {uploaderName && createdAt ? (
+                <span aria-hidden="true">•</span>
+              ) : null}
+              {createdAt ? <span>{formatDate(createdAt)}</span> : null}
+            </div>
           </div>
 
           {/* Social actions (Like / Comment / Share) */}
           <div
-            className="px-2 sm:px-4 pb-3 sm:pb-4"
+            className="px-3 pb-3 sm:px-4 sm:pb-4"
             onClick={(e) => e.stopPropagation()}
           >
             <SnapSocialBar

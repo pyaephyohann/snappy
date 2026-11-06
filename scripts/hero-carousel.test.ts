@@ -181,13 +181,15 @@ test("birthday mode keeps its 3-day window and UTC month/day extraction", () => 
   });
 });
 
-test("Home shows the user's mutual friends alongside the Snap feed", () => {
+test("Home shows the People directory alongside the Snap feed", () => {
   const shared = read("components/home/HomeContent.tsx");
   const homePage = read("app/home/page.tsx");
+  const people = read("components/home/PeopleSection.tsx");
   assert.match(shared, /RecentSnaps/);
   assert.match(shared, /HeroCarousel/);
-  assert.match(shared, /FriendCard/);
-  assert.match(homePage, /friends={homeData\.friends}/);
+  assert.match(shared, /PeopleSection/);
+  assert.match(people, /FriendCard/);
+  assert.match(homePage, /people={homeData\.people}/);
 });
 
 test(

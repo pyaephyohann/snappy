@@ -131,16 +131,15 @@ test("users list API exposes a cursor without breaking the array contract", () =
   assert.match(read("lib/user-list.ts"), /USER_LIST_NEXT_CURSOR_HEADER = "X-Next-Cursor"/);
 });
 
-test("home keeps its friend cap and reads a bounded canonical friend page", () => {
+test("home keeps a bounded people page and excludes the viewer", () => {
   const home = read("lib/home-data.ts");
-  assert.match(home, /HOME_FRIENDS_LIMIT = 50/);
-  // Home friends come from the canonical mutual-follow query with the cap
-  // applied in the query itself, not the discovery list filtered afterwards.
-  assert.match(
-    home,
-    /listFriendsForUser\(\{ viewerId: userId, limit: HOME_FRIENDS_LIMIT \}\)/,
-  );
-  assert.doesNotMatch(home, /listUsersForViewer/);
+  assert.match(home, /HOME_PEOPLE_LIMIT = 50/);
+  // Home lists every active user with both the cap and the viewer exclusion
+  // applied in the query itself, not filtered afterwards.
+  assert.match(home, /listUsersForViewerPage\(\{/);
+  assert.match(home, /excludeUserId: userId/);
+  assert.match(home, /limit: HOME_PEOPLE_LIMIT/);
+  assert.doesNotMatch(home, /listFriendsForUser/);
 });
 
 test("bot friend lookups are bounded and validated by targeted lookup", () => {

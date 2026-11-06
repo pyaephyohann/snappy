@@ -42,12 +42,12 @@ export default function FollowButton({
   }
 
   return (
-    <div className="flex flex-col items-center gap-1 sm:items-start">
+    <div className="flex items-center gap-2">
       <button
         type="button"
         onClick={() => void toggleFollow()}
         disabled={pending}
-        className={`rounded-xl px-4 py-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-wait disabled:opacity-60 ${
+        className={`min-h-[44px] whitespace-nowrap rounded-xl px-4 py-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-wait disabled:opacity-60 ${
           relationship.isFollowing
             ? "border border-border bg-background text-foreground hover:bg-muted"
             : "bg-primary text-primary-foreground hover:opacity-90"
@@ -56,10 +56,12 @@ export default function FollowButton({
         {pending ? "Updating…" : relationship.isFollowing ? "Following" : "Follow"}
       </button>
       {relationship.isFriend ? (
-        <span className="text-xs font-medium text-primary">Friends</span>
+        <span className="whitespace-nowrap text-xs font-medium text-primary">
+          Friends
+        </span>
       ) : null}
       {error ? (
-        <span className="max-w-40 text-center text-xs text-destructive sm:text-left" role="alert">
+        <span className="max-w-40 text-xs text-destructive" role="alert">
           {error}
         </span>
       ) : null}

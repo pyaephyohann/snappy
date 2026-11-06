@@ -28,20 +28,22 @@ test("automatic carousel contains birthday and latest-snap fallback branches", (
   assert.match(carousel, /take: 5/);
 });
 
-test("Home renders the user's mutual friends and the Snap feed", () => {
+test("Home renders the People directory and the Snap feed", () => {
   const homeData = read("../lib/home-data.ts");
   const homePage = read("../app/home/page.tsx");
   const shared = read("../components/home/HomeContent.tsx");
+  const people = read("../components/home/PeopleSection.tsx");
 
-  // Home friends come from the canonical mutual-follow query, never the
-  // all-active-users discovery list.
-  assert.match(homeData, /listFriendsForUser/);
-  assert.doesNotMatch(homeData, /listUsersForViewer/);
-  assert.match(homeData, /limit: HOME_FRIENDS_LIMIT/);
-  // The page forwards those friends into the shared content component.
-  assert.match(homePage, /friends={homeData\.friends}/);
+  // People is every active user (viewer excluded), not only mutual friends.
+  assert.match(homeData, /listUsersForViewerPage/);
+  assert.match(homeData, /excludeUserId: userId/);
+  assert.match(homeData, /limit: HOME_PEOPLE_LIMIT/);
+  assert.doesNotMatch(homeData, /listFriendsForUser/);
+  // The page forwards those people into the shared content component.
+  assert.match(homePage, /people={homeData\.people}/);
   assert.match(homePage, /snaps={homeData\.snaps}/);
-  assert.match(shared, /FriendCard/);
+  assert.match(shared, /PeopleSection/);
+  assert.match(people, /FriendCard/);
   assert.match(shared, /RecentSnaps/);
 });
 
@@ -59,10 +61,10 @@ test("Telegram Home reuses the shared Web Home content", () => {
   const telegram = read("../components/telegram/TelegramMiniAppHome.tsx");
   assert.match(shared, /HeroCarousel/);
   assert.match(shared, /RecentSnaps/);
-  assert.match(shared, /FriendCard/);
+  assert.match(shared, /PeopleSection/);
   assert.match(shared, /Snap/);
   assert.match(telegram, /HomeContent/);
-  assert.match(telegram, /friends={state\.data\.friends}/);
+  assert.match(telegram, /people={state\.data\.people}/);
   assert.doesNotMatch(telegram, /TelegramSnapFeed/);
   assert.doesNotMatch(telegram, /nextCursor/);
 });

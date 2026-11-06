@@ -123,9 +123,9 @@ test("Navbar shows the Spark pill without disturbing existing navigation", () =>
   assert.match(navbar, /import SparkBalancePill/);
   assert.match(navbar, /<SparkBalancePill \/>/);
 
-  // Existing navbar contract stays intact.
+  // Existing navbar contract stays intact (nav links were removed; the
+  // search, avatar and chat controls stay).
   assert.match(navbar, /NavbarDesktopFriendSearch/);
-  assert.match(navbar, /href: "\/profile"/);
   assert.doesNotMatch(navbar, /href: "\/search"/);
   assert.match(navbar, /aria-label="Go to profile"/);
   assert.match(navbar, /aria-label="Open chats"/);

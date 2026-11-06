@@ -1,9 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import HeroCarousel from "@/components/home/HeroCarousel";
 import RecentSnaps from "@/components/home/RecentSnaps";
-import FriendCard from "@/components/home/FriendCard";
+import PeopleSection from "@/components/home/PeopleSection";
 import Navbar from "@/components/layout/Navbar";
 import type { PublicHeroCarouselData } from "@/lib/hero-carousel";
 import type { PublicRecentSnap } from "@/lib/recent-snaps";
@@ -13,7 +12,9 @@ interface HomeContentProps {
   username: string;
   profileImage: string;
   heroCarousel: PublicHeroCarouselData;
-  friends: RelationshipUser[];
+  /** All active Snappy users except the viewer. */
+  people: RelationshipUser[];
+  peopleNextCursor?: string | null;
   snaps: PublicRecentSnap[] | null;
   showViewAllLink?: boolean;
 }
@@ -22,7 +23,8 @@ export default function HomeContent({
   username,
   profileImage,
   heroCarousel,
-  friends,
+  people,
+  peopleNextCursor = null,
   snaps,
   showViewAllLink = true,
 }: HomeContentProps) {
@@ -43,54 +45,11 @@ export default function HomeContent({
           />
         ) : null}
 
-        <section className="mb-8 sm:mb-10" aria-labelledby="home-friends-heading">
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <h2
-              id="home-friends-heading"
-              className="text-xl font-semibold text-foreground sm:text-2xl"
-            >
-              Friends
-            </h2>
-            {showViewAllLink ? (
-              <Link
-                href="/friends"
-                className="shrink-0 cursor-pointer text-sm font-medium text-primary hover:opacity-90"
-              >
-                View All →
-              </Link>
-            ) : null}
-          </div>
-
-          {friends.length > 0 ? (
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-6 lg:grid-cols-4 xl:grid-cols-5">
-              {friends.map((friend) => (
-                <FriendCard
-                  key={friend.id}
-                  name={friend.name}
-                  profileImage={friend.profileImage}
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="rounded-xl border border-border bg-card p-6 text-center shadow-sm sm:p-8">
-              <p className="text-sm font-medium text-foreground">
-                No friends yet
-              </p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Friends appear here when you and another person follow each
-                other.
-              </p>
-              {showViewAllLink ? (
-                <Link
-                  href="/search"
-                  className="mt-4 inline-flex min-h-[44px] items-center justify-center rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  Find people
-                </Link>
-              ) : null}
-            </div>
-          )}
-        </section>
+        <PeopleSection
+          people={people}
+          nextCursor={peopleNextCursor}
+          showViewAllLink={showViewAllLink}
+        />
       </main>
     </div>
   );

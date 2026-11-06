@@ -66,7 +66,9 @@ export default function SnapGallery({
 
   return (
     <>
-      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
+      {/* Min card width keeps captions, metadata and the action row readable at
+          every container size instead of squeezing cards into 4 narrow columns. */}
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,17rem),1fr))] gap-4 sm:gap-5 lg:gap-6">
         {displaySnaps.map((snap, index) => (
           <SnapCard
             key={snap.id}

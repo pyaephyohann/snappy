@@ -59,7 +59,9 @@ export default function FriendProfileClient({
           profileImage={friend.profileImage}
           snapCount={friend.snaps.length}
         >
-          <div className="flex flex-col items-center gap-3 sm:items-end">
+          {/* Error state can also offer "Open chats", so it may wrap on very
+              narrow screens instead of overflowing. */}
+          <div className="flex flex-wrap items-center justify-center gap-2 sm:flex-nowrap sm:justify-end sm:gap-3">
             {relationship ? (
               <FollowButton
                 userId={friend.id}
@@ -69,7 +71,7 @@ export default function FriendProfileClient({
             {relationship?.isFriend ? (
               <Link
                 href={chatHref}
-                className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-border bg-background px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
+                className="inline-flex min-h-[44px] items-center justify-center whitespace-nowrap rounded-xl border border-border bg-background px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
               >
                 Open chats
               </Link>
@@ -100,7 +102,7 @@ export default function FriendProfileClient({
         profileImage={friend.profileImage}
         snapCount={friend.snaps.length}
       >
-        <div className="flex flex-col items-center gap-3 sm:items-end">
+        <div className="flex flex-nowrap items-center justify-center gap-2 sm:justify-end sm:gap-3">
           {relationship ? (
             <FollowButton
               userId={friend.id}
