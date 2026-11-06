@@ -17,7 +17,10 @@ export default function Navbar({ username, profileImage }: NavbarProps) {
   return (
     <header className="safe-area-pt sticky top-0 z-10 border-b border-border bg-card/50 backdrop-blur-sm">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="flex flex-wrap items-center justify-between gap-3 lg:gap-4">
+        {/* Relative row: the search is absolutely centered on the navbar's true
+            midpoint at lg+ instead of sharing space between the logo and the
+            right-hand actions. */}
+        <div className="relative flex flex-wrap items-center justify-between gap-3 lg:flex-nowrap lg:gap-4">
           <div className="flex min-w-0 flex-1 items-center gap-4 lg:flex-none lg:gap-6">
             <Link
               href="/home"

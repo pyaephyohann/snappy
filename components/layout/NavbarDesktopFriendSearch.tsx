@@ -240,10 +240,15 @@ export default function NavbarDesktopFriendSearch() {
     }
   }
 
+  // Pinned to the navbar's true horizontal center (not the gap between the
+  // logo and the actions) by taking the bar out of the flex flow, so the two
+  // side clusters keep their own edges. The width stays at the widened
+  // max-w-md whenever there is room and shrinks only on narrower lg viewports,
+  // where the 36rem reserve keeps it clear of the logo and the action cluster.
   return (
     <div
       ref={rootRef}
-      className="relative hidden min-w-0 flex-1 lg:order-last lg:block lg:basis-full lg:max-w-md xl:order-none xl:basis-0 xl:mr-auto"
+      className="hidden lg:absolute lg:left-1/2 lg:top-1/2 lg:block lg:w-[min(28rem,calc(100%-36rem))] lg:-translate-x-1/2 lg:-translate-y-1/2"
     >
       <label htmlFor={listboxId} className="sr-only">
         Search friends
